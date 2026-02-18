@@ -214,6 +214,7 @@ class LaunchResult(NamedTuple):
     session_name: str
     success: bool
     error: str | None = None
+    prompt_path: Path | None = None
 
 
 def get_role_instructions(role: str, working_dir: Path) -> tuple[str | None, Path | None]:
@@ -292,7 +293,7 @@ def launch_tmux_session(
         error_msg = result.stderr.strip() if result.stderr else "Unknown error"
         return LaunchResult(session_name, success=False, error=error_msg)
 
-    return LaunchResult(session_name, success=True)
+    return LaunchResult(session_name, success=True, prompt_path=prompt_path)
 
 
 def branch_exists(branch: str, *, cwd: str | Path | None = None) -> bool:
@@ -776,6 +777,8 @@ def cmd_start(args: argparse.Namespace) -> int:
     print(f"  worktree:     {worktree_path}")
     print(f"  branch:       {epic_branch}")
     print(f"  tasks:        {len(tasks)}")
+    if result.prompt_path:
+        print(f"  prompt:       {result.prompt_path}")
     print()
     print(f"  Attach: aura-swarm attach {epic_id}")
     print(f"          tmux attach -t {launched_session}")
