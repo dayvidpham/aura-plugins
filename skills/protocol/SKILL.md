@@ -9,15 +9,35 @@ Complete reference documentation for the Aura 12-phase workflow system.
 
 ## Documents
 
+### Core
+
 | File | Purpose |
 |------|---------|
 | [PROCESS.md](PROCESS.md) | Step-by-step workflow execution (single source of truth) |
 | [AGENTS.md](AGENTS.md) | Agent roles, phase ownership, and handoff procedures |
 | [CONSTRAINTS.md](CONSTRAINTS.md) | Coding standards, naming conventions, and checklists |
 | [CLAUDE.md](CLAUDE.md) | Reusable agent directive for projects using Aura |
-| [SKILLS.md](SKILLS.md) | Complete skill/command reference by role and phase |
-| [HANDOFF_TEMPLATE.md](HANDOFF_TEMPLATE.md) | Standardized handoff document template |
+| [SKILLS.md](SKILLS.md) | Complete skill reference by role and phase |
+| [README.md](README.md) | Protocol overview and quick-start |
 | [schema.xml](schema.xml) | Beads label schema (XML format) |
+
+### Templates & Examples
+
+| File | Purpose |
+|------|---------|
+| [HANDOFF_TEMPLATE.md](HANDOFF_TEMPLATE.md) | Standardized handoff document template |
+| [HANDOFF_EXAMPLE-web-command-impl.md](HANDOFF_EXAMPLE-web-command-impl.md) | Handoff example: web command implementation |
+| [HANDOFF_EXAMPLE-ingest-pipeline-impl.md](HANDOFF_EXAMPLE-ingest-pipeline-impl.md) | Handoff example: ingest pipeline implementation |
+| [UAT_TEMPLATE.md](UAT_TEMPLATE.md) | User acceptance testing template |
+| [UAT_EXAMPLE.md](UAT_EXAMPLE.md) | UAT example with demonstrative scenarios |
+| [RESEARCH_EXAMPLE-nix-openclaw-req-ure-proposal.md](RESEARCH_EXAMPLE-nix-openclaw-req-ure-proposal.md) | Research example: Nix/OpenClaw request through proposal |
+
+### Migration & Design
+
+| File | Purpose |
+|------|---------|
+| [MIGRATION_v1_to_v2.md](MIGRATION_v1_to_v2.md) | Migration procedure from v1 to v2 label format |
+| [user-request-revamp-v2.md](user-request-revamp-v2.md) | Design doc for v2 user request phase revamp |
 
 ## Quick Reference
 
