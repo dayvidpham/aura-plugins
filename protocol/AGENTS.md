@@ -45,8 +45,8 @@ See [PROCESS.md](PROCESS.md) for the full step-by-step workflow. See [SKILLS.md]
 | Phase | Label | Skill | What Happens |
 |-------|-------|-------|-------------|
 | 1 | `aura:p1-user:s1_1-classify` | `/aura:user:request` | Classify request along 4 axes |
-| 1 | `aura:p1-user:s1_2-research` | (parallel agent) | Domain research |
-| 1 | `aura:p1-user:s1_3-explore` | (parallel agent) | Codebase exploration |
+| 1 | `aura:p1-user:s1_2-research` | `/aura:research` | Domain research — find standards, prior art, competing approaches |
+| 1 | `aura:p1-user:s1_3-explore` | `/aura:explore` | Codebase exploration — find integration points, patterns, conflicts |
 | 2 | `aura:p2-user:s2_1-elicit` | `/aura:user:elicit` | URE survey with user |
 | 2 | `aura:p2-user:s2_2-urd` | (within elicit) | Create URD task |
 | 3 | `aura:p3-plan:s3-propose` | `/aura:architect:propose-plan` | Create PROPOSAL-N |
@@ -55,8 +55,8 @@ See [PROCESS.md](PROCESS.md) for the full step-by-step workflow. See [SKILLS.md]
 | 6 | `aura:p6-plan:s6-ratify` | `/aura:architect:ratify` | Ratify proposal, mark old as superseded |
 | 7 | `aura:p7-plan:s7-handoff` | `/aura:architect:handoff` | Create handoff document, hand off to supervisor |
 
-**Receives from:** User (Phase 1 request)
-**Hands off to:** Supervisor (Phase 7 handoff document at `.git/.aura/handoff/`)
+**Receives from:** User (Phase 1 request) OR Supervisor via h6 (follow-up lifecycle: FOLLOWUP_URE + FOLLOWUP_URD for FOLLOWUP_PROPOSAL creation)
+**Hands off to:** Supervisor (Phase 7 h1 handoff document, or follow-up h1 after FOLLOWUP_PROPOSAL ratified)
 
 **Handoff document:** Full inline provenance — includes all task references (REQUEST, URD, PROPOSAL, ratified plan), key decisions with rationale, open items, and acceptance criteria.
 
@@ -97,7 +97,7 @@ Empty groups are closed immediately.
 
 **Skills:** `/aura:reviewer:review-plan`, `/aura:reviewer:review-code`, `/aura:reviewer:comment`, `/aura:reviewer:vote`
 
-**Receives from:** Architect (Phase 4) or Supervisor (Phase 10)
+**Receives from:** Architect (Phase 4, including FOLLOWUP_PROPOSAL review) or Supervisor (Phase 10, including FOLLOWUP_SLICE code review)
 **Hands off to:** Architect (Phase 4 results) or Supervisor/Followup (Phase 10 findings)
 
 ---
@@ -118,13 +118,14 @@ Empty groups are closed immediately.
 | 11 | `aura:p11-user:s11-uat` | `/aura:user:uat` | Implementation UAT with user |
 | 12 | `aura:p12-impl:s12-landing` | `/aura:supervisor:commit` | Atomic commit, push, hand off |
 
-**Receives from:** Architect (Phase 7 handoff document)
-**Hands off to:** Workers (Phase 9 slice assignments), Reviewers (Phase 10), User (Phase 11 UAT)
+**Receives from:** Architect (Phase 7 handoff document, or follow-up h1 after FOLLOWUP_PROPOSAL ratified)
+**Hands off to:** Workers (Phase 9 slice assignments), Reviewers (Phase 10), User (Phase 11 UAT), Architect via h6 (follow-up lifecycle)
 
 **Key constraints:**
 - Never implements code — always spawns workers
 - Each production code path owned by exactly ONE worker
 - Creates follow-up epic (`aura:epic-followup`) when code review has IMPORTANT/MINOR findings
+- Initiates follow-up lifecycle: creates FOLLOWUP_URE, FOLLOWUP_URD, then hands off to Architect via h6 for FOLLOWUP_PROPOSAL
 
 ---
 
@@ -140,8 +141,8 @@ Empty groups are closed immediately.
 | 9 | — | `/aura:worker:complete` | Signal completion after quality gates |
 | 9 | — | `/aura:worker:blocked` | Report blockers to supervisor |
 
-**Receives from:** Supervisor (Phase 9 slice assignment with handoff document)
-**Hands off to:** Reviewer (Phase 10 via supervisor)
+**Receives from:** Supervisor (Phase 9 slice assignment with handoff document, including FOLLOWUP_SLICE-N for follow-up lifecycle)
+**Hands off to:** Reviewer (Phase 10 via supervisor). For FOLLOWUP_SLICE-N, completion handoff reports which original leaf tasks were resolved.
 
 **Vertical slice ownership:** Worker owns the full vertical — types, tests, implementation, and wiring. Within the slice, follows TDD layers:
 1. Layer 1: Types and schemas
@@ -165,8 +166,9 @@ Empty groups are closed immediately.
 | 3 | Supervisor | Reviewer | 10 | `.git/.aura/handoff/{request-id}/supervisor-to-reviewer.md` | Summary + bd IDs |
 | 4 | Worker | Reviewer | 10 | `.git/.aura/handoff/{request-id}/worker-to-reviewer.md` | Summary + bd IDs |
 | 5 | Reviewer | Followup | post-10 | `.git/.aura/handoff/{request-id}/reviewer-to-followup.md` | Summary + bd IDs |
+| 6 | Supervisor | Architect | Follow-up lifecycle | `.git/.aura/handoff/{followup-epic-id}/supervisor-to-architect.md` | Summary + bd IDs |
 
-**Same-actor transitions** (no handoff needed): Plan UAT → Ratify (Phase 5→6), Ratify → Handoff (Phase 6→7) — both performed by the architect.
+**Same-actor transitions** (no handoff needed): Plan UAT → Ratify (Phase 5→6), Ratify → Handoff (Phase 6→7) — both performed by the architect. In the follow-up lifecycle, Supervisor creating FOLLOWUP_URE and FOLLOWUP_URD are also same-actor transitions.
 
 See [HANDOFF_TEMPLATE.md](HANDOFF_TEMPLATE.md) for the standardized template.
 

@@ -74,3 +74,13 @@ When tracking review progress, monitor severity groups:
 | BLOCKER | Yes | Must resolve before proceeding to Phase 11 |
 | IMPORTANT | No | Goes to follow-up epic (`aura:epic-followup`) |
 | MINOR | No | Goes to follow-up epic (`aura:epic-followup`) |
+
+## Follow-up Lifecycle Tracking
+
+```bash
+# Track follow-up lifecycle progress
+bd list --labels="aura:epic-followup"
+bd list --labels="aura:p2-user:s2_1-elicit" --status=open   # FOLLOWUP_URE
+bd list --labels="aura:p3-plan:s3-propose" --status=open     # FOLLOWUP_PROPOSAL
+bd list --labels="aura:p9-impl:s9-slice" --status=in_progress  # FOLLOWUP_SLICE in progress
+```

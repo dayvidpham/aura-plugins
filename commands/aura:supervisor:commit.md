@@ -46,6 +46,21 @@ bd close aura-xxx aura-yyy --reason="Committed in <commit-hash>"
 bd update <impl-plan-id> --notes="SLICE-N complete: aura-xxx, aura-yyy"
 ```
 
+## Follow-up Commits
+
+For follow-up slices, add `Followup-Epic:` to the commit message trailer:
+
+```
+feat|fix(scope): Description (follow-up)
+
+Files: file1.go, file2.go
+Task: aura-xxx (FOLLOWUP_SLICE-1)
+Followup-Epic: aura-yyy
+Ratified-Plan: aura-zzz (FOLLOWUP_PROPOSAL-1)
+
+Co-Authored-By: Claude <noreply@anthropic.com>
+```
+
 ## Commands
 
 ```bash

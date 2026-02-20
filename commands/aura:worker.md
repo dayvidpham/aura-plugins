@@ -204,6 +204,19 @@ bd update <task-id> --status=in_progress
 - `acceptance_criteria`: BDD criteria for your slice
 - `ratified_plan`: Link to parent plan
 
+## Follow-up Slices (FOLLOWUP_SLICE-N)
+
+You may be assigned a `FOLLOWUP_SLICE-N` task instead of a `SLICE-N` task. The implementation procedure is identical, with these additions:
+
+- **Adopted leaf tasks**: Your slice task will list specific IMPORTANT/MINOR leaf tasks from the original code review that you must resolve. Check `bd show <task-id>` for an "Adopted Leaf Tasks" section.
+- **Dual-parent resolution**: The adopted leaf tasks are children of both the original severity group AND your FOLLOWUP_SLICE-N. Resolving the leaf task satisfies both parents.
+- **Completion handoff (h4)**: When completing a follow-up slice, your handoff to the reviewer must list which original leaf tasks were resolved.
+
+```bash
+# Completion comment for follow-up slices should include:
+bd comments add <task-id> "Implementation complete. Resolved leaf tasks: <leaf-task-id-1>, <leaf-task-id-2>"
+```
+
 ## Skills
 
 | Skill | When |

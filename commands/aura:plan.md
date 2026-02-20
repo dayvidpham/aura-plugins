@@ -122,6 +122,14 @@ On user approval:
    Skill(skill: "aura:architect:handoff", args: "<ratified-proposal-id>")
    ```
 
+## Follow-up Proposals (FOLLOWUP_PROPOSAL-N)
+
+This same planning cycle (Phases 3-7) applies for follow-up proposals. The entry point differs:
+- **Standard:** Starts from user request (Phase 1)
+- **Follow-up:** Starts from h6 handoff (Supervisor → Architect with FOLLOWUP_URE + FOLLOWUP_URD)
+- **Task naming:** `FOLLOWUP_PROPOSAL-N` prefix
+- **References:** Frontmatter includes both original URD and FOLLOWUP_URD
+
 ## Verification Checklist
 
 - [ ] REQUEST task exists with user prompt

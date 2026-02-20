@@ -64,6 +64,10 @@ Binary only. No intermediate levels.
 
 **Follow-up epic:** When a review round completes and ANY IMPORTANT or MINOR findings exist, the Supervisor creates a follow-up epic (label `aura:epic-followup`). This is NOT gated on BLOCKER resolution — it triggers as soon as the review round completes.
 
+**Follow-up lifecycle:** The follow-up epic runs the same protocol phases with FOLLOWUP_* prefixed task types: FOLLOWUP_URE → FOLLOWUP_URD → FOLLOWUP_PROPOSAL → FOLLOWUP_IMPL_PLAN → FOLLOWUP_SLICE-N. The supervisor creates FOLLOWUP_URE and FOLLOWUP_URD, then hands off to architect via h6 for FOLLOWUP_PROPOSAL. Original IMPORTANT/MINOR leaf tasks are adopted by FOLLOWUP_SLICE-N (dual-parent: original severity group + follow-up slice).
+
+**No followup-of-followup:** IMPORTANT/MINOR findings from FOLLOWUP_SLICE code review are tracked on the existing follow-up epic as tasks. A nested follow-up-of-followup epic is never created.
+
 ## Beads Task Naming & Tagging Standards
 
 All work flows through Beads with standardized titles and the v2 label schema:
@@ -123,6 +127,17 @@ Special labels:
 - **PROPOSAL-N:** N starts at 1 and increments with each revision. Old proposals are marked `aura:superseded`.
 - **PROPOSAL-N-REVIEW-{axis}-{round}:** Axis identifies the reviewer's criteria focus (A=Correctness, B=Test quality, C=Elegance). Round increments per re-review cycle.
 - **SLICE-N:** N identifies the slice number within the implementation plan.
+
+### Follow-up Lifecycle Tasks
+
+| Title Format | Label | Purpose | Created By |
+|---|---|---|---|
+| `FOLLOWUP: Description` | `aura:epic-followup` | Follow-up epic for non-blocking improvements | Supervisor |
+| `FOLLOWUP_URE: Description` | `aura:p2-user:s2_1-elicit` | Scoping URE: which IMPORTANT/MINOR findings to address | Supervisor |
+| `FOLLOWUP_URD: Description` | `aura:p2-user:s2_2-urd,aura:urd` | Requirements document for follow-up scope | Supervisor |
+| `FOLLOWUP_PROPOSAL-N: Description` | `aura:p3-plan:s3-propose` | Architect's follow-up proposal (accounts for original URD + FOLLOWUP_URD) | Architect (after h6) |
+| `FOLLOWUP_IMPL_PLAN: Description` | `aura:p8-impl:s8-plan` | Follow-up implementation plan | Supervisor (after follow-up h1) |
+| `FOLLOWUP_SLICE-N: Description` | `aura:p9-impl:s9-slice` | Follow-up slice (adopts original leaf tasks as dual-parent children) | Supervisor |
 
 ### Frontmatter References
 

@@ -340,7 +340,7 @@ Handoff from architect to supervisor. See handoff document at
   --add-label "aura:p7-plan:s7-handoff"
 ```
 
-### All 5 Handoff Transitions
+### All 6 Handoff Transitions
 
 | # | From | To | When | Content Level |
 |---|------|----|------|---------------|
@@ -349,8 +349,10 @@ Handoff from architect to supervisor. See handoff document at
 | 3 | Supervisor | Reviewer | Phase 10 (code review) | Summary + bd IDs |
 | 4 | Worker | Reviewer | Phase 10 (code review) | Summary + bd IDs |
 | 5 | Reviewer | Followup | After Phase 10 | Summary + bd IDs |
+| 6 | Supervisor | Architect | Follow-up lifecycle (FOLLOWUP_URE/URD → FOLLOWUP_PROPOSAL) | Summary + bd IDs |
 
 **Same-actor transitions do NOT need handoff:** UAT → Ratify and Ratify → Handoff are performed by the same actor (architect).
+In the follow-up lifecycle, the supervisor creating FOLLOWUP_URE and then FOLLOWUP_URD are also same-actor transitions (no handoff needed).
 
 See: [HANDOFF_TEMPLATE.md](HANDOFF_TEMPLATE.md) for the standardized template.
 
@@ -566,6 +568,36 @@ Aggregated IMPORTANT and MINOR findings from code review." \
 ```
 
 The follow-up epic is created as soon as the review round completes, regardless of whether BLOCKERs are still being resolved. This ensures non-blocking improvements are tracked and not lost.
+
+### Follow-up Lifecycle (FOLLOWUP_* Phases)
+
+The follow-up epic runs the same protocol phases with FOLLOWUP_* prefixed task types. This is NOT a flat task list — it is a full protocol re-run:
+
+```
+FOLLOWUP epic (aura:epic-followup)
+  └── blocked-by: FOLLOWUP_URE         (Phase 2: scope which findings to address)
+        └── blocked-by: FOLLOWUP_URD   (Phase 2: requirements for follow-up)
+              └── blocked-by: FOLLOWUP_PROPOSAL-1  (Phase 3: proposal for follow-up)
+                    └── blocked-by: FOLLOWUP_IMPL_PLAN  (Phase 8: decompose into slices)
+                          ├── blocked-by: FOLLOWUP_SLICE-1  (Phase 9)
+                          │     ├── blocked-by: important-leaf-task-...
+                          │     └── blocked-by: minor-leaf-task-...
+                          └── blocked-by: FOLLOWUP_SLICE-2
+```
+
+**Lifecycle steps:**
+1. **Supervisor** creates FOLLOWUP_URE (same actor — scoping URE with user to determine which findings to address)
+2. **Supervisor** creates FOLLOWUP_URD (same actor — requirements for follow-up scope)
+3. **Supervisor → Architect (h6):** Hands off FOLLOWUP_URE + FOLLOWUP_URD to architect for FOLLOWUP_PROPOSAL creation
+4. **Architect** creates FOLLOWUP_PROPOSAL-N (same review/ratify/UAT cycle applies)
+5. **Architect → Supervisor (h1):** After FOLLOWUP_PROPOSAL ratified, hands off for FOLLOWUP_IMPL_PLAN
+6. **Supervisor → Worker (h2):** FOLLOWUP_SLICE-N assignment with adopted leaf task IDs
+7. **Supervisor → Reviewer (h3):** Code review of follow-up slices
+8. **Worker → Reviewer (h4):** Follow-up slice completion, reports which original leaf tasks resolved
+
+**Leaf task adoption (dual-parent):** When the supervisor creates FOLLOWUP_SLICE-N, the original IMPORTANT/MINOR leaf tasks gain a second parent — they are children of both the original severity group AND the follow-up slice.
+
+**No followup-of-followup:** IMPORTANT/MINOR findings from follow-up code review are tracked on the existing follow-up epic. A nested follow-up epic is never created.
 
 ### Voting
 

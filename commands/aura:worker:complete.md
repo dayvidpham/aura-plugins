@@ -74,3 +74,13 @@ Implementation complete and all checks pass.
 bd close <task-id>
 bd comments add <task-id> "Implementation complete. Quality gates pass. Production code verified."
 ```
+
+## Follow-up Slice Completion (FOLLOWUP_SLICE-N)
+
+When completing a FOLLOWUP_SLICE-N, additionally report which original leaf tasks were resolved:
+
+```bash
+bd comments add <task-id> "Implementation complete. Resolved leaf tasks: <leaf-task-id-1>, <leaf-task-id-2>"
+```
+
+The handoff to the reviewer (h4) must include which original leaf tasks were resolved so reviewers can verify.

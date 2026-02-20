@@ -22,6 +22,7 @@ Multi-agent orchestration protocol for AI coding agents. Defines a 12-phase work
 | [MIGRATION_v1_to_v2.md](MIGRATION_v1_to_v2.md) | Label and title migration from v1 to v2 | When updating old tasks |
 | [UAT_TEMPLATE.md](UAT_TEMPLATE.md) | User Acceptance Test structured output template | When running UAT (Phase 5 or 11) |
 | [UAT_EXAMPLE.md](UAT_EXAMPLE.md) | Worked UAT example | Reference for UAT format |
+| [schema.xml](schema.xml) | Canonical machine-readable protocol definition (BCNF) | When modifying the protocol itself |
 
 ## 12-Phase Overview
 

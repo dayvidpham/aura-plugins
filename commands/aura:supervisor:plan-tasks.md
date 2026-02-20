@@ -290,3 +290,50 @@ Layer 0 Tasks (parallel, implemented first):
 Then vertical slices proceed in parallel, depending on Layer 0.
 
 **Key insight:** Shared infrastructure is the exception, not the rule. Most types/logic belong to specific slices.
+
+## Follow-up Implementation Plan (FOLLOWUP_IMPL_PLAN)
+
+When planning for a follow-up epic (after receiving h1 from architect post-FOLLOWUP_PROPOSAL ratification), the same vertical slice decomposition applies:
+
+```bash
+# Create FOLLOWUP_IMPL_PLAN
+bd create --type=epic --priority=2 \
+  --labels="aura:p8-impl:s8-plan" \
+  --title="FOLLOWUP_IMPL_PLAN: <follow-up feature>" \
+  --description="---
+references:
+  followup_epic: <followup-epic-id>
+  original_request: <request-task-id>
+  original_urd: <urd-task-id>
+  followup_urd: <followup-urd-id>
+  followup_proposal: <followup-proposal-id>
+---
+Vertical slice decomposition for follow-up epic."
+
+# Create FOLLOWUP_SLICE-N with adopted leaf tasks
+bd create --type=task \
+  --labels="aura:p9-impl:s9-slice" \
+  --title="FOLLOWUP_SLICE-1: <description>" \
+  --description="---
+references:
+  followup_impl_plan: <followup-impl-plan-id>
+  followup_urd: <followup-urd-id>
+---
+## Adopted Leaf Tasks
+| Leaf Task ID | Severity | Original Slice | Description |
+|---|---|---|---|
+| <leaf-id-1> | IMPORTANT | SLICE-1 | <description> |
+| <leaf-id-2> | MINOR | SLICE-2 | <description> |
+
+## Specification
+<detailed spec>
+
+## Validation Checklist
+- [ ] All adopted leaf tasks resolved
+- [ ] Tests pass
+- [ ] Production code path verified"
+
+# Wire dual-parent for adopted leaf tasks
+bd dep add <followup-slice-id> --blocked-by <leaf-task-id-1>
+bd dep add <followup-slice-id> --blocked-by <leaf-task-id-2>
+```

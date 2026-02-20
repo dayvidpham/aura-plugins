@@ -62,3 +62,11 @@ bd comments add <proposal-id> "Review requested — 3 reviewers spawned"
 # Check for review votes
 bd comments <proposal-id>
 ```
+
+## Follow-up Proposal Reviews (FOLLOWUP_PROPOSAL-N)
+
+For FOLLOWUP_PROPOSAL-N reviews, use the same procedure:
+- **Review task naming:** `FOLLOWUP_PROPOSAL-N-REVIEW-{axis}-{round}`
+- Same 3 axes (A/B/C), same binary ACCEPT/REVISE vote
+- No severity tree for plan reviews (same as original plan reviews)
+- Reviewers should also verify that FOLLOWUP_PROPOSAL addresses the specific IMPORTANT/MINOR findings scoped in FOLLOWUP_URE/URD

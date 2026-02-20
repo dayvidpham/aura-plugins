@@ -139,3 +139,10 @@ The supervisor's output defines the slices:
   ]
 }
 ```
+
+## Follow-up Slices (FOLLOWUP_SLICE-N)
+
+Follow-up slices use the same structure and tracking, with additional fields:
+- **Title prefix:** `FOLLOWUP_SLICE-N:`
+- **Adopted leaf tasks:** Original IMPORTANT/MINOR leaf tasks from review become dual-parent children (original severity group + follow-up slice)
+- **Tracking:** Same `bd list --labels="aura:p9-impl:s9-slice"` queries include both regular and follow-up slices

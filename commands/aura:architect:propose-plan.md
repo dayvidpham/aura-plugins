@@ -100,12 +100,16 @@ bd dep add <request-id> --blocked-by <proposal-id>
 
 ## Before Creating the Proposal
 
-Read the URD to understand user requirements before drafting:
+Read the URD and Phase 1 outputs to understand full context before drafting:
 ```bash
 bd show <urd-id>
+bd show <request-id>   # includes classification, research findings, explore findings as comments
 ```
 
-The URD contains the structured requirements, priorities, design choices, and MVP goals from the URE survey. Your proposal must trace back to these requirements.
+The URD contains the structured requirements, priorities, design choices, and MVP goals from the URE survey. The REQUEST task comments contain Phase 1 outputs: classification (4 axes), domain research findings (prior art, standards), and codebase exploration findings (entry points, related types, dependencies). Your proposal must:
+- Trace back to URD requirements
+- Incorporate research findings (prior art, domain standards) into engineering tradeoffs
+- Reference explore findings (entry points, existing patterns) in the files affected section
 
 ## Plan Structure
 
@@ -125,3 +129,11 @@ After creating PROPOSAL-N task:
 1. Run `/aura:architect:request-review` to spawn 3 reviewers
 2. Wait for all 3 reviewers to vote ACCEPT
 3. Run `/aura:architect:ratify` to add ratify label to PROPOSAL-N
+
+## Follow-up Proposals (FOLLOWUP_PROPOSAL-N)
+
+When creating proposals for a follow-up epic (received via h6 from supervisor):
+- **Title prefix:** `FOLLOWUP_PROPOSAL-N:` (e.g., `FOLLOWUP_PROPOSAL-1: Add request-id correlation`)
+- **References:** Include both `original_urd: <id>` and `followup_urd: <id>` in frontmatter
+- **Content:** Address specific IMPORTANT/MINOR findings scoped in FOLLOWUP_URE/URD
+- Same review/ratify/UAT lifecycle applies (3 reviewers, ACCEPT/REVISE, UAT, ratify, handoff)

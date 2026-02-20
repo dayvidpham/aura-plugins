@@ -155,3 +155,12 @@ EOF
 - **DO NOT** implement the plan yourself - your role is handoff and monitoring
 - The supervisor reads the ratified plan and determines vertical slice structure
 - Architect monitors for blockers or escalations
+
+## Follow-up Lifecycle (h1 Reuse)
+
+This handoff (h1: Architect → Supervisor) also occurs after FOLLOWUP_PROPOSAL is ratified. In follow-up context:
+
+- **Storage:** `.git/.aura/handoff/{followup-epic-id}/architect-to-supervisor.md`
+- **References:** Include both original URD and FOLLOWUP_URD task IDs
+- **Context:** Summary of FOLLOWUP_PROPOSAL ratification and outstanding leaf tasks from original review
+- **Next step:** Supervisor creates FOLLOWUP_IMPL_PLAN and FOLLOWUP_SLICE-N tasks, adopting original IMPORTANT/MINOR leaf tasks as dual-parent children

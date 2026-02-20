@@ -26,6 +26,8 @@ See `CONSTRAINTS.md` for coding standards.
 
 **Given** user rejects **when** impl UAT **then** return to relevant slice **should never** proceed to landing
 
+**Given** component questions **when** presenting **then** ALWAYS include an open-ended feedback question alongside the ACCEPT/REVISE decision so the user can raise related concerns **should never** present only the ACCEPT/REVISE decision without a free-text feedback opportunity
+
 **Given** UAT completes **when** results are captured **then** update the URD with UAT results via `bd comments add <urd-id> "UAT: <summary>"` **should never** leave the URD out of date after UAT
 
 ## UAT Phases
@@ -151,6 +153,16 @@ Is this the right sanitization strategy?`,
         { label: "@ → _ (current)", description: "Simpler but ambiguous: a_gmail.com could come from two different emails" },
         { label: "Keep @ in path", description: "Most filesystems support it; Windows is exception" },
         { label: "URL-encode (@ → %40)", description: "Fully reversible but ugly" },
+      ]
+    },
+    {
+      question: "Any related feedback, concerns, or gaps not covered above?",
+      header: "Feedback",
+      multiSelect: false,
+      options: [
+        { label: "No additional feedback", description: "All concerns addressed by the questions above" },
+        { label: "Related concern", description: "I have feedback on something adjacent or related to this component" },
+        { label: "Missing coverage", description: "There's a requirement or design decision from the URD/URE that wasn't addressed" }
       ]
     },
     {

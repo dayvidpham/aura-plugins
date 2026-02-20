@@ -194,6 +194,28 @@ type Example interface { /* ... */ }
 **Given** X **When** Y **Then** Z **Should Not** W
 ```
 
+## Follow-up Lifecycle (Receiving h6)
+
+In the follow-up lifecycle, the architect receives a handoff (h6) from the supervisor containing FOLLOWUP_URE + FOLLOWUP_URD, and creates FOLLOWUP_PROPOSAL-N:
+
+**Given** h6 handoff received (FOLLOWUP_URE + FOLLOWUP_URD) **when** starting follow-up proposal **then** create FOLLOWUP_PROPOSAL-N referencing both original URD and FOLLOWUP_URD **should never** create FOLLOWUP_PROPOSAL without reading the original URD
+
+```bash
+# After receiving h6 from supervisor:
+bd create --labels "aura:p3-plan:s3-propose" \
+  --title "FOLLOWUP_PROPOSAL-1: <follow-up feature>" \
+  --description "---
+references:
+  request: <original-request-id>
+  original_urd: <original-urd-id>
+  followup_urd: <followup-urd-id>
+  followup_epic: <followup-epic-id>
+---
+<proposal content addressing scoped IMPORTANT/MINOR findings>"
+```
+
+The same review/ratify/UAT/handoff cycle (Phases 3-7) applies. After FOLLOWUP_PROPOSAL is ratified, hand off to supervisor via h1 for FOLLOWUP_IMPL_PLAN creation.
+
 ## Skills
 
 | Skill | When |

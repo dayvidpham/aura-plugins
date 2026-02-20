@@ -83,7 +83,8 @@ aura-scripts/
 │   ├── CONSTRAINTS.md      # Coding standards, checklists, naming conventions
 │   ├── PROCESS.md          # Step-by-step workflow (single source of truth)
 │   ├── AGENTS.md           # Role taxonomy (phases, tools, handoffs per agent)
-│   └── SKILLS.md           # Command reference (all /aura:* skills by phase)
+│   ├── SKILLS.md           # Command reference (all /aura:* skills by phase)
+│   └── schema.xml          # Canonical protocol schema (BCNF)
 ├── commands/               # Slash commands for Claude CLI (~/.claude/commands/)
 │   └── aura:*.md           # Role-specific agent instructions
 ├── agents/                 # Custom agent definitions (~/.claude/agents/)

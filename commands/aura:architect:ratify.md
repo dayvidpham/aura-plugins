@@ -57,3 +57,10 @@ After ratifying PROPOSAL-N:
 1. **Prepare handoff** — Run `/aura:architect:handoff` to create handoff document and spawn supervisor
 
 **IMPORTANT:** Do NOT start implementation yourself. The architect's role ends at handoff. Implementation is handled by the supervisor and workers spawned during handoff.
+
+## Follow-up Proposals (FOLLOWUP_PROPOSAL-N)
+
+When ratifying a FOLLOWUP_PROPOSAL-N, the next step is the same h1 handoff but scoped to the follow-up epic:
+- **Storage:** `.git/.aura/handoff/{followup-epic-id}/architect-to-supervisor.md`
+- The supervisor then creates FOLLOWUP_IMPL_PLAN and FOLLOWUP_SLICE-N tasks
+- Original IMPORTANT/MINOR leaf tasks are adopted as dual-parent children of FOLLOWUP_SLICE-N

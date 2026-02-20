@@ -96,6 +96,13 @@ See the project's `AGENTS.md` and `~/.claude/CLAUDE.md` for coding standards.
 - [ ] Quality gates pass (type checking + tests)
 - [ ] Production code path verified (via code inspection: no TODOs, real deps wired, tests import production code)
 
+## Follow-up Slices (FOLLOWUP_SLICE-N)
+
+If your Beads task is a `FOLLOWUP_SLICE-N`, the implementation procedure is identical. Additionally:
+- Check for an "Adopted Leaf Tasks" section in `bd show <task-id>` — these are IMPORTANT/MINOR findings you must resolve
+- Your implementation must address each adopted leaf task's acceptance criteria
+- On completion, report which leaf tasks were resolved
+
 ## Next
 
 - Complete: `/aura:worker:complete`

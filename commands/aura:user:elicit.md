@@ -16,6 +16,8 @@ See `CONSTRAINTS.md` for coding standards.
 
 **Given** user request captured **when** eliciting **then** plan backwards from end vision to MVP **should never** start proposal without elicitation
 
+**Given** Phase 1 complete **when** starting elicitation **then** read Phase 1 outputs (classification, research findings, explore findings) from REQUEST task comments to scope URE questions **should never** ignore prior art discoveries or codebase exploration results
+
 **Given** elicitation questions **when** asking **then** use multiSelect: true for flexibility **should never** force single-choice answers
 
 **Given** responses captured **when** storing **then** record questions AND answers verbatim (including all options presented) **should never** summarize user responses or omit option text

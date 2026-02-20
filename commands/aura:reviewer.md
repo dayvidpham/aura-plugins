@@ -95,6 +95,14 @@ Binary only. No intermediate levels.
 | IMPORTANT | Performance, missing validation, architectural concerns | No (follow-up epic) |
 | MINOR | Style, optional optimizations, naming improvements | No (follow-up epic) |
 
+## Follow-up Lifecycle Reviews
+
+Reviewers also participate in the follow-up lifecycle:
+
+- **FOLLOWUP_PROPOSAL review (Phase 4):** Same procedure as standard plan review. Task naming: `FOLLOWUP_PROPOSAL-N-REVIEW-{axis}-{round}`. Binary ACCEPT/REVISE, no severity tree.
+- **FOLLOWUP_SLICE code review (Phase 10):** Same procedure as standard code review. Task naming: `FOLLOWUP_SLICE-N-REVIEW-{axis}-{round}`. Full EAGER severity tree (BLOCKER/IMPORTANT/MINOR).
+- **No followup-of-followup:** IMPORTANT/MINOR findings from FOLLOWUP_SLICE code review are tracked on the existing follow-up epic. A nested follow-up epic is never created.
+
 ## Skills
 
 | Skill | When |

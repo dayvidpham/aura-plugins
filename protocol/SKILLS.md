@@ -101,6 +101,15 @@ See [AGENTS.md](AGENTS.md) for role definitions and phase ownership.
 
 ---
 
+## Research & Exploration
+
+| Command | Phase | Label | Description |
+|---------|-------|-------|-------------|
+| `/aura:research` | 1 (s1_2), any | `aura:p1-user:s1_2-research` | Domain research — find standards, prior art, competing approaches. Writes structured findings to `docs/research/<topic>.md`. Depth-scoped: quick-scan, standard-research, deep-dive. |
+| `/aura:explore` | 1 (s1_3), any | `aura:p1-user:s1_3-explore` | Codebase exploration — find integration points, existing patterns, dependencies, conflicts. Depth-scoped: quick-scan, standard-research, deep-dive. |
+
+---
+
 ## Utilities
 
 | Command | Description |
@@ -114,7 +123,7 @@ See [AGENTS.md](AGENTS.md) for role definitions and phase ownership.
 
 | Phase | Commands Used |
 |-------|-------------|
-| 1 — REQUEST | `/aura:user:request` |
+| 1 — REQUEST | `/aura:user:request`, `/aura:research` (s1_2), `/aura:explore` (s1_3) |
 | 2 — ELICIT + URD | `/aura:user:elicit` |
 | 3 — PROPOSAL-N | `/aura:architect:propose-plan` |
 | 4 — REVIEW | `/aura:architect:request-review`, `/aura:reviewer:review-plan`, `/aura:reviewer:vote` |
@@ -126,6 +135,7 @@ See [AGENTS.md](AGENTS.md) for role definitions and phase ownership.
 | 10 — Code Review | `/aura:impl:review`, `/aura:reviewer:review-code`, `/aura:reviewer:vote` |
 | 11 — Impl UAT | `/aura:user:uat` |
 | 12 — Landing | `/aura:supervisor:commit` |
+| Follow-up (post-10) | `/aura:supervisor` (create FOLLOWUP_URE/URD), `/aura:architect` (FOLLOWUP_PROPOSAL via h6), `/aura:supervisor:plan-tasks` (FOLLOWUP_IMPL_PLAN), `/aura:supervisor:spawn-worker` (FOLLOWUP_SLICE-N), `/aura:impl:review` (follow-up code review) |
 
 ---
 

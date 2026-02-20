@@ -239,10 +239,12 @@ L2 test files MUST:
 
 ## EPIC_FOLLOWUP Creation (Phase 10)
 
-After code review completes, if ANY IMPORTANT or MINOR findings exist, create a follow-up epic:
+After code review completes, if ANY IMPORTANT or MINOR findings exist, create a follow-up epic.
 
 **Trigger:** Review round completion + ANY IMPORTANT or MINOR findings exist.
 **NOT gated on BLOCKER resolution.** Create as soon as review completes.
+
+### Step 1: Create follow-up epic
 
 ```bash
 bd create --type=epic --priority=3 \
@@ -264,7 +266,82 @@ bd dep add <followup-epic-id> --blocked-by <minor-group-id>
 IMPORTANT and MINOR findings do NOT block the slice — they go to the follow-up epic.
 Only BLOCKER findings block the slice and must be resolved before proceeding.
 
-See: [.claude/commands/aura:impl:review.md](.claude/commands/aura:impl:review.md) for full severity tree procedure.
+### Step 2: Follow-up lifecycle (same protocol, FOLLOWUP_* prefix)
+
+The follow-up epic runs the same protocol phases with FOLLOWUP_* prefixed task types. The supervisor creates the initial lifecycle tasks:
+
+```
+FOLLOWUP epic (aura:epic-followup)
+  ├── relates_to: original URD
+  ├── relates_to: original REVIEW-A/B/C tasks
+  └── blocked-by: FOLLOWUP_URE         (Phase 2: scope which findings to address)
+        └── blocked-by: FOLLOWUP_URD   (Phase 2: requirements for follow-up)
+              └── blocked-by: FOLLOWUP_PROPOSAL-1  (Phase 3: proposal for follow-up)
+                    └── blocked-by: FOLLOWUP_IMPL_PLAN  (Phase 8: decompose into slices)
+                          ├── blocked-by: FOLLOWUP_SLICE-1  (Phase 9)
+                          │     ├── blocked-by: important-leaf-task-...
+                          │     └── blocked-by: minor-leaf-task-...
+                          └── blocked-by: FOLLOWUP_SLICE-2
+```
+
+```bash
+# Create FOLLOWUP_URE — user scoping which findings to address
+FOLLOWUP_URE_ID=$(bd create \
+  --title "FOLLOWUP_URE: Scope follow-up for <feature>" \
+  --labels "aura:p2-user:s2_1-elicit" \
+  --description "---
+references:
+  followup_epic: <followup-epic-id>
+  original_urd: <original-urd-id>
+---
+Scoping URE: determine which IMPORTANT/MINOR findings to address.")
+bd dep add <followup-epic-id> --blocked-by $FOLLOWUP_URE_ID
+
+# Create FOLLOWUP_URD — requirements for follow-up scope
+FOLLOWUP_URD_ID=$(bd create \
+  --title "FOLLOWUP_URD: Requirements for <feature> follow-up" \
+  --labels "aura:p2-user:s2_2-urd,aura:urd" \
+  --description "---
+references:
+  followup_epic: <followup-epic-id>
+  original_urd: <original-urd-id>
+---
+Follow-up requirements. References original URD.")
+bd dep add $FOLLOWUP_URE_ID --blocked-by $FOLLOWUP_URD_ID
+```
+
+The remaining lifecycle tasks (FOLLOWUP_PROPOSAL, FOLLOWUP_IMPL_PLAN, FOLLOWUP_SLICE) are created as the follow-up epic progresses through the protocol phases.
+
+### Step 3: Leaf task adoption (dual-parent)
+
+When the supervisor creates FOLLOWUP_SLICE-N tasks during the follow-up implementation phase, the IMPORTANT/MINOR leaf tasks from the original review gain a second parent:
+
+```bash
+# Leaf task gets dual-parent: original severity group + follow-up slice
+bd dep add <followup-slice-id> --blocked-by <important-leaf-task-id>
+bd dep add <followup-slice-id> --blocked-by <minor-leaf-task-id>
+# Leaf task already has: bd dep add <severity-group-id> --blocked-by <leaf-task-id>
+```
+
+### Follow-up Handoff Chain
+
+Inside the follow-up lifecycle, the same handoff types (h1-h4) reapply:
+
+| Order | Handoff | Transition |
+|-------|---------|------------|
+| 1 | h5 | Reviewer → Followup: **Starts** the follow-up lifecycle |
+| 2 | *(none)* | Supervisor creates FOLLOWUP_URE (same actor) |
+| 3 | *(none)* | Supervisor creates FOLLOWUP_URD (same actor) |
+| 4 | h6 | Supervisor → Architect: Hands off FOLLOWUP_URE + FOLLOWUP_URD for FOLLOWUP_PROPOSAL |
+| 5 | h1 | Architect → Supervisor: After FOLLOWUP_PROPOSAL ratified |
+| 6 | h2 | Supervisor → Worker: FOLLOWUP_SLICE-N with adopted leaf task IDs |
+| 7 | h3 | Supervisor → Reviewer: Code review of follow-up slices |
+| 8 | h4 | Worker → Reviewer: Follow-up slice completion |
+
+Follow-up handoff storage: `.git/.aura/handoff/{followup-epic-id}/{source}-to-{target}.md`
+
+See `HANDOFF_TEMPLATE.md` for full follow-up handoff examples, including Supervisor → Worker with adopted leaf task IDs.
+See [.claude/commands/aura:impl:review.md](.claude/commands/aura:impl:review.md) for full severity tree procedure.
 
 ## Skills
 

@@ -88,3 +88,33 @@ Handoff doc: .git/.aura/handoff/<request-task-id>/supervisor-to-worker-<N>.md`,
 bd update <task-id> --assignee="<worker-agent-name>"
 bd update <task-id> --status=in_progress
 ```
+
+## Follow-up Slice Handoff (FOLLOWUP_SLICE-N)
+
+For follow-up slices, the handoff template extends with additional fields:
+
+**Storage:** `.git/.aura/handoff/{followup-epic-id}/supervisor-to-worker-<N>.md`
+
+```markdown
+# Handoff: Supervisor → Worker <N> (Follow-up)
+
+## Context
+- Original Request: <request-task-id>
+- Follow-up Epic: <followup-epic-id>
+- FOLLOWUP_URD: <followup-urd-id>
+- FOLLOWUP_IMPL_PLAN: <followup-impl-plan-id>
+
+## Your Slice
+- Slice: FOLLOWUP_SLICE-<N>
+- Task ID: <slice-task-id>
+
+## Adopted Leaf Tasks
+| Leaf Task ID | Severity | Original Slice | Description |
+|---|---|---|---|
+| <leaf-id-1> | IMPORTANT | SLICE-1 | <description> |
+| <leaf-id-2> | MINOR | SLICE-2 | <description> |
+
+## Acceptance Criteria
+- Both adopted leaf tasks resolved (tests pass, production code path verified)
+- See bd task <slice-task-id> for full validation_checklist
+```

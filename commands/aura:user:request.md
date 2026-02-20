@@ -74,13 +74,93 @@ AskUserQuestion:
       description: "High complexity, new territory, or high risk — thorough domain analysis"
 ```
 
-## Step 3: Research + Explore (s1_2 || s1_3)
+## Step 3: Record Depth + Spawn Parallel Agents (s1_2 || s1_3)
 
-Run in parallel after user confirms depth:
+Record the user's depth choice, then spawn two parallel agents:
 
-**s1_2-research:** Find domain standards, prior art, existing solutions relevant to the request.
+```bash
+bd comments add {{request-task-id}} \
+  "Research depth: {{depth}} (user confirmed)"
+```
 
-**s1_3-explore:** Search the codebase for integration points, existing patterns, and related code.
+Spawn both agents in parallel (via Task tool with `run_in_background: true`). Each agent invokes its dedicated skill:
+
+### s1_2-research: Domain Research
+
+Invoke `/aura:research` with:
+- **topic:** derived from the user's request
+- **depth:** the user-confirmed research depth
+- **request-task-id:** the REQUEST beads task ID
+
+The `/aura:research` skill handles the full research workflow: depth-scoped checklist, structured report written to `docs/research/<topic>.md`, and summary comment on the REQUEST task.
+
+See [commands/aura:research.md](aura:research.md) for full procedure, output format, and examples.
+
+**Depth determines scope:**
+
+| Depth | Local | Web | Deliverable |
+|-------|-------|-----|-------------|
+| **Quick scan** | Grep project for related patterns, check README/docs | None | 1-paragraph summary of local findings |
+| **Standard research** | Local scan + check project dependencies, related repos | Search for domain standards, established patterns | List of prior art with relevance notes |
+| **Deep dive** | Full local analysis + dependency tree | Search for competing solutions, RFCs, academic papers, well-regarded projects | Structured report: standards found, competing approaches, recommended direction |
+
+**Research checklist:**
+1. What domain standards exist? (RFCs, specs, community conventions)
+2. What well-regarded projects solve similar problems? (prior art)
+3. What patterns are established in this domain? (idioms, best practices)
+4. Are there existing solutions that could be reused or adapted?
+
+**Record findings** as a comment on the REQUEST task:
+```bash
+bd comments add {{request-task-id}} \
+  "Research findings ({{depth}}):
+  - Standards: {{list or 'none found'}}
+  - Prior art: {{list of projects/solutions}}
+  - Patterns: {{established approaches}}
+  - Recommendation: {{brief direction}}
+  - Full report: docs/research/{{topic}}.md"
+```
+
+### s1_3-explore: Codebase Exploration
+
+Invoke `/aura:explore` with:
+- **topic:** derived from the user's request
+- **depth:** the user-confirmed research depth (same depth applies)
+- **request-task-id:** the REQUEST beads task ID
+
+The `/aura:explore` skill handles the full exploration workflow: depth-scoped checklist, structured findings, and summary comment on the REQUEST task.
+
+See [commands/aura:explore.md](aura:explore.md) for full procedure, output format, and examples.
+
+**Exploration checklist:**
+1. **Entry points:** Where would this feature plug in? (CLI commands, API routes, event handlers)
+2. **Data flow:** What existing data structures, types, or schemas are relevant?
+3. **Dependencies:** What modules/packages would this feature depend on or extend?
+4. **Existing patterns:** How do similar features work in this codebase? (conventions, DI patterns, test structure)
+5. **Conflicts:** Are there existing implementations that would need modification or could conflict?
+
+**Depth determines thoroughness:**
+
+| Depth | Scope | Tools |
+|-------|-------|-------|
+| **Quick scan** | Grep for keywords, check obvious entry points | Glob, Grep |
+| **Standard research** | Trace data flow, map dependencies, read related modules | Glob, Grep, Read |
+| **Deep dive** | Full dependency graph, architectural analysis, identify all touchpoints | Glob, Grep, Read, Bash (for build/dep tools) |
+
+**Record findings** as a comment on the REQUEST task:
+```bash
+bd comments add {{request-task-id}} \
+  "Explore findings ({{depth}}):
+  - Entry points: {{list of files/functions}}
+  - Related types: {{existing types/schemas}}
+  - Dependencies: {{modules this would use}}
+  - Patterns: {{how similar features work here}}
+  - Conflicts: {{potential issues or 'none'}}"
+```
+
+### Completion
+
+Both agents must complete before proceeding to Phase 2. Their findings are recorded as comments on the REQUEST task, available for the elicitation survey and proposal phases.
 
 ## Example
 

@@ -268,6 +268,8 @@ bd comments add <slice-id> "REVISION NEEDED: <specific issues>"
 **Trigger:** Review round completion + ANY IMPORTANT or MINOR findings exist.
 **NOT gated on BLOCKER resolution.** Supervisor creates it immediately.
 
+### Step 1: Create the follow-up epic
+
 ```bash
 bd create --type=epic --priority=3 \
   --title="FOLLOWUP: Non-blocking improvements from code review" \
@@ -285,9 +287,63 @@ bd dep add <followup-epic-id> --blocked-by <important-group-id>
 bd dep add <followup-epic-id> --blocked-by <minor-group-id>
 ```
 
-### Reviewer → Followup Handoff Template
+### Step 2: Follow-up lifecycle (same protocol, FOLLOWUP_* prefix)
 
-If a follow-up epic is created, create a handoff document:
+The follow-up epic runs the same protocol phases with FOLLOWUP_* prefixed task types:
+
+```
+FOLLOWUP epic (aura:epic-followup)
+  ├── relates_to: original URD
+  ├── relates_to: original REVIEW-A/B/C tasks
+  └── blocked-by: FOLLOWUP_URE         (Phase 2: scope which findings to address)
+        └── blocked-by: FOLLOWUP_URD   (Phase 2: requirements for follow-up)
+              └── blocked-by: FOLLOWUP_PROPOSAL-1  (Phase 3: proposal for follow-up)
+                    └── blocked-by: FOLLOWUP_IMPL_PLAN  (Phase 8: decompose into slices)
+                          ├── blocked-by: FOLLOWUP_SLICE-1  (Phase 9)
+                          │     ├── blocked-by: important-leaf-task-...
+                          │     └── blocked-by: minor-leaf-task-...
+                          └── blocked-by: FOLLOWUP_SLICE-2
+```
+
+```bash
+# Create follow-up lifecycle tasks
+FOLLOWUP_URE_ID=$(bd create \
+  --title "FOLLOWUP_URE: Scope follow-up for <feature>" \
+  --labels "aura:p2-user:s2_1-elicit" \
+  --description "---
+references:
+  followup_epic: <followup-epic-id>
+  original_urd: <original-urd-id>
+---
+Scoping URE: determine which IMPORTANT/MINOR findings to address.")
+bd dep add <followup-epic-id> --blocked-by $FOLLOWUP_URE_ID
+
+FOLLOWUP_URD_ID=$(bd create \
+  --title "FOLLOWUP_URD: Requirements for <feature> follow-up" \
+  --labels "aura:p2-user:s2_2-urd,aura:urd" \
+  --description "---
+references:
+  followup_epic: <followup-epic-id>
+  original_urd: <original-urd-id>
+---
+Follow-up requirements. References original URD.")
+bd dep add $FOLLOWUP_URE_ID --blocked-by $FOLLOWUP_URD_ID
+```
+
+### Step 3: Leaf task adoption (dual-parent)
+
+When the supervisor creates FOLLOWUP_SLICE-N tasks, the IMPORTANT/MINOR leaf tasks from the original review gain a second parent:
+
+```bash
+# Leaf task gets dual-parent: original severity group + follow-up slice
+bd dep add <followup-slice-id> --blocked-by <important-leaf-task-id>
+bd dep add <followup-slice-id> --blocked-by <minor-leaf-task-id>
+# Leaf task already has: bd dep add <severity-group-id> --blocked-by <leaf-task-id>
+```
+
+### Reviewer → Followup Handoff (h5)
+
+The h5 handoff **starts** the follow-up lifecycle. Create this handoff document:
 ```
 .git/.aura/handoff/<request-task-id>/reviewer-to-followup.md
 ```
@@ -313,6 +369,25 @@ If a follow-up epic is created, create a handoff document:
 1. <highest-priority IMPORTANT finding>
 2. <next>
 ```
+
+### Follow-up Handoff Chain
+
+Inside the follow-up lifecycle, the same handoff types (h1-h4) apply but scoped to the follow-up epic:
+
+| Order | Handoff | Transition |
+|-------|---------|------------|
+| 1 | h5 | Reviewer → Followup: **Starts** the follow-up lifecycle |
+| 2 | *(none)* | Supervisor creates FOLLOWUP_URE (same actor) |
+| 3 | *(none)* | Supervisor creates FOLLOWUP_URD (same actor) |
+| 4 | h6 | Supervisor → Architect: Hands off FOLLOWUP_URE + FOLLOWUP_URD for FOLLOWUP_PROPOSAL |
+| 5 | h1 | Architect → Supervisor: After FOLLOWUP_PROPOSAL ratified |
+| 6 | h2 | Supervisor → Worker: FOLLOWUP_SLICE-N with adopted leaf task IDs |
+| 7 | h3 | Supervisor → Reviewer: Code review of follow-up slices |
+| 8 | h4 | Worker → Reviewer: Follow-up slice completion |
+
+Follow-up handoff storage: `.git/.aura/handoff/{followup-epic-id}/{source}-to-{target}.md`
+
+See `HANDOFF_TEMPLATE.md` for full follow-up handoff examples and field requirements.
 
 ## Proceeding to UAT
 

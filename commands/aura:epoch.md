@@ -127,6 +127,22 @@ Aggregated IMPORTANT and MINOR findings from code review." \
   --add-label "aura:epic-followup"
 ```
 
+### Follow-up lifecycle (same protocol, FOLLOWUP_* prefix)
+
+The follow-up epic runs the same protocol phases with FOLLOWUP_* prefixed task types:
+
+```
+FOLLOWUP → FOLLOWUP_URE → FOLLOWUP_URD → FOLLOWUP_PROPOSAL-1 → FOLLOWUP_IMPL_PLAN → FOLLOWUP_SLICE-N
+```
+
+- **FOLLOWUP_URE**: Scoping URE with user to determine which findings to address
+- **FOLLOWUP_URD**: Requirements doc for follow-up scope (references original URD)
+- **FOLLOWUP_PROPOSAL-{N}**: Proposal accounting for original URD + FOLLOWUP_URD + outstanding findings
+- **FOLLOWUP_IMPL_PLAN**: Supervisor decomposes follow-up into slices
+- **FOLLOWUP_SLICE-{N}**: Each slice adopts original IMPORTANT/MINOR leaf tasks as children (dual-parent)
+
+See `/aura:supervisor` and `/aura:impl:review` for full creation commands and leaf task adoption.
+
 ## EAGER Severity Tree (Phase 10)
 
 Code reviews ALWAYS create 3 severity group tasks per review round, even if empty:

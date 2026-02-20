@@ -1,6 +1,6 @@
 # Handoff Document Template
 
-Standardized template for all 5 actor-change transitions in the Aura protocol.
+Standardized template for all 6 actor-change transitions in the Aura protocol.
 
 **Storage:** `.git/.aura/handoff/{request-task-id}/{source}-to-{target}.md`
 
@@ -15,6 +15,7 @@ Standardized template for all 5 actor-change transitions in the Aura protocol.
 | 3 | Supervisor | Reviewer | Phase 10 (Code review) | Summary + bd IDs |
 | 4 | Worker | Reviewer | Phase 10 (Code review) | Summary + bd IDs |
 | 5 | Reviewer | Followup | After Phase 10 (Follow-up epic) | Summary + bd IDs |
+| 6 | Supervisor | Architect | Follow-up lifecycle (FOLLOWUP_URE/URD → FOLLOWUP_PROPOSAL) | Summary + bd IDs |
 
 ### Same-Actor Transitions (NO Handoff Needed)
 
@@ -60,18 +61,22 @@ These transitions are performed by the same actor and do not require a handoff d
 
 ## Required Fields Per Transition
 
-| Field | Architect→Supervisor | Supervisor→Worker | Supervisor→Reviewer | Worker→Reviewer | Reviewer→Followup |
-|-------|---------------------|-------------------|--------------------|-----------------|--------------------|
-| Request | Required | Required | Required | Required | Required |
-| URD | Required | Required | Required | Required | Required |
-| Proposal | Required | Required | Required | — | Required |
-| Ratified Plan | Required | Required | Required | — | — |
-| Impl Plan | — | Required | Required | Required | — |
-| Slice | — | Required | — | Required | — |
-| Context | Full provenance | Summary | Summary | Summary | Summary |
-| Key Decisions | Full list | Slice-relevant | Review scope | Impl decisions | Findings summary |
-| Open Items | Required | Required | — | Required | Required |
-| Acceptance Criteria | Required | Required | Required | — | Required |
+| Field | h1: Arch→Super | h2: Super→Worker | h3: Super→Reviewer | h4: Worker→Reviewer | h5: Reviewer→Followup | h6: Super→Architect |
+|-------|----------------|-------------------|--------------------|--------------------|----------------------|---------------------|
+| Request | Required | Required | Required | Required | Required | Required |
+| URD | Required | Required | Required | Required | Required | Required |
+| Proposal | Required | Required | Required | — | Required | — |
+| Ratified Plan | Required | Required | Required | — | — | — |
+| Impl Plan | — | Required | Required | Required | — | — |
+| Slice | — | Required | — | Required | — | — |
+| Followup Epic | — | — | — | — | Required | Required |
+| Followup URE | — | — | — | — | — | Required |
+| Followup URD | — | — | — | — | — | Required |
+| Findings Summary | — | — | — | — | Required | Required |
+| Context | Full provenance | Summary | Summary | Summary | Summary | Summary |
+| Key Decisions | Full list | Slice-relevant | Review scope | Impl decisions | Findings summary | Scoping decisions |
+| Open Items | Required | Required | — | Required | Required | Required |
+| Acceptance Criteria | Required | Required | Required | — | Required | Required |
 
 ---
 
@@ -246,4 +251,118 @@ Follow-up epic needed for non-blocking improvements.
 ## Acceptance Criteria
 - Follow-up epic created with label `aura:epic-followup`.
 - All IMPORTANT and MINOR findings captured as individual tasks.
+```
+
+---
+
+## Follow-up Lifecycle Handoffs
+
+The follow-up epic runs the same protocol phases using 6 handoff types (h1-h5 reused from the main lifecycle, plus h6 unique to the follow-up lifecycle), scoped to the follow-up epic.
+
+**Storage:** `.git/.aura/handoff/{followup-epic-id}/{source}-to-{target}.md`
+
+### Handoff Chain Through Follow-up Lifecycle
+
+| Order | Handoff | Description |
+|-------|---------|-------------|
+| 1 | **Reviewer → Followup (h5)** | Bridge from original review. Created by supervisor when IMPORTANT/MINOR findings exist. **Starts** the follow-up lifecycle. |
+| 2 | *(same actor — no handoff)* | Supervisor creates FOLLOWUP_URE (scoping which findings to address). |
+| 3 | *(same actor — no handoff)* | Supervisor creates FOLLOWUP_URD (synthesizes follow-up requirements). |
+| 4 | **Supervisor → Architect (h6)** | Supervisor hands off completed FOLLOWUP_URE + FOLLOWUP_URD to architect for FOLLOWUP_PROPOSAL creation. Follow-up specific handoff. |
+| 5 | **Architect → Supervisor (h1)** | After FOLLOWUP_PROPOSAL is ratified, architect hands off to supervisor for FOLLOWUP_IMPL_PLAN. References original URD + FOLLOWUP_URD + outstanding findings. |
+| 6 | **Supervisor → Worker (h2)** | FOLLOWUP_SLICE-N assignment. Worker receives follow-up slice spec AND original leaf task IDs to resolve. |
+| 7 | **Supervisor → Reviewer (h3)** | Code review of follow-up slices. Reviewer receives follow-up context + original findings being addressed. |
+| 8 | **Worker → Reviewer (h4)** | Worker completes follow-up slice. Handoff includes which original leaf tasks were resolved. |
+
+### 6. Supervisor → Architect (Follow-up Lifecycle — h6)
+
+```markdown
+# Handoff: Supervisor → Architect (Follow-up)
+
+## Metadata
+- **Request:** aura-scripts-abc — REQUEST: Add structured logging
+- **Follow-up Epic:** aura-scripts-xyz — FOLLOWUP: Non-blocking improvements
+- **Date:** 2026-02-25
+- **Source:** Supervisor
+- **Target:** Architect
+
+## Task References
+- **Original Request:** aura-scripts-abc
+- **Original URD:** aura-scripts-def
+- **Follow-up Epic:** aura-scripts-xyz
+- **FOLLOWUP_URE:** aura-scripts-stu
+- **FOLLOWUP_URD:** aura-scripts-uvw
+
+## Context
+Supervisor completed FOLLOWUP_URE with user (scoped 2 IMPORTANT findings
+for this cycle) and synthesized FOLLOWUP_URD. Handing off to architect
+for FOLLOWUP_PROPOSAL creation.
+
+## Findings Summary
+| Finding ID | Severity | Original Slice | Scoped? | Description |
+|-----------|----------|----------------|---------|-------------|
+| aura-scripts-111 | IMPORTANT | SLICE-1 | Yes | Request-id correlation |
+| aura-scripts-222 | IMPORTANT | SLICE-2 | Yes | Performance benchmark |
+| aura-scripts-333 | MINOR | SLICE-1 | No (deferred) | Rename LogConfig |
+
+## Key Decisions
+1. User scoped 2 of 3 findings for this follow-up cycle.
+2. MINOR finding deferred — user considers it low-priority.
+
+## Open Items
+- MINOR finding aura-scripts-333 remains unscoped for future follow-up.
+
+## Acceptance Criteria
+- FOLLOWUP_PROPOSAL accounts for original URD + FOLLOWUP_URD.
+- Proposal covers both scoped IMPORTANT findings.
+- Standard review process (3 reviewers) applies.
+```
+
+### Key Differences from Original Handoffs
+
+- **h5 is the entry point**: The Reviewer → Followup handoff bridges the original epic to the follow-up lifecycle. It provides the initial context.
+- **Follow-up handoffs reference both epics**: Task References section includes both the original request/URD and the follow-up epic/FOLLOWUP_URD.
+- **Worker handoff (h2) includes leaf task IDs**: The Supervisor → Worker handoff for FOLLOWUP_SLICE-N must list the specific IMPORTANT/MINOR leaf tasks the worker is adopting.
+- **Worker completion (h4) reports resolution**: The Worker → Reviewer handoff for follow-up slices reports which original leaf tasks were resolved.
+
+### Example: Supervisor → Worker for Follow-up Slice
+
+```markdown
+# Handoff: Supervisor → Worker (Follow-up)
+
+## Metadata
+- **Request:** aura-scripts-abc — REQUEST: Add structured logging
+- **Follow-up Epic:** aura-scripts-xyz — FOLLOWUP: Non-blocking improvements
+- **Date:** 2026-02-25
+- **Source:** Supervisor
+- **Target:** Worker (FOLLOWUP_SLICE-1 owner)
+
+## Task References
+- **Original Request:** aura-scripts-abc
+- **Original URD:** aura-scripts-def
+- **Follow-up Epic:** aura-scripts-xyz
+- **FOLLOWUP_URD:** aura-scripts-uvw
+- **FOLLOWUP_IMPL_PLAN:** aura-scripts-stu
+- **Slice:** aura-scripts-pqr (FOLLOWUP_SLICE-1)
+
+## Context
+FOLLOWUP_SLICE-1 addresses 2 IMPORTANT findings from the original code review:
+request-id correlation and performance benchmarking.
+
+## Adopted Leaf Tasks
+| Leaf Task ID | Severity | Original Slice | Description |
+|-------------|----------|----------------|-------------|
+| aura-scripts-111 | IMPORTANT | SLICE-1 | Add request-id correlation to log entries |
+| aura-scripts-222 | IMPORTANT | SLICE-2 | Performance benchmark for high-throughput paths |
+
+## Key Decisions
+1. Correlation ID passed via context.Context (not global state).
+2. Benchmark uses Go's testing.B framework.
+
+## Open Items
+- None
+
+## Acceptance Criteria
+- Both adopted leaf tasks resolved (tests pass, production code path verified).
+- See bd task aura-scripts-pqr for full validation_checklist.
 ```

@@ -295,6 +295,11 @@ This ensures BLOCKERs both categorize under the severity tree AND block the arti
 
 **Timing:** Created as soon as the review round completes, regardless of whether BLOCKERs are still being resolved. This ensures non-blocking improvements are tracked and not lost.
 
+**Follow-up lifecycle:** The follow-up epic runs the same protocol phases with FOLLOWUP_* prefixed task types:
+FOLLOWUP_URE → FOLLOWUP_URD → (h6 to architect) → FOLLOWUP_PROPOSAL → (h1 back to supervisor) → FOLLOWUP_IMPL_PLAN → FOLLOWUP_SLICE-N.
+Original IMPORTANT/MINOR leaf tasks are adopted as children of FOLLOWUP_SLICE-N (dual-parent).
+No followup-of-followup — findings from follow-up code review stay on the existing follow-up epic.
+
 ### When Reviewing
 
 Check **end-user alignment**, not technical specializations:
@@ -335,7 +340,7 @@ Check **end-user alignment**, not technical specializations:
 
 ### Handoff Documents
 
-5 actor-change transitions require handoff documents, stored at `.git/.aura/handoff/{request-task-id}/`:
+6 actor-change transitions require handoff documents, stored at `.git/.aura/handoff/{request-task-id}/` (or `{followup-epic-id}/` for follow-up lifecycle):
 
 | Transition | File | Content Level |
 |---|---|---|
@@ -344,6 +349,7 @@ Check **end-user alignment**, not technical specializations:
 | Supervisor → Reviewer | `supervisor-to-reviewer.md` | Summary + bd IDs |
 | Worker → Reviewer | `worker-to-reviewer.md` | Summary + bd IDs |
 | Reviewer → Followup | `reviewer-to-followup.md` | Summary + bd IDs |
+| Supervisor → Architect | `supervisor-to-architect.md` | Summary + bd IDs |
 
 **Same-actor transitions do NOT need handoff:** UAT → Ratify and Ratify → Handoff are performed by the same actor (architect), so no handoff document is needed.
 

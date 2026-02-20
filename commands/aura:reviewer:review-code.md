@@ -201,6 +201,14 @@ IMPORTANT and MINOR findings do **NOT** block the slice — they are tracked in 
 **NOT gated on BLOCKER resolution.**
 **Owner:** Supervisor creates the follow-up epic (label `aura:epic-followup`).
 
+### Reviewing FOLLOWUP_SLICE-N (Follow-up Code Review)
+
+When reviewing follow-up slices, use the same procedure:
+- **Review task naming:** `FOLLOWUP_SLICE-N-REVIEW-{axis}-{round}`
+- **Same EAGER severity tree** (BLOCKER/IMPORTANT/MINOR per review round)
+- **No followup-of-followup:** New IMPORTANT/MINOR findings from FOLLOWUP_SLICE review are tracked on the existing follow-up epic, not a new nested follow-up
+- The worker's completion handoff (h4) reports which original leaf tasks were resolved — verify these during review
+
 ## Report Results
 
 ```bash

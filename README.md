@@ -511,6 +511,7 @@ protocol.
 | [`protocol/SKILLS.md`](protocol/SKILLS.md)        | Command reference: all `/aura:*` skills by phase      |
 | [`protocol/UAT_TEMPLATE.md`](protocol/UAT_TEMPLATE.md) | User Acceptance Test structured output template |
 | [`protocol/UAT_EXAMPLE.md`](protocol/UAT_EXAMPLE.md) | Worked UAT example                               |
+| [`protocol/schema.xml`](protocol/schema.xml)      | Canonical protocol schema (BCNF): entities, relationships, mappings |
 
 ### Workflow phases (v2, 12-phase)
 
@@ -616,6 +617,7 @@ aura-scripts/
 │   ├── PROCESS.md             Workflow execution guide (single source of truth)
 │   ├── AGENTS.md              Role taxonomy (phases, tools, handoffs)
 │   ├── SKILLS.md              Command reference (all /aura:* skills)
+│   ├── schema.xml             Canonical protocol schema (BCNF)
 │   ├── UAT_TEMPLATE.md        UAT structured output template
 │   └── UAT_EXAMPLE.md         Worked UAT example
 ├── commands/                  Slash commands for ~/.claude/commands/

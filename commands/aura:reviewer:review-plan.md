@@ -105,3 +105,10 @@ Binary only. No severity tree for plan reviews.
 ## Consensus
 
 All 3 reviewers must vote ACCEPT for plan to be ratified.
+
+## Follow-up Proposal Reviews (FOLLOWUP_PROPOSAL-N)
+
+The same procedure applies when reviewing FOLLOWUP_PROPOSAL-N:
+- **Task naming:** `FOLLOWUP_PROPOSAL-N-REVIEW-{axis}-{round}`
+- Same binary ACCEPT/REVISE vote (no severity tree)
+- Additionally verify that FOLLOWUP_PROPOSAL addresses the specific IMPORTANT/MINOR findings scoped in FOLLOWUP_URE/URD
