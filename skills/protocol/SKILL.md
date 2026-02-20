@@ -62,6 +62,29 @@ Complete reference documentation for the Aura 12-phase workflow system.
 aura:p{phase}-{domain}:s{step}-{type}
 ```
 
+### Follow-up Lifecycle
+
+**Trigger:** Phase 10 code review completes with ANY IMPORTANT or MINOR findings (not gated on BLOCKER resolution).
+
+**Owner:** Supervisor creates follow-up epic (label `aura:epic-followup`).
+
+**Flow:**
+```
+Code Review (Phase 10) finds IMPORTANT/MINOR findings
+  → Supervisor creates FOLLOWUP epic
+    → FOLLOWUP_URE (supervisor, aggregated findings as requirements)
+      → FOLLOWUP_URD (supervisor, single source of truth for follow-up)
+        → h6 handoff: Supervisor → Architect
+          → FOLLOWUP_PROPOSAL (architect proposes fix plan)
+            → Review (same 3-axis review)
+              → h1 handoff: Architect → Supervisor
+                → FOLLOWUP_IMPL_PLAN (supervisor decomposes)
+                  → FOLLOWUP_SLICE-N (workers implement)
+                    → Code Review (severity tree, same process)
+```
+
+Original IMPORTANT/MINOR leaf tasks are adopted as children of FOLLOWUP_SLICE-N (dual-parent). No followup-of-followup — findings from follow-up code review stay on the existing follow-up epic.
+
 ### Agent Roles
 
 | Role | Phases | Key Responsibility |
