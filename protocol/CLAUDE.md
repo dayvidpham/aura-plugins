@@ -98,7 +98,7 @@ bd dep add ure-id --blocked-by request-id
 
 **Given** a URD exists **when** architects, reviewers, or supervisors need to understand user intent **then** read the URD with `bd show <urd-id>` **should never** rely solely on the original REQUEST task for requirements
 
-**Given** a URD is created **when** linking to other tasks **then** use `bd dep relate <urd-id> <other-task-id>` (peer reference, NOT `--blocked-by`) **should never** make the URD a blocking dependency — it is a living reference document
+**Given** a URD is created **when** linking to other tasks **then** include the URD task ID in the description frontmatter of referencing tasks (e.g., `urd: <urd-id>`) **should never** make the URD a blocking dependency — it is a living reference document
 
 ### Agent Orchestration
 
@@ -137,7 +137,7 @@ bd dep add ure-id --blocked-by request-id
 
 ### Slice Reviews
 
-**Given** a slice implementation is complete (tests + typecheck pass) **when** considering closing the bead **then** you **MUST** launch a code review before closing the bead, **MUST** resolve all blocking findings before closing, **SHOULD NEVER** close a slice bead with only "tests pass" as the completion gate.
+**Given** a slice implementation is complete (tests + typecheck pass) **when** considering closing the bead **then** you **MUST** launch a code review before closing the bead, **MUST** resolve all BLOCKER findings before closing, **SHOULD NEVER** close a slice bead with only "tests pass" as the completion gate.
 
 ## Behavior
 
@@ -146,8 +146,6 @@ bd dep add ure-id --blocked-by request-id
 **Always think about how your work will affect the end-user**, and if the code will handle changes in the future.
 
 **Design the interface you know you will need:** if it will be required in the end, then include it. But don't make it more complicated than it needs to be, and don't make it simpler than it is.
-
-**Work backwards from the final API/result to define architecture** — but you do NOT need to implement it all upfront. Define all public interfaces and structure first; implementations can be mocked or stubbed until needed.
 
 ### Self-Validation Model
 
@@ -165,46 +163,137 @@ Before claiming completion:
 
 ## Agent Roles
 
-| Role | Responsibility |
-|------|----------------|
-| Architect | Specs, tradeoffs, validation checklist, BDD criteria |
-| Reviewer | End-user alignment, implementation gaps, MVP impact |
-| Supervisor | Vertical-slice task decomposition, worker allocation, merge order, commits |
-| Worker | Vertical slice implementation (full production code path) |
+| Role | Responsibility | Label Awareness |
+|------|----------------|-----------------|
+| Architect | Specs, tradeoffs, validation checklist, BDD criteria | `aura:p3-plan`, `aura:p4-plan`, `aura:p6-plan`, `aura:p7-plan` |
+| Reviewer | End-user alignment, implementation gaps, MVP impact | `aura:p4-plan`, `aura:p10-impl`, `aura:severity:*` |
+| Supervisor | Vertical-slice task decomposition, worker allocation, merge order, commits | `aura:p8-impl`, `aura:p9-impl`, `aura:epic-followup` |
+| Worker | Vertical slice implementation (full production code path) | `aura:p9-impl:s9-slice` |
 
 **Consensus:** All 3 reviewers must ACCEPT. Revisions loop until consensus.
 
-## Beads-Unified Workflow
+## 12-Phase Workflow
 
-All work flows through Beads tasks:
+All work flows through Beads tasks using 12 phases:
 
 ```
-REQUEST_PLAN (user prompt)
-    |
-ELICIT (URE survey) → creates URD (single source of truth)
-    |                      ↕ bd dep relate (peer reference)
-PROPOSE_PLAN (architect drafts full plan)
-    |
-REVIEW_1, REVIEW_2, REVIEW_3 (parallel, vote ACCEPT/REVISE)
-    | (loop if any REVISE)
-REVISION_N (architect addresses feedback)
-    | (back to reviews)
-RATIFIED_PLAN (consensus reached, all sign off)
-    |
-USER_ACCEPTANCE_TEST (plan UAT)
-    |
-IMPLEMENTATION_PLAN (supervisor decomposes into slices)
-    |
-VERTICAL SLICES (parallel, each worker owns one production code path)
-    |
-IMPLEMENTATION_DONE
-    |
-REVIEW_IMPLEMENTATION (3x reviewers, same end-user alignment criteria)
-    |
-USER_ACCEPTANCE_TEST (implementation UAT)
-    |
-ACCEPT
+Phase 1:  REQUEST (user prompt)
+            s1_1-classify → s1_2-research (parallel) → s1_3-explore (parallel)
+Phase 2:  ELICIT (URE survey, s2_1) → URD (s2_2, single source of truth)
+Phase 3:  PROPOSAL-N (architect proposes, s3-propose)
+Phase 4:  PROPOSAL-N-REVIEW-M (parallel reviewers, ACCEPT/REVISE binary only)
+Phase 5:  Plan UAT (user acceptance test on plan)
+Phase 6:  Ratification (aura:superseded marks old proposals)
+Phase 7:  Handoff (architect → supervisor, stored at .git/.aura/handoff/)
+Phase 8:  IMPL_PLAN (supervisor decomposes into slices)
+Phase 9:  SLICE-N (parallel workers, each owns one production code path)
+Phase 10: Code review (3x reviewers, full severity tree with EAGER creation)
+            Severity tree: BLOCKER / IMPORTANT / MINOR (always 3 groups)
+            Dual-parent BLOCKER relationship
+Phase 11: Implementation UAT
+Phase 12: Landing (commit, push, hand off)
 ```
+
+### Label Schema
+
+```
+Format: aura:p{phase}-{domain}:s{step}-{type}
+
+Phase-domain pairs:
+  aura:p1-user     — Request + classify + research + explore
+  aura:p2-user     — Elicit + URD
+  aura:p3-plan     — Propose
+  aura:p4-plan     — Plan review
+  aura:p5-user     — Plan UAT
+  aura:p6-plan     — Ratify
+  aura:p7-plan     — Handoff
+  aura:p8-impl     — Impl plan
+  aura:p9-impl     — Worker slices
+  aura:p10-impl    — Code review
+  aura:p11-user    — Impl UAT
+  aura:p12-impl    — Landing
+
+Special labels:
+  aura:urd                  — User Requirements Document
+  aura:superseded           — Superseded proposal/plan
+  aura:severity:blocker     — Blocker severity group
+  aura:severity:important   — Important severity group
+  aura:severity:minor       — Minor severity group
+  aura:epic-followup        — Follow-up epic
+```
+
+### Task Title Conventions
+
+| Title Format | Label | Created By |
+|---|---|---|
+| `REQUEST: Description` | `aura:p1-user:s1_1-classify` | User or Coordinator |
+| `PROPOSAL-N: Description` | `aura:p3-plan:s3-propose` | Architect |
+| `PROPOSAL-N-REVIEW-M: Description` | `aura:p4-plan:s4-review` | Reviewers |
+| `URD: Description` | `aura:urd` | Architect (after Phase 2) |
+| `IMPL_PLAN: Description` | `aura:p8-impl:s8-plan` | Supervisor |
+| `SLICE-N: Description` | `aura:p9-impl:s9-slice` | Workers |
+
+### Frontmatter References
+
+Instead of peer-reference commands, include task IDs in the description frontmatter:
+
+```bash
+bd create --title "URD: Feature name" \
+  --description "---
+references:
+  request: <request-task-id>
+  elicit: <elicit-task-id>
+---
+## Requirements
+..."
+```
+
+Other tasks reference the URD similarly:
+```bash
+bd create --title "PROPOSAL-1: Technical approach" \
+  --description "---
+references:
+  request: <request-task-id>
+  urd: <urd-task-id>
+---
+## Proposal
+..."
+```
+
+### Review Severity Tree (Code Reviews Only)
+
+Code review rounds (Phase 10) use a severity tree with **EAGER creation**:
+
+**ALWAYS create 3 severity group tasks per review round**, even if some groups have no findings:
+
+```bash
+# Create all 3 severity groups immediately (EAGER, not lazy)
+bd create --title "SLICE-1-REVIEW-1 BLOCKER" --labels "aura:severity:blocker" ...
+bd create --title "SLICE-1-REVIEW-1 IMPORTANT" --labels "aura:severity:important" ...
+bd create --title "SLICE-1-REVIEW-1 MINOR" --labels "aura:severity:minor" ...
+
+# Empty groups have no children and are closed immediately
+bd close <empty-important-id>
+bd close <empty-minor-id>
+```
+
+**Dual-parent BLOCKER relationship:** BLOCKER findings have two parents:
+1. The severity group task (`aura:severity:blocker`)
+2. The proposal or slice they block (via `bd dep add <slice-id> --blocked-by <blocker-finding-id>`)
+
+This ensures BLOCKERs both categorize under the severity tree AND block the artifact they apply to.
+
+**Plan reviews (Phase 4) do NOT use a severity tree.** Plan reviews use binary ACCEPT/REVISE votes only.
+
+### Follow-up Epic
+
+**Trigger:** Review completion + ANY IMPORTANT or MINOR findings exist (NOT gated on BLOCKER resolution).
+
+**Owner:** Supervisor creates the follow-up epic (label `aura:epic-followup`).
+
+**Content:** Aggregated IMPORTANT and MINOR findings from the review round, organized by priority.
+
+**Timing:** Created as soon as the review round completes, regardless of whether BLOCKERs are still being resolved. This ensures non-blocking improvements are tracked and not lost.
 
 ### When Reviewing
 
@@ -217,13 +306,20 @@ Check **end-user alignment**, not technical specializations:
 - Does MVP scope make sense?
 - Is validation checklist complete?
 
+**Votes (binary):**
+
+| Vote | Requirement |
+|------|-------------|
+| **ACCEPT** | All 6 criteria satisfied; no BLOCKER items |
+| **REVISE** | BLOCKER issues found; must provide actionable feedback |
+
 ### When Working
 
-**Supervisor** creates vertical slice tasks with:
+**Supervisor** creates vertical slice tasks (SLICE-N) with:
 - One production code path per slice
 - Key details from ratified plan
 - Tradeoffs relevant to each slice
-- Link back to RATIFIED_PLAN task
+- Reference to IMPL_PLAN task in description frontmatter
 - Validation checklist items per task
 - BDD acceptance criteria (Given/When/Then/Should Not)
 - Explicit file ownership boundaries within each slice
@@ -236,6 +332,22 @@ Check **end-user alignment**, not technical specializations:
 - Meeting BDD acceptance criteria
 - Running quality gates (type checking + tests)
 - Signaling completion via beads
+
+### Handoff Documents
+
+5 actor-change transitions require handoff documents, stored at `.git/.aura/handoff/{request-task-id}/`:
+
+| Transition | File | Content Level |
+|---|---|---|
+| Architect → Supervisor | `architect-to-supervisor.md` | Full inline provenance |
+| Supervisor → Worker | `supervisor-to-worker.md` | Summary + bd IDs |
+| Supervisor → Reviewer | `supervisor-to-reviewer.md` | Summary + bd IDs |
+| Worker → Reviewer | `worker-to-reviewer.md` | Summary + bd IDs |
+| Reviewer → Followup | `reviewer-to-followup.md` | Summary + bd IDs |
+
+**Same-actor transitions do NOT need handoff:** UAT → Ratify and Ratify → Handoff are performed by the same actor (architect), so no handoff document is needed.
+
+See [HANDOFF_TEMPLATE.md](HANDOFF_TEMPLATE.md) for the standardized template.
 
 ## Landing the Plane (Session Completion)
 
@@ -256,7 +368,7 @@ Check **end-user alignment**, not technical specializations:
    ```
 5. **Clean up** - Clear stashes, prune remote branches
 6. **Verify** - All changes committed AND pushed
-7. **Hand off** - Provide context for next session
+7. **Hand off** - Create handoff document if actor transition occurs (see [HANDOFF_TEMPLATE.md](HANDOFF_TEMPLATE.md)); provide context for next session using new label format
 
 **CRITICAL RULES:**
 - Use `git agent-commit` (not `git commit`) for signed commits
@@ -264,9 +376,12 @@ Check **end-user alignment**, not technical specializations:
 - NEVER stop before pushing — that leaves work stranded locally
 - NEVER say "ready to push when you are" — YOU must push
 - If push fails, resolve and retry until it succeeds
+- Use new label format (`aura:p{N}-{domain}:s{M}-{type}`) for all beads operations
 
 ## References
 
 - [PROCESS.md](PROCESS.md) - Step-by-step workflow execution (single source of truth)
 - [CONSTRAINTS.md](CONSTRAINTS.md) - Coding standards, checklists, naming conventions
+- [HANDOFF_TEMPLATE.md](HANDOFF_TEMPLATE.md) - Standardized handoff document template
+- [MIGRATION_v1_to_v2.md](MIGRATION_v1_to_v2.md) - Migration procedure from v1 to v2 labels
 - `.claude/commands/aura:*.md` - Agent role definitions

@@ -47,46 +47,99 @@ Common constraints referenced by all agent and skill files.
 
 | Vote | Meaning |
 |------|---------|
-| APPROVE | No blocking issues |
-| APPROVE_WITH_COMMENTS | Minor issues noted |
-| REQUEST_CHANGES | Blocking issues found |
-| REJECT | Fundamental design problems |
+| ACCEPT | No BLOCKER issues; all review criteria satisfied |
+| REVISE | BLOCKER issues found; must provide actionable feedback |
+
+Binary only. No intermediate levels.
 
 ## Issue Severity
 
 | Severity | When to Use | Blocks |
 |----------|-------------|--------|
-| BLOCKING | Security, type errors, test failures | Yes |
-| MAJOR | Performance, missing validation | Maybe |
-| MINOR | Style, optional optimizations | No |
+| BLOCKER | Security, type errors, test failures, broken production code paths | Yes |
+| IMPORTANT | Performance, missing validation, architectural concerns | No (tracked in follow-up epic) |
+| MINOR | Style, optional optimizations, naming improvements | No (tracked in follow-up epic) |
+
+**EAGER severity group creation:** For every code review round (Phase 10), ALWAYS create 3 severity group tasks (BLOCKER, IMPORTANT, MINOR) immediately. Empty groups have no children and are closed immediately. This is NOT lazy creation.
+
+**Follow-up epic:** When a review round completes and ANY IMPORTANT or MINOR findings exist, the Supervisor creates a follow-up epic (label `aura:epic-followup`). This is NOT gated on BLOCKER resolution — it triggers as soon as the review round completes.
 
 ## Beads Task Naming & Tagging Standards
 
-All work flows through Beads with standardized ALL_CAPS titles and hierarchical tags:
+All work flows through Beads with standardized titles and the v2 label schema:
+
+### Label Schema
+
+```
+Format: aura:p{phase}-{domain}:s{step}-{type}
+
+Phase-domain pairs (12 phases):
+  aura:p1-user     — Request + classify + research + explore
+  aura:p2-user     — Elicit + URD
+  aura:p3-plan     — Propose
+  aura:p4-plan     — Plan review
+  aura:p5-user     — Plan UAT
+  aura:p6-plan     — Ratify
+  aura:p7-plan     — Handoff
+  aura:p8-impl     — Impl plan
+  aura:p9-impl     — Worker slices
+  aura:p10-impl    — Code review
+  aura:p11-user    — Impl UAT
+  aura:p12-impl    — Landing
+
+Special labels:
+  aura:urd                  — User Requirements Document
+  aura:superseded           — Superseded proposal/plan
+  aura:severity:blocker     — Blocker severity group
+  aura:severity:important   — Important severity group
+  aura:severity:minor       — Minor severity group
+  aura:epic-followup        — Follow-up epic
+```
 
 ### Planning Phase Tasks
 
-| Title | Tag | Purpose | Created By |
-|-------|-----|---------|-----------|
-| REQUEST_PLAN: Description | `aura:plan:request` | Capture user's problem statement | User or Coordinator |
-| PROPOSE_PLAN: Description | `aura:plan:propose` | Architect's full technical proposal | Architect |
-| REVISION_1/2/N: Description | `aura:plan:revision` | Architect revises after reviewer feedback | Architect (loop if needed) |
-| REVIEW_1/2/3: Description | `aura:review` | Reviewer assessment | Reviewers (spawned by architect) |
-| URD: Description | `aura:urd` | Single source of truth for user requirements, priorities, design choices, MVP goals | Architect (after Phase 2 URE) |
-| RATIFIED_PLAN: Description | `aura:plan:ratified` | Consensus reached; ready for implementation | Architect (after all 3 reviewers ACCEPT) |
+| Title Format | Label | Purpose | Created By |
+|---|---|---|---|
+| `REQUEST: Description` | `aura:p1-user:s1_1-classify` | Capture user's problem statement | User or Coordinator |
+| `PROPOSAL-N: Description` | `aura:p3-plan:s3-propose` | Architect's full technical proposal (N increments per revision) | Architect |
+| `PROPOSAL-N-REVIEW-M: Description` | `aura:p4-plan:s4-review` | Reviewer assessment of proposal N | Reviewers (spawned by architect) |
+| `URD: Description` | `aura:urd` | Single source of truth for user requirements | Architect (after Phase 2 URE) |
 
 ### Implementation Phase Tasks
 
-| Title Format | Tags | Ownership |
-|--------------|------|-----------|
-| [SLICE] Implement 'command name' (full vertical) | `aura:impl`, `slice:<name>` | One worker per slice |
-| [L0] Shared infrastructure: description | `aura:impl`, `layer-0` | Parallel, no deps |
+| Title Format | Label | Ownership |
+|---|---|---|
+| `IMPL_PLAN: Description` | `aura:p8-impl:s8-plan` | Supervisor |
+| `SLICE-N: Description` | `aura:p9-impl:s9-slice` | One worker per slice |
 
 **Vertical Slice Ownership Model:**
 - Each **production code path** is owned by exactly ONE worker
 - A worker owns the full vertical (types → tests → implementation → wiring)
 - Never assign the same production code path to multiple workers
 - Workers CAN share Layer 0 infrastructure (common types/enums)
+
+### Naming Conventions
+
+- **PROPOSAL-N:** N starts at 1 and increments with each revision. Old proposals are marked `aura:superseded`.
+- **PROPOSAL-N-REVIEW-M:** M identifies the reviewer (1, 2, 3). A new round of reviews creates new tasks with the same N.
+- **SLICE-N:** N identifies the slice number within the implementation plan.
+
+### Frontmatter References
+
+Instead of peer-reference commands, include task IDs in the description frontmatter:
+
+```bash
+bd create --title "URD: Feature name" \
+  --description "---
+references:
+  request: <request-task-id>
+  elicit: <elicit-task-id>
+---
+## Requirements
+..."
+```
+
+This replaces the old peer-reference command for linking related tasks. The URD is a living reference document — not a blocking dependency.
 
 ### Design Field Schema (Canonical)
 
@@ -127,7 +180,7 @@ All implementation tasks use this structure in the `design` field:
 
 **Given** Phase 2 (URE) completes **when** creating the URD **then** use label `aura:urd` and include structured requirements (priorities, design choices, MVP goals, end-vision goals) **should never** leave requirements scattered across REQUEST and ELICIT tasks without a URD
 
-**Given** a URD exists **when** linking to other tasks **then** use `bd dep relate` (peer reference) to connect URD ↔ REQUEST, ELICIT, PROPOSAL, IMPL_PLAN, and UAT tasks **should never** use `--blocked-by` for URD links — it is a reference document, not a blocking dependency
+**Given** a URD exists **when** linking to other tasks **then** include the URD task ID in the description frontmatter of referencing tasks (e.g., `urd: <urd-id>`) **should never** use `--blocked-by` for URD links — it is a reference document, not a blocking dependency
 
 **Given** scope changes at any phase **when** updating requirements **then** add a comment to the URD via `bd comments add <urd-id> "..."` **should never** leave the URD out of date when UAT results, ratification, or user feedback modify requirements
 
@@ -173,7 +226,7 @@ With explanatory comments.
 
 **PROCESS.md links:**
 ```markdown
--> [Full workflow in PROCESS.md](PROCESS.md#phase-1-request_plan--propose_plan)
+-> [Full workflow in PROCESS.md](PROCESS.md#phase-1-request)
 ```
 
 **CONSTRAINTS.md links:**
@@ -192,4 +245,6 @@ See: [.claude/commands/aura:agent.md](.claude/commands/aura:agent.md)
 
 See also:
 - [PROCESS.md](PROCESS.md) - Step-by-step workflow execution (single source of truth)
+- [HANDOFF_TEMPLATE.md](HANDOFF_TEMPLATE.md) - Standardized handoff document template
+- [MIGRATION_v1_to_v2.md](MIGRATION_v1_to_v2.md) - Migration procedure from v1 to v2 labels
 - `.claude/commands/` - Detailed agent role definitions

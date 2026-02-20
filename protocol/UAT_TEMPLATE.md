@@ -63,7 +63,7 @@ Use this XML template to capture UAT results. Each component is presented one at
 
       </questions>
 
-      <decision>{{ACCEPT | ACCEPT_WITH_COMMENTS | REVISE}}</decision>
+      <decision>{{ACCEPT | REVISE}}</decision>
       <decision-notes>{{OPTIONAL_NOTES_ON_DECISION}}</decision-notes>
     </component>
 
@@ -95,31 +95,32 @@ Use this XML template to capture UAT results. Each component is presented one at
 
 ```bash
 # 1. Create the UAT task with structured description
-#    - Labels link it to the proposal revision and UAT phase
+#    - Labels link it to the proposal and UAT phase
 #    - Description contains the full XML-structured UAT record
 bd create \
-  --labels "aura:user:uat,proposal-{{N}}:uat-{{M}}" \
-  --title "UAT-{{M}}: {{PLAN_OR_IMPL}} acceptance for {{FEATURE}}" \
-  --description "<FULL_XML_STRUCTURED_DESCRIPTION>"
+  --labels "aura:p5-user:s5-uat" \
+  --title "UAT: {{PLAN_OR_IMPL}} acceptance for {{FEATURE}}" \
+  --description "---
+references:
+  proposal: {{PROPOSAL_TASK_ID}}
+  urd: {{URD_TASK_ID}}
+  request: {{REQUEST_TASK_ID}}
+---
+<FULL_XML_STRUCTURED_DESCRIPTION>"
 
-# 2. Link UAT to the proposal (relates_to, NOT blocked-by)
-#    - UAT is a peer artifact of the proposal, not a dependency
-bd dep relate {{UAT_TASK_ID}} {{PROPOSAL_TASK_ID}}
-
-# 3. Record post-UAT addenda as comments (user feedback after main survey)
+# 2. Record post-UAT addenda as comments (user feedback after main survey)
 bd comments add {{UAT_TASK_ID}} "UAT ADDENDUM (user-initiated, verbatim): {{VERBATIM}}"
 
-# 4. Update URD with UAT results
+# 3. Update URD with UAT results
 bd comments add {{URD_TASK_ID}} "UAT {{PHASE}}: {{VERDICT}} - {{key design decisions summary}}"
-bd dep relate {{URD_TASK_ID}} {{UAT_TASK_ID}}
 
-# 5. After UAT passes, ratify the proposal
-bd label add {{PROPOSAL_TASK_ID}} aura:plan:ratify
+# 4. After UAT passes, proceed to ratification (Phase 6)
+bd label add {{PROPOSAL_TASK_ID}} aura:p6-plan:s6-ratify
 bd comments add {{PROPOSAL_TASK_ID}} "RATIFIED: All 3 reviewers ACCEPT, UAT passed ({{UAT_TASK_ID}})."
 
-# 6. If UAT fails (REVISE), return to proposal phase
+# 5. If UAT fails (REVISE), return to proposal phase
 #    - Do NOT ratify
-#    - Create a new REVISION task related to the proposal
+#    - Create a new PROPOSAL-N task (increment N) related to the original
 #    - Record the specific component and verbatim feedback
 ```
 
@@ -133,6 +134,8 @@ bd comments add {{PROPOSAL_TASK_ID}} "RATIFIED: All 3 reviewers ACCEPT, UAT pass
 6. **User-initiated comments** go in `<user-comment>` outside the question/answer flow
 7. **Addenda** capture post-UAT feedback that modifies the design
 8. **Final decision** summarizes all design changes relative to the proposal being UAT'd
+9. **Binary decisions only** — component decisions are ACCEPT or REVISE (no intermediate levels)
+10. **Findings tracked via severity tree** — if ACCEPT with minor concerns, track them as IMPORTANT/MINOR findings in the severity tree during code review (Phase 10), not at UAT time
 
 ## See Also
 
