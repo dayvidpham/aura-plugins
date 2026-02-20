@@ -53,7 +53,7 @@
         );
 
         default = pkgs.symlinkJoin {
-          name = "aura-scripts";
+          name = "aura-plugins";
           paths = [
             self.packages.${system}.aura-parallel
             self.packages.${system}.aura-swarm
@@ -66,10 +66,10 @@
         aura-config-sync = import ./nix/hm-module.nix { inherit self; };
       };
 
-      # ── Dev Shell (for working on aura-scripts itself) ───────
+      # ── Dev Shell (for working on aura-plugins itself) ───────
       devShells = forAllSystems ({ pkgs, ... }: {
         default = pkgs.mkShell {
-          name = "aura-scripts-dev";
+          name = "aura-plugins-dev";
           packages = with pkgs; [
             python3
             tmux

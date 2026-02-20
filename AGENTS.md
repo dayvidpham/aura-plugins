@@ -72,7 +72,7 @@ bd dep add ure-id --blocked-by request-id
 ## Project Structure
 
 ```
-aura-scripts/
+aura-plugins/
 ├── scripts/                # Operational tooling (add to PATH)
 │   ├── aura-parallel       # Parallel agent launcher for tmux sessions (Python)
 │   └── aura-swarm          # Epic-based worktree agent launcher (Python)

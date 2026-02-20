@@ -1,5 +1,5 @@
 [project]
-name = "aura-scripts"
+name = "aura-plugins"
 version = "0.1.0"
 description = "Parallel agent launcher for Aura multi-agent workflows"
 requires-python = ">=3.10"

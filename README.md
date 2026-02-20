@@ -1,4 +1,4 @@
-# aura-scripts
+# aura-plugins
 
 Multi-agent orchestration toolkit for the [Aura Protocol](skills/protocol/PROCESS.md).
 Provides CLI tools for launching Claude agents in isolated worktrees and tmux
@@ -7,7 +7,7 @@ distribution.
 
 ## Overview
 
-aura-scripts solves two problems in multi-agent Claude workflows:
+aura-plugins solves two problems in multi-agent Claude workflows:
 
 1. **Isolation.** Parallel agents editing the same repo need separate working
    trees and branches to avoid conflicts. `aura-swarm` creates per-epic git
@@ -25,28 +25,28 @@ task status and comments &mdash; there is no separate messaging system.
 ### Claude Code
 
 ```bash
-# 1. Add the aura-scripts marketplace
-claude plugin marketplace add dayvidpham/aura-scripts
+# 1. Add the aura-plugins marketplace
+claude plugin marketplace add dayvidpham/aura-plugins
 
 # 2. Install the aura plugin (user-wide)
-claude plugin install aura@aura-scripts
+claude plugin install aura@aura-plugins
 
 # Or install for a specific project only
-claude plugin install aura@aura-scripts --scope project
+claude plugin install aura@aura-plugins --scope project
 
 # Validate (optional)
-claude plugin validate /path/to/aura-scripts
+claude plugin validate /path/to/aura-plugins
 ```
 
 After installing, restart Claude Code. Skills are auto-discovered and invocable as `/aura:<skill-name>` (e.g. `/aura:epoch`, `/aura:user-request`).
 
 ```bash
 # Update to latest
-claude plugin update aura@aura-scripts
+claude plugin update aura@aura-plugins
 
 # Local development (from a checkout, no install needed)
-claude plugin marketplace add /path/to/aura-scripts
-claude plugin install aura@aura-scripts
+claude plugin marketplace add /path/to/aura-plugins
+claude plugin install aura@aura-plugins
 ```
 
 ### OpenCode
@@ -64,7 +64,7 @@ Add as a flake input:
 ```nix
 # flake.nix
 {
-  inputs.aura-scripts.url = "github:dayvidpham/aura-scripts";
+  inputs.aura-plugins.url = "github:dayvidpham/aura-plugins";
 }
 ```
 
@@ -72,9 +72,9 @@ Then reference the packages:
 
 ```nix
 # In your system or home-manager config:
-aura-scripts.packages.${system}.aura-parallel
-aura-scripts.packages.${system}.aura-swarm
-aura-scripts.packages.${system}.default  # both tools
+aura-plugins.packages.${system}.aura-parallel
+aura-plugins.packages.${system}.aura-swarm
+aura-plugins.packages.${system}.default  # both tools
 ```
 
 ### Home Manager Module
@@ -85,7 +85,7 @@ protocol docs into `~/.claude/`:
 ```nix
 # home.nix
 {
-  imports = [ aura-scripts.homeManagerModules.aura-config-sync ];
+  imports = [ aura-plugins.homeManagerModules.aura-config-sync ];
 
   CUSTOM.programs.aura-config-sync = {
     packages.enable = true;              # install CLI tools
@@ -116,8 +116,8 @@ Core commands (`aura:plan`, `aura:status`, `aura:test`, `aura:feedback`,
 Both scripts are standalone Python 3.10+ with no external dependencies:
 
 ```bash
-git clone https://github.com/dayvidpham/aura-scripts
-cd aura-scripts
+git clone https://github.com/dayvidpham/aura-plugins
+cd aura-plugins
 chmod +x scripts/aura-swarm scripts/aura-parallel
 # Add scripts/ to PATH or symlink into a PATH directory
 ```
@@ -640,7 +640,7 @@ module). These are invoked as `/aura:<command>` in Claude sessions.
 ## Project Structure
 
 ```
-aura-scripts/
+aura-plugins/
 ├── .claude-plugin/            Plugin manifests
 │   ├── marketplace.json
 │   └── plugin.json
