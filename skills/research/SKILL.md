@@ -5,18 +5,18 @@ description: Domain research — find standards, prior art, and competing approa
 
 # Research
 
-General-purpose domain research skill. Finds standards, prior art, existing solutions, and established patterns for a given topic. Writes structured findings to `docs/research/<topic>.md`.
+General-purpose domain research skill. Finds standards, prior art, existing solutions, and established patterns for a given topic. Writes structured findings to `llm/research/<topic>.md`.
 
 See `../protocol/CONSTRAINTS.md` for coding standards.
 
 ## When to Use
 
-- **Phase 1 (s1_2-research):** Spawned by `/aura:user-request` after user confirms research depth. Findings recorded as REQUEST task comment AND written to `docs/research/`.
+- **Phase 1 (s1_2-research):** Spawned by `/aura:user-request` after user confirms research depth. Findings recorded as REQUEST task comment AND written to `llm/research/`.
 - **Standalone:** Any agent needing domain research outside the 12-phase workflow. Invoke directly with a topic and depth.
 
 ## Given/When/Then/Should
 
-**Given** a research topic **when** investigating **then** follow the depth-scoped checklist and write findings to `docs/research/<topic>.md` **should never** skip writing the deliverable file
+**Given** a research topic **when** investigating **then** follow the depth-scoped checklist and write findings to `llm/research/<topic>.md` **should never** skip writing the deliverable file
 
 **Given** depth is quick-scan **when** researching **then** search local project only (Grep, Glob, Read) **should never** make web requests
 
@@ -68,7 +68,7 @@ Apply all items appropriate to the depth level:
 
 ## Output Format
 
-Write findings to `docs/research/<topic>.md` using the structured report format.
+Write findings to `llm/research/<topic>.md` using the structured report format.
 
 ### File Structure
 
@@ -161,7 +161,7 @@ bd comments add {{request-task-id}} \
   - Prior art: {{list of projects/solutions}}
   - Patterns: {{established approaches}}
   - Recommendation: {{brief direction}}
-  - Full report: docs/research/{{topic}}.md"
+  - Full report: llm/research/{{topic}}.md"
 ```
 
 ## Example
@@ -174,7 +174,7 @@ Depth: standard-research
 Request task: aura-scripts-82j
 ```
 
-### Resulting file: `docs/research/http-proxy-credential-injection.md`
+### Resulting file: `llm/research/http-proxy-credential-injection.md`
 
 ```markdown
 ---
