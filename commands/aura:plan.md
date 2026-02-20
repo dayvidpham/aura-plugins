@@ -59,14 +59,14 @@ Retrieve the PROPOSAL-N task ID from the architect's output.
 Spawn 3 reviewers in parallel (single message, multiple Task calls):
 
 ```
-Task(description: "Reviewer 1: review plan",
-     prompt: "Review PROPOSAL-1 task <proposal-id>. Apply end-user alignment criteria. Run /aura:reviewer:review-plan",
+Task(description: "Reviewer A: correctness",
+     prompt: "Review PROPOSAL-1 task <proposal-id>. You are Reviewer A (Correctness). Run /aura:reviewer:review-plan",
      subagent_type: "reviewer")
-Task(description: "Reviewer 2: review plan",
-     prompt: "Review PROPOSAL-1 task <proposal-id>. Apply end-user alignment criteria. Run /aura:reviewer:review-plan",
+Task(description: "Reviewer B: test quality",
+     prompt: "Review PROPOSAL-1 task <proposal-id>. You are Reviewer B (Test quality). Run /aura:reviewer:review-plan",
      subagent_type: "reviewer")
-Task(description: "Reviewer 3: review plan",
-     prompt: "Review PROPOSAL-1 task <proposal-id>. Apply end-user alignment criteria. Run /aura:reviewer:review-plan",
+Task(description: "Reviewer C: elegance",
+     prompt: "Review PROPOSAL-1 task <proposal-id>. You are Reviewer C (Elegance). Run /aura:reviewer:review-plan",
      subagent_type: "reviewer")
 ```
 

@@ -53,9 +53,9 @@ When reviewing plans, explicitly ask:
    - Does the plan include tasks to wire production code?
    - Or are they only testing isolated units?
 
-**Red flag:** Plan shows "Layer 2: service.test.ts" but no task for "wire service into CLI command"
+**Red flag:** Plan shows "Layer 2: service_test.go" but no task for "wire service into CLI command"
 
-**Green flag:** Plan shows "Layer 3: Wire CLI command with createService + real deps"
+**Green flag:** Plan shows "Layer 3: Wire cobra command with NewService(realDeps)"
 
 ## Steps
 
@@ -74,7 +74,7 @@ When reviewing plans, explicitly ask:
 5. Create review task:
    ```bash
    bd create --labels "aura:p4-plan:s4-review" \
-     --title "PROPOSAL-1-REVIEW-1: <feature>" \
+     --title "PROPOSAL-1-REVIEW-A-1: <feature>" \
      --description "---
    references:
      proposal: <proposal-id>

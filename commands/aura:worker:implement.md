@@ -65,13 +65,13 @@ See the project's `AGENTS.md` and `~/.claude/CLAUDE.md` for coding standards.
    - Don't add types for other slices
 
    **Layer 2: Tests (import production code)**
-   - Import actual CLI/API: `import { commandCli } from '...'`
-   - NOT test-only export: ~~`import { handleCommand } from '...'`~~
+   - Import actual CLI/API package: `import "myproject/cmd/feature"`
+   - NOT test-only handler: ~~`import "myproject/internal/testhelpers/feature"`~~
    - Tests will FAIL - expected (no impl yet)
 
    **Layer 3: Implementation + Wiring**
    - Service method for your slice
-   - CLI/API wiring with real dependencies: `createService({ fs, logger, ... })`
+   - CLI/API wiring with real dependencies: `NewService(ServiceDeps{ FS: fs, Logger: logger })`
    - NOT TODO placeholders: ~~`// TODO: Wire service`~~
 
    Follow:

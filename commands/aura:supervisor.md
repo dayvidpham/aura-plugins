@@ -77,10 +77,10 @@ The architect creates a placeholder IMPL_PLAN task. Your first job is to fill it
    OR
 
    ### Horizontal Layers (If shared infrastructure)
-   - Layer 1: types.ts, interfaces.ts (no deps)
-   - Layer 2: service.test.ts (tests first, depend on L1)
-   - Layer 3: service.ts (implementation, make tests pass)
-   - Layer 4: integration.test.ts (depends on L3)
+   - Layer 1: types.go, interfaces.go (no deps)
+   - Layer 2: service_test.go (tests first, depend on L1)
+   - Layer 3: service.go (implementation, make tests pass)
+   - Layer 4: integration_test.go (depends on L3)
 
    ## Tasks
    - <task-id-1>: SLICE-1 ...
@@ -104,22 +104,22 @@ bd list --labels="aura:urd"
 
 ## Implementation Task Structure
 
-```typescript
-{
-  file: FilePath,
-  taskId: TaskId,                          // Beads task ID (e.g., "aura-xxx")
-  requirementRef: string,
-  prompt: string,
-  context: {
-    relatedFiles: [{ file, summary }],
-    taskDescription: string
-  },
-  status: 'Pending' | 'Claimed' | 'Complete' | 'Failed',
-  // Beads fields:
-  validation_checklist: string[],          // Items from RATIFIED_PLAN
-  acceptance_criteria: { given, when, then, should_not? }[],
-  tradeoffs: { decision, rationale }[],
-  ratified_plan: string                    // Link to RATIFIED_PLAN task ID
+```go
+type ImplementationTask struct {
+    File            string          // file path
+    TaskID          string          // Beads task ID (e.g., "aura-xxx")
+    RequirementRef  string
+    Prompt          string
+    Context         struct {
+        RelatedFiles    []struct{ File, Summary string }
+        TaskDescription string
+    }
+    Status          string          // "Pending" | "Claimed" | "Complete" | "Failed"
+    // Beads fields:
+    ValidationChecklist []string              // Items from RATIFIED_PLAN
+    AcceptanceCriteria  []AcceptanceCriterion // {Given, When, Then, ShouldNot}
+    Tradeoffs           []Tradeoff           // {Decision, Rationale}
+    RatifiedPlan        string               // Link to RATIFIED_PLAN task ID
 }
 ```
 
@@ -181,7 +181,7 @@ bd update <slice-3-id> --assignee="worker-3"
 
 Workers are **general-purpose agents** that call `/aura:worker` at the start. This is critical:
 
-```typescript
+```
 // ✅ CORRECT: Use general-purpose subagent, worker skill is invoked inside
 Task({
   subagent_type: "general-purpose",

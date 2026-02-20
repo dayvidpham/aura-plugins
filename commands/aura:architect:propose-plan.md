@@ -56,14 +56,19 @@ references:
 
 ## Public Interfaces
 
-\`\`\`typescript
-export interface IExample { ... }
+\`\`\`go
+type Example interface { /* ... */ }
 \`\`\`
 
 ## Types & Enums
 
-\`\`\`typescript
-export enum ExampleType { ... }
+\`\`\`go
+type ExampleType int
+
+const (
+    ExampleTypeA ExampleType = iota
+    ExampleTypeB
+)
 \`\`\`
 
 ## Validation Checklist
@@ -83,8 +88,8 @@ export enum ExampleType { ... }
 **Should Not** negative case
 
 ## Files Affected
-- src/path/file1.ts (create)
-- src/path/file2.ts (modify)
+- pkg/path/file1.go (create)
+- pkg/path/file2.go (modify)
 EOF
 )" \
   --design='{"validation_checklist":["Item 1","Item 2","Item 3"],"tradeoffs":[{"decision":"Use A","rationale":"Because..."}],"acceptance_criteria":[{"given":"X","when":"Y","then":"Z","should_not":"W"}]}'
@@ -108,7 +113,7 @@ The URD contains the structured requirements, priorities, design choices, and MV
 - Problem Space (axes, has-a/is-a)
 - Engineering Tradeoffs (table with decisions)
 - MVP Milestone (scope with tradeoff rationale)
-- Public Interfaces (TypeScript)
+- Public Interfaces (Go)
 - Types & Enums
 - Validation Checklist (per phase)
 - BDD Acceptance Criteria

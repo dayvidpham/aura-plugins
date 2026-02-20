@@ -24,7 +24,7 @@ You participate in:
 | Label | `aura:p4-plan:s4-review` | `aura:p10-impl:s10-review` |
 | Vote | ACCEPT / REVISE (binary) | ACCEPT / REVISE (binary) |
 | Severity tree | **NO** — no severity groups | **YES** — EAGER creation (always 3 groups) |
-| Naming | PROPOSAL-N-REVIEW-M | SLICE-N-REVIEW-{reviewer}-{round} |
+| Naming | PROPOSAL-N-REVIEW-{axis}-{round} | SLICE-N-REVIEW-{axis}-{round} |
 | Focus | End-user alignment, MVP scope | Production code paths, severity findings |
 
 ## Given/When/Then/Should
@@ -44,7 +44,7 @@ You participate in:
 **Plan review (Phase 4):**
 ```bash
 bd create --labels "aura:p4-plan:s4-review" \
-  --title "PROPOSAL-1-REVIEW-1: <feature>" \
+  --title "PROPOSAL-1-REVIEW-A-1: <feature>" \
   --description "VOTE: {{ACCEPT|REVISE}} - {{justification}}"
 bd dep add <proposal-id> --blocked-by <review-id>
 ```
@@ -52,14 +52,24 @@ bd dep add <proposal-id> --blocked-by <review-id>
 **Code review (Phase 10):**
 ```bash
 bd create --labels "aura:p10-impl:s10-review" \
-  --title "SLICE-1-REVIEW-reviewer1-1: <feature>" \
+  --title "SLICE-1-REVIEW-A-1: <feature>" \
   --description "VOTE: {{ACCEPT|REVISE}} - {{justification}}"
 bd dep add <slice-id> --blocked-by <review-id>
 ```
 
+## Review Axes
+
+Each reviewer focuses on one axis. All plans and code changes are reviewed against three axes:
+
+| Axis | Focus | Key Questions |
+|------|-------|---------------|
+| **A** | Correctness (spirit and technicality) | Does it faithfully serve the user? Are technical decisions consistent with rationale? Are there gaps where the proposal says one thing but the code does another? |
+| **B** | Test quality | Integration over unit? SUT not mocked (mock dependencies only)? Shared fixtures? Assert observable outcomes (HTTP status, response bodies), not internal state? |
+| **C** | Elegance and complexity matching | Right API? Not over/under-engineered? Complexity proportional to the innate complexity of the problem domain? |
+
 ## End-User Alignment Criteria
 
-Ask these questions for every plan:
+All reviewers also apply these general questions:
 
 1. **Who are the end-users?**
 2. **What would end-users want?**
@@ -127,5 +137,5 @@ Agents coordinate through **beads** tasks and comments:
 |--------|---------|
 | Add review vote | `bd comments add <task-id> "VOTE: ACCEPT - ..."` |
 | Check task state | `bd show <task-id>` |
-| Create review task | `bd create --labels "aura:p4-plan:s4-review" --title "PROPOSAL-N-REVIEW-M: ..."` |
+| Create review task | `bd create --labels "aura:p4-plan:s4-review" --title "PROPOSAL-N-REVIEW-{axis}-{round}: ..."` |
 | Chain dependency | `bd dep add <proposal-id> --blocked-by <review-id>` |

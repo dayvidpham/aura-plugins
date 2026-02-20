@@ -127,9 +127,9 @@ Implement the ratified plan for User Authentication.
 Add JWT-based authentication with login/logout endpoints and middleware.
 
 ## Key Files
-- src/auth/jwt.ts
-- src/auth/middleware.ts
-- src/routes/auth.ts
+- pkg/auth/jwt.go
+- pkg/auth/middleware.go
+- cmd/api/auth.go
 
 ## Acceptance Criteria
 Given a valid JWT token when accessing protected routes then allow access

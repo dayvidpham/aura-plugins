@@ -41,10 +41,10 @@ Before spawning each worker, create a handoff document:
 ## Key Files
 | File | What You Own |
 |------|-------------|
-| src/feature/types.ts | ListOptions, ListEntry types |
-| tests/unit/feature-list.test.ts | List command tests |
-| src/feature/service.ts | listItems() method |
-| src/cli/commands/feature.ts | list subcommand wiring |
+| pkg/feature/types.go | ListOptions, ListEntry types |
+| cmd/feature/list_test.go | List command tests |
+| pkg/feature/service.go | ListItems() method |
+| cmd/feature/list.go | list subcommand wiring |
 
 ## Implementation Order
 1. Layer 1: Types (your slice only)
@@ -61,7 +61,7 @@ Before spawning each worker, create a handoff document:
 
 ## Task Call
 
-```typescript
+```
 Task({
   description: "Worker: implement SLICE-N",
   prompt: `Call Skill(/aura:worker) and implement the assigned slice.

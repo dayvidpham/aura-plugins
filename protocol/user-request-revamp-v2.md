@@ -9,17 +9,17 @@ What we want:
 REQUEST
   └── blocked by URE
         └── blocked by PROPOSAL-1 (closed, superseded)
-              └── blocked by PROPOSAL-1-REVIEW-1 (closed)
-              └── blocked by PROPOSAL-1-REVIEW-2 (closed)
-              └── blocked by PROPOSAL-1-REVIEW-3 (closed)
+              └── blocked by PROPOSAL-1-REVIEW-A-1 (closed)
+              └── blocked by PROPOSAL-1-REVIEW-B-1 (closed)
+              └── blocked by PROPOSAL-1-REVIEW-C-1 (closed)
         └── blocked by PROPOSAL-{2,3,...,N-1} (closed, superseded)
-              └── blocked by PROPOSAL-{K, for proposal number K}-REVIEW-1 (closed)
-              └── blocked by PROPOSAL-{K, for proposal number K}-REVIEW-2 (closed)
-              └── blocked by PROPOSAL-{K, for proposal number K}-REVIEW-3 (closed)
+              └── blocked by PROPOSAL-{K}-REVIEW-A-1 (closed)
+              └── blocked by PROPOSAL-{K}-REVIEW-B-1 (closed)
+              └── blocked by PROPOSAL-{K}-REVIEW-C-1 (closed)
         └── blocked by PROPOSAL-N (open, aura:plan:ratify)
-              └── blocked by PROPOSAL-N-REVIEW-1 (closed)
-              └── blocked by PROPOSAL-N-REVIEW-2 (closed)
-              └── blocked by PROPOSAL-N-REVIEW-3 (closed)
+              └── blocked by PROPOSAL-N-REVIEW-A-1 (closed)
+              └── blocked by PROPOSAL-N-REVIEW-B-1 (closed)
+              └── blocked by PROPOSAL-N-REVIEW-C-1 (closed)
               └── blocked by IMPL_PLAN
                     ├── blocked by slice-1
                     │     ├── blocked by leaf-task-a

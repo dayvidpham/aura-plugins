@@ -223,7 +223,7 @@ SLICE-1 implements the core logging infrastructure. All quality gates pass
 ## Metadata
 - **Request:** aura-scripts-abc — REQUEST: Add structured logging
 - **Date:** 2026-02-20
-- **Source:** Reviewer (reviewer-1)
+- **Source:** Reviewer (reviewer-A)
 - **Target:** Followup (Supervisor creates follow-up epic)
 
 ## Task References

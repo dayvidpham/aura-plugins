@@ -21,7 +21,7 @@ This document describes how to migrate existing Aura protocol usage from v1 labe
 | `aura:plan:request` (elicit) | `aura:p2-user:s2_1-elicit` | Elicitation now Phase 2 |
 | `aura:urd` | `aura:urd` | Unchanged (also `aura:p2-user:s2_2-urd`) |
 | `aura:plan:propose` | `aura:p3-plan:s3-propose` | Title: PROPOSAL-N (not PROPOSE_PLAN) |
-| `aura:review` | `aura:p4-plan:s4-review` | Title: PROPOSAL-N-REVIEW-M |
+| `aura:review` | `aura:p4-plan:s4-review` | Title: PROPOSAL-N-REVIEW-{axis}-{round} |
 | `aura:plan:revision` | `aura:p3-plan:s3-propose` | Revisions are new PROPOSAL-N (incremented N) |
 | — (new) | `aura:p5-user:s5-uat` | Plan UAT now explicit phase |
 | `aura:plan:ratified` | `aura:p6-plan:s6-ratify` | Ratification now Phase 6 |
@@ -47,7 +47,7 @@ This document describes how to migrate existing Aura protocol usage from v1 labe
 | `REQUEST_PLAN: Description` | `REQUEST: Description` |
 | `PROPOSE_PLAN: Description` | `PROPOSAL-N: Description` |
 | `REVISION_1: Description` | `PROPOSAL-N: Description` (N incremented) |
-| `REVIEW_1/2/3: Description` | `PROPOSAL-N-REVIEW-M: Description` |
+| `REVIEW_1/2/3: Description` | `PROPOSAL-N-REVIEW-{axis}-{round}: Description` |
 | `RATIFIED_PLAN: Description` | (ratified via `aura:p6-plan:s6-ratify` label; old proposals marked `aura:superseded`) |
 | `[SLICE] Implement 'X'` | `SLICE-N: Description` |
 | `IMPLEMENTATION_PLAN: Description` | `IMPL_PLAN: Description` |

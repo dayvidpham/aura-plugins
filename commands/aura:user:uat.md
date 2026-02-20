@@ -122,8 +122,7 @@ Design-space questions to ask per component type:
 
 Use one AskUserQuestion call per component — do NOT batch all components into one survey.
 
-```typescript
-// Example for a specific component (not generic)
+```
 AskUserQuestion({
   questions: [
     {

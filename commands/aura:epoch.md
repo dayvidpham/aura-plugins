@@ -133,11 +133,11 @@ Code reviews ALWAYS create 3 severity group tasks per review round, even if empt
 
 ```bash
 # Create all 3 severity groups immediately (EAGER, not lazy)
-bd create --title "SLICE-N-REVIEW-M BLOCKER" \
+bd create --title "SLICE-N-REVIEW-{axis}-{round} BLOCKER" \
   --labels "aura:severity:blocker,aura:p10-impl:s10-review" ...
-bd create --title "SLICE-N-REVIEW-M IMPORTANT" \
+bd create --title "SLICE-N-REVIEW-{axis}-{round} IMPORTANT" \
   --labels "aura:severity:important,aura:p10-impl:s10-review" ...
-bd create --title "SLICE-N-REVIEW-M MINOR" \
+bd create --title "SLICE-N-REVIEW-{axis}-{round} MINOR" \
   --labels "aura:severity:minor,aura:p10-impl:s10-review" ...
 
 # Empty groups are closed immediately

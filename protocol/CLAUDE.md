@@ -181,7 +181,7 @@ Phase 1:  REQUEST (user prompt)
             s1_1-classify → s1_2-research (parallel) → s1_3-explore (parallel)
 Phase 2:  ELICIT (URE survey, s2_1) → URD (s2_2, single source of truth)
 Phase 3:  PROPOSAL-N (architect proposes, s3-propose)
-Phase 4:  PROPOSAL-N-REVIEW-M (parallel reviewers, ACCEPT/REVISE binary only)
+Phase 4:  PROPOSAL-N-REVIEW-{axis}-{round} (3 axis-specific reviewers: A/B/C, ACCEPT/REVISE)
 Phase 5:  Plan UAT (user acceptance test on plan)
 Phase 6:  Ratification (aura:superseded marks old proposals)
 Phase 7:  Handoff (architect → supervisor, stored at .git/.aura/handoff/)
@@ -228,7 +228,7 @@ Special labels:
 |---|---|---|
 | `REQUEST: Description` | `aura:p1-user:s1_1-classify` | User or Coordinator |
 | `PROPOSAL-N: Description` | `aura:p3-plan:s3-propose` | Architect |
-| `PROPOSAL-N-REVIEW-M: Description` | `aura:p4-plan:s4-review` | Reviewers |
+| `PROPOSAL-N-REVIEW-{axis}-{round}: Description` | `aura:p4-plan:s4-review` | Reviewers |
 | `URD: Description` | `aura:urd` | Architect (after Phase 2) |
 | `IMPL_PLAN: Description` | `aura:p8-impl:s8-plan` | Supervisor |
 | `SLICE-N: Description` | `aura:p9-impl:s9-slice` | Workers |
@@ -268,9 +268,9 @@ Code review rounds (Phase 10) use a severity tree with **EAGER creation**:
 
 ```bash
 # Create all 3 severity groups immediately (EAGER, not lazy)
-bd create --title "SLICE-1-REVIEW-1 BLOCKER" --labels "aura:severity:blocker" ...
-bd create --title "SLICE-1-REVIEW-1 IMPORTANT" --labels "aura:severity:important" ...
-bd create --title "SLICE-1-REVIEW-1 MINOR" --labels "aura:severity:minor" ...
+bd create --title "SLICE-1-REVIEW-A-1 BLOCKER" --labels "aura:severity:blocker" ...
+bd create --title "SLICE-1-REVIEW-A-1 IMPORTANT" --labels "aura:severity:important" ...
+bd create --title "SLICE-1-REVIEW-A-1 MINOR" --labels "aura:severity:minor" ...
 
 # Empty groups have no children and are closed immediately
 bd close <empty-important-id>

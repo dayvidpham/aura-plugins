@@ -22,9 +22,9 @@ Received handoff from architect with RATIFIED_PLAN task ID and placeholder IMPL_
 
 **ANTI-PATTERN (causes dual-export problem):**
 ```
-Task A: Layer 1 - types.ts (all types)
-Task B: Layer 2 - service.test.ts (all tests)
-Task C: Layer 3 - service.ts (all implementation)
+Task A: Layer 1 - types.go (all types)
+Task B: Layer 2 - service_test.go (all tests)
+Task C: Layer 3 - service.go (all implementation)
 Task D: Layer 4 - CLI wiring
 ```
 
@@ -35,14 +35,14 @@ Task D: Layer 4 - CLI wiring
 SLICE-1: "feature list command" (Worker A owns full vertical)
   - ListOptions, ListEntry types (L1)
   - Tests importing `cli-tool feature list` CLI (L2)
-  - service.listItems() implementation (L3)
-  - featureCommandCli.command('list').action() wiring (L3)
+  - service.ListItems() implementation (L3)
+  - listCmd (cobra) RunE handler wiring (L3)
 
 SLICE-2: "feature detail command" (Worker B owns full vertical)
   - DetailView types (L1)
   - Tests importing `cli-tool feature detail` CLI (L2)
-  - service.getItemDetail() implementation (L3)
-  - featureCommandCli.command('detail').action() wiring (L3)
+  - service.GetItemDetail() implementation (L3)
+  - detailCmd (cobra) RunE handler wiring (L3)
 ```
 
 ## Steps
@@ -86,17 +86,17 @@ SLICE-2: "feature detail command" (Worker B owns full vertical)
    ## Worker Owns (Full Vertical Slice)
 
    Plan backwards from production code path:
-   1. End: CLI entry point `featureCommandCli.command('list').action(...)`
-   2. Back: Service call `createFeatureService().listItems(options)`
-   3. Back: Service method `listItems(options: ListOptions): ListEntry[]`
+   1. End: CLI entry point `listCmd (cobra.Command) RunE handler`
+   2. Back: Service call `feature.NewService(deps).ListItems(opts)`
+   3. Back: Service method `ListItems(opts ListOptions) ([]ListEntry, error)`
    4. Back: Types `ListOptions`, `ListEntry`
 
    ## Files You Own (Within These Files)
 
-   - src/feature/types.ts (ListOptions, ListEntry ONLY)
-   - tests/unit/cli/commands/feature-list.test.ts (import actual CLI)
-   - src/feature/service.ts (listItems method ONLY)
-   - src/cli/commands/feature.ts (list subcommand wiring ONLY)
+   - pkg/feature/types.go (ListOptions, ListEntry ONLY)
+   - cmd/feature/list_test.go (import actual CLI)
+   - pkg/feature/service.go (ListItems method ONLY)
+   - cmd/feature/list.go (list subcommand wiring ONLY)
 
    ## Implementation Order (Layers Within Your Slice)
 
@@ -105,13 +105,13 @@ SLICE-2: "feature detail command" (Worker B owns full vertical)
    - Do NOT add types for other slices (e.g., DetailView)
 
    **Layer 2: Tests** (importing production code)
-   - Import actual CLI: `import { featureCommandCli } from '...'`
+   - Import actual CLI: `import "myproject/cmd/feature"`
    - Test the actual command users will run
    - Tests will FAIL - expected, no implementation yet
 
    **Layer 3: Implementation + Wiring**
-   - Implement service.listItems() method
-   - Wire CLI action with createFeatureService({ real deps })
+   - Implement service.ListItems() method
+   - Wire cobra command with feature.NewService(realDeps)
    - No TODO placeholders
    - Tests should now PASS
 
@@ -131,7 +131,7 @@ SLICE-2: "feature detail command" (Worker B owns full vertical)
          "Type checking passes",
          "Tests pass",
          "Production code verified via code inspection",
-         "Tests import production CLI (featureCommandCli)",
+         "Tests import production CLI package",
          "No TODO placeholders in CLI action",
          "Service wired with real dependencies"
        ],
@@ -215,12 +215,12 @@ SLICE-2: "feature detail command" (Worker B owns full vertical)
   "productionCodePath": "cli-tool feature list",
   "taskId": "aura-xxx",
   "workerOwns": {
-    "endPoint": "featureCommandCli.command('list').action(...)",
+    "endPoint": "listCmd (cobra.Command) RunE handler",
     "types": ["ListOptions", "ListEntry"],
-    "tests": ["tests/unit/cli/commands/feature-list.test.ts"],
+    "tests": ["cmd/feature/list_test.go"],
     "implementation": [
-      "service.listItems() method",
-      "CLI list action with createFeatureService({ real deps })"
+      "(*FeatureService).ListItems() method",
+      "listCmd wired with feature.NewService(realDeps)"
     ]
   },
   "planningApproach": "Backwards from production code path",
@@ -250,11 +250,11 @@ Each worker implements their slice in layers (TDD approach):
 ```
 Worker A's Slice: "aura sessions list"
   Layer 1: Types (ListOptions, SessionListEntry only)
-  Layer 2: Tests (import sessionsCommandCli, test list action)
+  Layer 2: Tests (import sessions package, test list action)
            → Tests will FAIL (expected - no impl yet)
   Layer 3: Implementation + Wiring
-           - service.listSessions() method
-           - CLI action: createSessionsService({ fs, logger, parser })
+           - (*SessionsService).ListSessions() method
+           - listCmd wired with sessions.NewService(deps)
            - Wire action to call service
            → Tests should now PASS
 ```

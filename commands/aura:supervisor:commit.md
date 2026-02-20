@@ -27,7 +27,7 @@ All workers for a layer have completed successfully.
 ```
 feat|fix|docs|refactor(scope): Description
 
-Files: file1.ts, file2.ts
+Files: file1.go, file2.go
 Task: aura-xxx, aura-yyy
 Ratified-Plan: <ratified-plan-id>
 

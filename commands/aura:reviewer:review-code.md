@@ -25,7 +25,7 @@ Assigned to review code implementation after worker slices complete.
 ```bash
 # Step 1: Create all 3 severity groups immediately (EAGER, not lazy)
 bd create --labels "aura:severity:blocker,aura:p10-impl:s10-review" \
-  --title "SLICE-1-REVIEW-reviewer1-1 BLOCKER" \
+  --title "SLICE-1-REVIEW-A-1 BLOCKER" \
   --description "---
 references:
   slice: <slice-id>
@@ -35,7 +35,7 @@ BLOCKER findings for this review round"
 # Result: <blocker-group-id>
 
 bd create --labels "aura:severity:important,aura:p10-impl:s10-review" \
-  --title "SLICE-1-REVIEW-reviewer1-1 IMPORTANT" \
+  --title "SLICE-1-REVIEW-A-1 IMPORTANT" \
   --description "---
 references:
   slice: <slice-id>
@@ -45,7 +45,7 @@ IMPORTANT findings for this review round"
 # Result: <important-group-id>
 
 bd create --labels "aura:severity:minor,aura:p10-impl:s10-review" \
-  --title "SLICE-1-REVIEW-reviewer1-1 MINOR" \
+  --title "SLICE-1-REVIEW-A-1 MINOR" \
   --description "---
 references:
   slice: <slice-id>
@@ -122,7 +122,7 @@ IMPORTANT and MINOR findings do **NOT** block the slice — they are tracked in 
 5. Create review task:
    ```bash
    bd create --labels "aura:p10-impl:s10-review" \
-     --title "SLICE-1-REVIEW-reviewer1-1: <feature>" \
+     --title "SLICE-1-REVIEW-A-1: <feature>" \
      --description "---
    references:
      slice: <slice-id>
@@ -147,29 +147,38 @@ IMPORTANT and MINOR findings do **NOT** block the slice — they are tracked in 
 1. **Check for dual-export anti-pattern:**
 
    **Anti-pattern example:**
-   ```typescript
+   ```go
    // WRONG: Test-only export
-   export const handleCommand = (argv, service) => { /* tested */ };
+   func HandleCommand(argv []string, service Service) error { /* tested */ }
 
-   // WRONG: Production-only export (not tested)
-   export const commandCli = new Command()
-     .action(async () => {
-       // TODO: wire up service
-     });
+   // WRONG: Production-only command (not tested)
+   var commandCmd = &cobra.Command{
+       Use: "command",
+       RunE: func(cmd *cobra.Command, args []string) error {
+           // TODO: wire up service
+           return nil
+       },
+   }
    ```
 
    **Correct example:**
-   ```typescript
-   // CORRECT: Single export, both tested and used in production
-   export const commandCli = new Command()
-     .action(async (options) => {
-       const service = createService({ /* real deps */ });
-       const result = await service.doThing(options);
-       console.log(result);
-     });
+   ```go
+   // CORRECT: Single command, both tested and used in production
+   var commandCmd = &cobra.Command{
+       Use: "command",
+       RunE: func(cmd *cobra.Command, args []string) error {
+           service := NewService(RealDeps{})
+           result, err := service.DoThing(args)
+           if err != nil {
+               return err
+           }
+           fmt.Println(result)
+           return nil
+       },
+   }
 
-   // Tests import commandCli directly
-   import { commandCli } from './commands/thing.js';
+   // Tests import commandCmd directly
+   // import "myproject/cmd/thing"
    ```
 
 2. **Verify no TODO placeholders:**

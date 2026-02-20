@@ -32,32 +32,32 @@ See `CONSTRAINTS.md` for coding standards and severity definitions.
 
 ```bash
 # Step 1: Create all 3 severity groups immediately (EAGER)
-BLOCKER_ID=$(bd create --title "SLICE-1-REVIEW-1 BLOCKER" \
+BLOCKER_ID=$(bd create --title "SLICE-1-REVIEW-A-1 BLOCKER" \
   --labels "aura:severity:blocker,aura:p10-impl:s10-review" \
   --description "---
 references:
   slice: <slice-1-id>
   review_round: 1
 ---
-BLOCKER findings from Reviewer 1 on SLICE-1.")
+BLOCKER findings from Reviewer A (Correctness) on SLICE-1.")
 
-IMPORTANT_ID=$(bd create --title "SLICE-1-REVIEW-1 IMPORTANT" \
+IMPORTANT_ID=$(bd create --title "SLICE-1-REVIEW-A-1 IMPORTANT" \
   --labels "aura:severity:important,aura:p10-impl:s10-review" \
   --description "---
 references:
   slice: <slice-1-id>
   review_round: 1
 ---
-IMPORTANT findings from Reviewer 1 on SLICE-1.")
+IMPORTANT findings from Reviewer A (Correctness) on SLICE-1.")
 
-MINOR_ID=$(bd create --title "SLICE-1-REVIEW-1 MINOR" \
+MINOR_ID=$(bd create --title "SLICE-1-REVIEW-A-1 MINOR" \
   --labels "aura:severity:minor,aura:p10-impl:s10-review" \
   --description "---
 references:
   slice: <slice-1-id>
   review_round: 1
 ---
-MINOR findings from Reviewer 1 on SLICE-1.")
+MINOR findings from Reviewer A (Correctness) on SLICE-1.")
 
 # Step 2: Wire severity groups to the review round
 bd dep add <review-round-id> --blocked-by $BLOCKER_ID
@@ -73,17 +73,19 @@ bd close $MINOR_ID        # if no MINOR findings
 ### Naming Convention
 
 ```
-SLICE-{N}-REVIEW-{reviewer}-{round}
+SLICE-{N}-REVIEW-{axis}-{round}
 ```
 
+Where axis = A (Correctness), B (Test quality), C (Elegance).
+
 Examples:
-- `SLICE-1-REVIEW-1-R1` — Reviewer 1, Round 1, SLICE-1
-- `SLICE-2-REVIEW-3-R2` — Reviewer 3, Round 2, SLICE-2
+- `SLICE-1-REVIEW-A-1` — Reviewer A (Correctness), Round 1, SLICE-1
+- `SLICE-2-REVIEW-C-2` — Reviewer C (Elegance), Round 2, SLICE-2
 
 Severity groups:
-- `SLICE-1-REVIEW-1 BLOCKER`
-- `SLICE-1-REVIEW-1 IMPORTANT`
-- `SLICE-1-REVIEW-1 MINOR`
+- `SLICE-1-REVIEW-A-1 BLOCKER`
+- `SLICE-1-REVIEW-A-1 IMPORTANT`
+- `SLICE-1-REVIEW-A-1 MINOR`
 
 ## Dual-Parent BLOCKER Relationship
 
@@ -98,7 +100,7 @@ FINDING_ID=$(bd create --title "BLOCKER: Missing error handling in auth flow" \
   --description "---
 references:
   slice: <slice-1-id>
-  reviewer: reviewer-1
+  reviewer: reviewer-A
   round: 1
 ---
 Missing error handling causes silent failure in auth flow.")
@@ -117,7 +119,7 @@ IMPORTANT_FINDING_ID=$(bd create --title "IMPORTANT: Add request timeout" \
   --description "---
 references:
   slice: <slice-1-id>
-  reviewer: reviewer-1
+  reviewer: reviewer-A
   round: 1
 ---
 API calls should have configurable timeouts.")
@@ -128,34 +130,35 @@ bd dep add $IMPORTANT_ID --blocked-by $IMPORTANT_FINDING_ID
 
 ## Review Structure
 
-Each reviewer (1, 2, 3) reviews EVERY slice:
+Each reviewer (A, B, C) reviews EVERY slice:
 
 ```
-Reviewer 1: Reviews SLICE-1, SLICE-2, SLICE-3 →
-  Creates: SLICE-1-REVIEW-1, SLICE-2-REVIEW-1, SLICE-3-REVIEW-1
+Reviewer A (Correctness): Reviews SLICE-1, SLICE-2, SLICE-3 →
+  Creates: SLICE-1-REVIEW-A-1, SLICE-2-REVIEW-A-1, SLICE-3-REVIEW-A-1
   Each review has 3 severity groups (BLOCKER/IMPORTANT/MINOR)
 
-Reviewer 2: Reviews SLICE-1, SLICE-2, SLICE-3 →
-  Creates: SLICE-1-REVIEW-2, SLICE-2-REVIEW-2, SLICE-3-REVIEW-2
+Reviewer B (Test quality): Reviews SLICE-1, SLICE-2, SLICE-3 →
+  Creates: SLICE-1-REVIEW-B-1, SLICE-2-REVIEW-B-1, SLICE-3-REVIEW-B-1
 
-Reviewer 3: Reviews SLICE-1, SLICE-2, SLICE-3 →
-  Creates: SLICE-1-REVIEW-3, SLICE-2-REVIEW-3, SLICE-3-REVIEW-3
+Reviewer C (Elegance): Reviews SLICE-1, SLICE-2, SLICE-3 →
+  Creates: SLICE-1-REVIEW-C-1, SLICE-2-REVIEW-C-1, SLICE-3-REVIEW-C-1
 ```
 
 ## Spawning Reviewers
 
 Supervisor spawns 3 parallel reviewers as **subagents** (via the Task tool) or via **TeamCreate**. Reviewers are short-lived — keep them in-session.
 
-```typescript
-// Spawn reviewer as subagent
+```
+// Spawn 3 reviewers (one per axis)
 Task({
   subagent_type: "general-purpose",
   run_in_background: true,
-  prompt: `You are Reviewer 1.
+  prompt: `You are Reviewer A (Correctness).
 URD: <urd-id> (read with bd show <urd-id> for user requirements context)
+Focus: Does implementation faithfully serve the user? Are technical decisions consistent with rationale?
 Review ALL slices: <slice-1-id>, <slice-2-id>, <slice-3-id>
 For each slice, run: bd show <slice-id>
-Create severity groups (BLOCKER/IMPORTANT/MINOR) for each slice you review.
+Create severity groups (BLOCKER/IMPORTANT/MINOR) for each slice. Title: SLICE-N-REVIEW-A-1
 Call Skill(/aura:reviewer:review-code) for the review procedure.`
 })
 ```

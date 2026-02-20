@@ -102,7 +102,7 @@ Special labels:
 |---|---|---|---|
 | `REQUEST: Description` | `aura:p1-user:s1_1-classify` | Capture user's problem statement | User or Coordinator |
 | `PROPOSAL-N: Description` | `aura:p3-plan:s3-propose` | Architect's full technical proposal (N increments per revision) | Architect |
-| `PROPOSAL-N-REVIEW-M: Description` | `aura:p4-plan:s4-review` | Reviewer assessment of proposal N | Reviewers (spawned by architect) |
+| `PROPOSAL-N-REVIEW-{axis}-{round}: Description` | `aura:p4-plan:s4-review` | Reviewer assessment of proposal N (axis=A/B/C, round=1,2,...) | Reviewers (spawned by architect) |
 | `URD: Description` | `aura:urd` | Single source of truth for user requirements | Architect (after Phase 2 URE) |
 
 ### Implementation Phase Tasks
@@ -121,7 +121,7 @@ Special labels:
 ### Naming Conventions
 
 - **PROPOSAL-N:** N starts at 1 and increments with each revision. Old proposals are marked `aura:superseded`.
-- **PROPOSAL-N-REVIEW-M:** M identifies the reviewer (1, 2, 3). A new round of reviews creates new tasks with the same N.
+- **PROPOSAL-N-REVIEW-{axis}-{round}:** Axis identifies the reviewer's criteria focus (A=Correctness, B=Test quality, C=Elegance). Round increments per re-review cycle.
 - **SLICE-N:** N identifies the slice number within the implementation plan.
 
 ### Frontmatter References

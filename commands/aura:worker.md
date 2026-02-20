@@ -19,10 +19,10 @@ You own a **vertical slice** (full production code path from CLI/API entry point
 **Example vertical slice: "CLI command with list subcommand"**
 - **Production code path:** `./bin/cli-tool command list` (what end users run)
 - **You own (within each file):**
-  - Types: `ListOptions`, `ListEntry` (in src/feature/types.ts)
-  - Tests: feature-list.test.ts (importing actual CLI command)
-  - Service: `listItems()` method (in src/feature/service.ts)
-  - CLI wiring: `featureCommandCli.command('list').action(...)` (in src/cli/commands/feature.ts)
+  - Types: `ListOptions`, `ListEntry` (in pkg/feature/types.go)
+  - Tests: list_test.go (importing actual CLI command package)
+  - Service: `ListItems()` method (in pkg/feature/service.go)
+  - CLI wiring: `listCmd` cobra command RunE handler (in cmd/feature/list.go)
 
 **Key insight:** You own the FEATURE end-to-end, not a layer or file.
 
@@ -77,73 +77,82 @@ You own a **vertical slice** (full production code path from CLI/API entry point
 You implement your vertical slice in layers (TDD approach):
 
 **Layer 1: Types** (only what your slice needs)
-```typescript
-// src/feature/types.ts
+```go
+// pkg/feature/types.go
 // Only add types for YOUR slice (e.g., list command)
-export interface ListOptions { ... }
-export interface ListEntry { ... }
+type ListOptions struct { /* ... */ }
+type ListEntry struct { /* ... */ }
 // Don't add types for other slices (e.g., DetailView for other commands)
 ```
 
 **Layer 2: Tests** (importing production code)
-```typescript
-// tests/unit/cli/commands/feature-list.test.ts
-import { featureCommandCli } from '../../../src/cli/commands/feature.js';
+```go
+// cmd/feature/list_test.go
+package feature_test
 
-describe('cli-tool command list', () => {
-  it('should list items', async () => {
+import (
+    "testing"
+    "myproject/cmd/feature"
+)
+
+func TestFeatureList(t *testing.T) {
     // Test the actual CLI command
     // This is what users will run
     // Tests will FAIL - expected (no implementation yet)
-  });
-});
+}
 ```
 
 **CRITICAL:** Tests must import production code, not test-only export:
-```typescript
-// ✅ CORRECT: Import actual CLI
-import { featureCommandCli } from '../../../src/cli/commands/feature.js';
+```go
+// ✅ CORRECT: Import actual CLI package
+import "myproject/cmd/feature"
 
-// ❌ WRONG: Separate test-only export (dual-export anti-pattern)
-import { handleFeatureCommand } from '../../../src/cli/commands/feature.js';
+// ❌ WRONG: Separate test-only handler (dual-export anti-pattern)
+import "myproject/internal/testhelpers/feature"
 ```
 
 **Layer 3: Implementation + Wiring** (make tests pass)
-```typescript
-// src/feature/service.ts
-export function createFeatureService(deps: FeatureServiceDeps) {
-  return {
-    async listItems(options: ListOptions): Promise<ListEntry[]> {
-      // Implementation
-    }
-  };
+```go
+// pkg/feature/service.go
+type FeatureServiceDeps struct {
+    FS     afero.Fs
+    Logger *slog.Logger
 }
 
-// src/cli/commands/feature.ts
-import { createFeatureService } from '../../feature/service.js';
-import { createLogger } from '../../logging/logger.js';
-import fs from 'fs/promises';
+func NewFeatureService(deps FeatureServiceDeps) *FeatureService {
+    return &FeatureService{deps: deps}
+}
 
-export const featureCommandCli = new Command('command');
+func (s *FeatureService) ListItems(opts ListOptions) ([]ListEntry, error) {
+    // Implementation
+    return nil, nil
+}
 
-featureCommandCli
-  .command('list')
-  .option('--limit <number>', 'Max results', '20')
-  .option('--format <format>', 'Output format', 'table')
-  .action(async (options) => {
-    // Wire service with REAL dependencies (not mocks)
-    const service = createFeatureService({
-      fs: fs,
-      logger: createLogger({ service: 'feature' }),
-    });
+// cmd/feature/list.go
+var listCmd = &cobra.Command{
+    Use:   "list",
+    Short: "List items",
+    RunE: func(cmd *cobra.Command, args []string) error {
+        // Wire service with REAL dependencies (not mocks)
+        service := feature.NewFeatureService(feature.FeatureServiceDeps{
+            FS:     osFS{},
+            Logger: slog.Default(),
+        })
 
-    const result = await service.listItems({
-      limit: parseInt(options.limit),
-      format: options.format,
-    });
+        limit, _ := cmd.Flags().GetInt("limit")
+        format, _ := cmd.Flags().GetString("format")
+        result, err := service.ListItems(feature.ListOptions{
+            Limit:  limit,
+            Format: format,
+        })
+        if err != nil {
+            return err
+        }
 
-    console.log(formatList(result, options.format));
-  });
+        fmt.Println(formatList(result, format))
+        return nil
+    },
+}
 ```
 
 **No TODO placeholders. No test-only exports. Production code wired and working.**

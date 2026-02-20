@@ -28,7 +28,7 @@ You own Phases 1-7 of the epoch:
 
 **Given** a feature request **when** writing plan **then** use BDD Given/When/Then format with acceptance criteria **should never** write vague requirements
 
-**Given** plan ready **when** requesting review **then** spawn 3 generic reviewers (reviewer-1, reviewer-2, reviewer-3) for end-user alignment **should never** spawn specialized reviewers
+**Given** plan ready **when** requesting review **then** spawn 3 axis-specific reviewers (A=Correctness, B=Test quality, C=Elegance) **should never** spawn reviewers without axis assignment
 
 **Given** consensus reached (all 3 ACCEPT) **when** proceeding **then** run `/aura:user:uat` before ratifying **should never** skip user acceptance test
 
@@ -114,7 +114,7 @@ bd dep add <request-id> --blocked-by <proposal-id>
 Each reviewer creates their own task:
 ```bash
 bd create --labels "aura:p4-plan:s4-review" \
-  --title "PROPOSAL-1-REVIEW-1: <feature>" \
+  --title "PROPOSAL-1-REVIEW-A-1: <feature>" \
   --description "VOTE: <ACCEPT|REVISE> - <justification>"
 bd dep add <proposal-id> --blocked-by <review-id>
 ```
@@ -182,8 +182,8 @@ Storage: `.git/.aura/handoff/{request-task-id}/architect-to-supervisor.md`
 Scope with tradeoff rationale
 
 ## Public Interfaces
-```typescript
-export interface IExample { ... }
+```go
+type Example interface { /* ... */ }
 ```
 
 ## Validation Checklist
@@ -205,12 +205,12 @@ export interface IExample { ... }
 
 ## Spawning Reviewers
 
-Spawn 3 generic reviewers (all use same end-user alignment criteria):
+Spawn 3 axis-specific reviewers (A=Correctness, B=Test quality, C=Elegance):
 
 ```
-Task(description: "Reviewer 1: review plan", prompt: "Review PROPOSAL-1 task <id>. URD: <urd-id>...", subagent_type: "reviewer")
-Task(description: "Reviewer 2: review plan", prompt: "Review PROPOSAL-1 task <id>. URD: <urd-id>...", subagent_type: "reviewer")
-Task(description: "Reviewer 3: review plan", prompt: "Review PROPOSAL-1 task <id>. URD: <urd-id>...", subagent_type: "reviewer")
+Task(description: "Reviewer A: correctness", prompt: "Review PROPOSAL-1 task <id>. URD: <urd-id>. You are Reviewer A (Correctness)...", subagent_type: "reviewer")
+Task(description: "Reviewer B: test quality", prompt: "Review PROPOSAL-1 task <id>. URD: <urd-id>. You are Reviewer B (Test quality)...", subagent_type: "reviewer")
+Task(description: "Reviewer C: elegance", prompt: "Review PROPOSAL-1 task <id>. URD: <urd-id>. You are Reviewer C (Elegance)...", subagent_type: "reviewer")
 ```
 
 ## Supervisor Handoff

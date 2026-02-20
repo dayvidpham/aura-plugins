@@ -523,11 +523,11 @@ After all slices complete, spawn **3 independent reviewers** in parallel for cod
 
 ```bash
 # Create all 3 severity groups immediately
-bd create --title "SLICE-1-REVIEW-1 BLOCKER" \
+bd create --title "SLICE-1-REVIEW-A-1 BLOCKER" \
   --labels "aura:severity:blocker,aura:p10-impl:s10-review" ...
-bd create --title "SLICE-1-REVIEW-1 IMPORTANT" \
+bd create --title "SLICE-1-REVIEW-A-1 IMPORTANT" \
   --labels "aura:severity:important,aura:p10-impl:s10-review" ...
-bd create --title "SLICE-1-REVIEW-1 MINOR" \
+bd create --title "SLICE-1-REVIEW-A-1 MINOR" \
   --labels "aura:severity:minor,aura:p10-impl:s10-review" ...
 
 # Empty groups are closed immediately
