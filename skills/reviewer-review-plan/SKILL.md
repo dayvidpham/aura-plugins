@@ -2,7 +2,7 @@
 
 Review PROPOSAL-N task using end-user alignment criteria. Plan reviews use ACCEPT/REVISE only — no severity tree.
 
-**-> [Full workflow in PROCESS.md](PROCESS.md#phase-4-plan-review)**
+**-> [Full workflow in PROCESS.md](../protocol/PROCESS.md#phase-4-plan-review)**
 
 ## When to Use
 

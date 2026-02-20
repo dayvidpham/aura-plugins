@@ -7,7 +7,7 @@ description: Capture user's feature request verbatim as Phase 1 of epoch
 
 Capture the user's feature request **verbatim** in a beads task, then classify, research, and explore. This is the immutable record that all subsequent phases reference.
 
-See `CONSTRAINTS.md` for coding standards.
+See `../protocol/CONSTRAINTS.md` for coding standards.
 
 **-> [Full workflow in PROCESS.md](../protocol/PROCESS.md#phase-1-request-aurap1-user)**
 

@@ -38,24 +38,24 @@
     {
       # ── Packages ──────────────────────────────────────────────
       packages = forAllSystems ({ pkgs, system }: {
-        launch-parallel = pkgs.writeScriptBin "launch-parallel" (
+        aura-parallel = pkgs.writeScriptBin "aura-parallel" (
           builtins.replaceStrings
             [ "#!/usr/bin/env python3" ]
             [ "#!${pkgs.python3}/bin/python3" ]
-            (builtins.readFile ./launch-parallel.py)
+            (builtins.readFile ./scripts/aura-parallel)
         );
 
         aura-swarm = pkgs.writeScriptBin "aura-swarm" (
           builtins.replaceStrings
             [ "#!/usr/bin/env python3" ]
             [ "#!${pkgs.python3}/bin/python3" ]
-            (builtins.readFile ./aura-swarm)
+            (builtins.readFile ./scripts/aura-swarm)
         );
 
         default = pkgs.symlinkJoin {
           name = "aura-scripts";
           paths = [
-            self.packages.${system}.launch-parallel
+            self.packages.${system}.aura-parallel
             self.packages.${system}.aura-swarm
           ];
         };

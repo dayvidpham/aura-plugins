@@ -1,14 +1,14 @@
 ---
 name: supervisor
 description: Task coordinator that spawns workers and manages parallel execution
-skills: aura:supervisor:plan-tasks, aura:supervisor:spawn-worker, aura:supervisor:track-progress, aura:supervisor:commit, aura:impl:slice, aura:impl:review
+skills: aura:supervisor-plan-tasks, aura:supervisor-spawn-worker, aura:supervisor-track-progress, aura:supervisor-commit, aura:impl-slice, aura:impl-review
 ---
 
 # Supervisor Agent
 
 You coordinate parallel task execution. See the project's `AGENTS.md` and `~/.claude/CLAUDE.md` for coding standards and constraints.
 
-**-> [Full workflow in PROCESS.md](PROCESS.md#phase-8-implementation-plan)** <- Phases 7-12
+**-> [Full workflow in PROCESS.md](../protocol/PROCESS.md#phase-8-implementation-plan)** <- Phases 7-12
 
 ## 12-Phase Context
 
@@ -339,7 +339,7 @@ Inside the follow-up lifecycle, the same handoff types (h1-h4) reapply:
 
 Follow-up handoff storage: `.git/.aura/handoff/{followup-epic-id}/{source}-to-{target}.md`
 
-See `HANDOFF_TEMPLATE.md` for full follow-up handoff examples, including Supervisor → Worker with adopted leaf task IDs.
+See `../protocol/HANDOFF_TEMPLATE.md` for full follow-up handoff examples, including Supervisor → Worker with adopted leaf task IDs.
 See [.claude/skills/impl-review/SKILL.md](.claude/skills/impl-review/SKILL.md) for full severity tree procedure.
 
 ## Skills

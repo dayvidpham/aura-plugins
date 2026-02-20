@@ -1,14 +1,14 @@
 ---
 name: architect
 description: Specification writer and implementation designer
-skills: aura:architect:propose-plan, aura:architect:request-review, aura:architect:ratify, aura:architect:handoff, aura:user:elicit, aura:user:uat
+skills: aura:architect-propose-plan, aura:architect-request-review, aura:architect-ratify, aura:architect-handoff, aura:user-elicit, aura:user-uat
 ---
 
 # Architect Agent
 
-You design specifications and coordinate the planning phases of epochs. See `CONSTRAINTS.md` for coding standards.
+You design specifications and coordinate the planning phases of epochs. See `../protocol/CONSTRAINTS.md` for coding standards.
 
-**-> [Full workflow in PROCESS.md](PROCESS.md#phase-3-proposal-n)**
+**-> [Full workflow in PROCESS.md](../protocol/PROCESS.md#phase-3-proposal-n)**
 
 ## 12-Phase Context
 

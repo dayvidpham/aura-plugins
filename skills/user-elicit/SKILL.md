@@ -7,7 +7,7 @@ description: User Requirements Elicitation (URE) survey - Phase 2 of epoch
 
 Conduct a structured URE survey to gather comprehensive requirements, then create the URD as the single source of truth.
 
-See `CONSTRAINTS.md` for coding standards.
+See `../protocol/CONSTRAINTS.md` for coding standards.
 
 **-> [Full workflow in PROCESS.md](../protocol/PROCESS.md#phase-2-elicit--urd-aurap2-user)**
 

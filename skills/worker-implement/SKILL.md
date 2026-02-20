@@ -2,7 +2,7 @@
 
 Implement your vertical slice (full production code path from CLI/API → service → types).
 
-**-> [Full workflow in PROCESS.md](PROCESS.md#phase-9-worker-slices)** <- Phase 9
+**-> [Full workflow in PROCESS.md](../protocol/PROCESS.md#phase-9-worker-slices)** <- Phase 9
 
 ## When to Use
 

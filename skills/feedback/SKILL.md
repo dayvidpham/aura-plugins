@@ -2,7 +2,7 @@
 
 Provide structured feedback on plan or code review.
 
-**-> [Full workflow in PROCESS.md](PROCESS.md#phase-4-plan-review)**
+**-> [Full workflow in PROCESS.md](../protocol/PROCESS.md#phase-4-plan-review)**
 
 ## Format
 

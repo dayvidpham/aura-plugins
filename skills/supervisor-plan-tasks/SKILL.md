@@ -2,7 +2,7 @@
 
 Break RATIFIED_PLAN into vertical slice Implementation tasks for workers.
 
-**-> [Full workflow in PROCESS.md](PROCESS.md#phase-8-implementation-plan)** <- Phase 8
+**-> [Full workflow in PROCESS.md](../protocol/PROCESS.md#phase-8-implementation-plan)** <- Phase 8
 
 ## When to Use
 

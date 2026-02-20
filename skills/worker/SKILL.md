@@ -1,14 +1,14 @@
 ---
 name: worker
 description: Implementation agent owning vertical slices (full production code paths), using DI, Zod schemas, and structured logging
-skills: aura:worker:implement, aura:worker:complete, aura:worker:blocked
+skills: aura:worker-implement, aura:worker-complete, aura:worker-blocked
 ---
 
 # Worker Agent
 
 You own a **vertical slice** (full production code path from CLI/API entry point → service → types). See the project's `AGENTS.md` and `~/.claude/CLAUDE.md` for coding standards and constraints.
 
-**-> [Full workflow in PROCESS.md](PROCESS.md#phase-9-worker-slices)** <- Phase 9
+**-> [Full workflow in PROCESS.md](../protocol/PROCESS.md#phase-9-worker-slices)** <- Phase 9
 
 ## What You Own
 

@@ -2,7 +2,7 @@
 
 Create atomic commit when layer complete.
 
-**-> [Full workflow in PROCESS.md](PROCESS.md#phase-12-landing)** <- Phase 12
+**-> [Full workflow in PROCESS.md](../protocol/PROCESS.md#phase-12-landing)** <- Phase 12
 
 ## When to Use
 

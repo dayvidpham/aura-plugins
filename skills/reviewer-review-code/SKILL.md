@@ -2,7 +2,7 @@
 
 Review code implementation with full severity tree procedure (Phase 10).
 
-**-> [Full workflow in PROCESS.md](PROCESS.md#phase-10-code-review)**
+**-> [Full workflow in PROCESS.md](../protocol/PROCESS.md#phase-10-code-review)**
 
 ## When to Use
 

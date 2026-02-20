@@ -1,14 +1,14 @@
 ---
 name: epoch
 description: Master orchestrator for full 12-phase audit-trail workflow
-skills: aura:user:request, aura:user:elicit, aura:user:uat, aura:architect, aura:supervisor
+skills: aura:user-request, aura:user-elicit, aura:user-uat, aura:architect, aura:supervisor
 ---
 
 # Epoch Orchestrator
 
 You coordinate the full 12-phase aura workflow with complete audit trail preservation.
 
-See `CONSTRAINTS.md` for coding standards, severity definitions, and naming conventions.
+See `../protocol/CONSTRAINTS.md` for coding standards, severity definitions, and naming conventions.
 
 **-> [Full workflow in PROCESS.md](../protocol/PROCESS.md)**
 
@@ -166,7 +166,7 @@ bd dep add <blocker-group-id> --blocked-by <blocker-finding-id>
 bd dep add <slice-id> --blocked-by <blocker-finding-id>
 ```
 
-See `CONSTRAINTS.md` for full severity definitions.
+See `../protocol/CONSTRAINTS.md` for full severity definitions.
 
 ## Tracking Progress
 

@@ -18,15 +18,16 @@ let
     ;
 
   # ── Source paths within this flake ──
-  commandsDir = "${self}/commands";
-  protocolDir = "${self}/protocol";
+  skillsDir = "${self}/skills";
+  protocolDir = "${self}/skills/protocol";
   agentsDir = "${self}/agents";
 
   # ── Role definitions ──
-  # Each role maps to a set of command files with that prefix
+  # Each role maps to a set of skill subdirectories with that prefix
   roleNames = [ "architect" "supervisor" "worker" "reviewer" "epoch" ];
 
   # Collect all .md files in a directory as an attrset: { "filename.md" = storePath; }
+  # Used for flat directories (protocol docs, agent files).
   listMdFiles = dir:
     let
       entries = builtins.readDir dir;
@@ -34,26 +35,36 @@ let
     in
     lib.mapAttrs (name: _: "${dir}/${name}") mdFiles;
 
-  # Filter command files by role prefix
-  allCommandFiles = listMdFiles commandsDir;
+  # Collect all skill subdirectories as an attrset: { "subdir-name" = storePath/SKILL.md; }
+  # The new skills/ layout has one subdirectory per skill, each containing a SKILL.md file.
+  listSkillFiles = dir:
+    let
+      entries = builtins.readDir dir;
+      subdirs = lib.filterAttrs (name: type: type == "directory") entries;
+    in
+    lib.filterAttrs (name: path: builtins.pathExists path)
+      (lib.mapAttrs (name: _: "${dir}/${name}/SKILL.md") subdirs);
+
+  # Filter skill subdirectories by role prefix
+  allSkillFiles = listSkillFiles skillsDir;
 
   commandsForRole = role:
     lib.filterAttrs
-      (name: _: lib.hasPrefix "aura:${role}" name)
-      allCommandFiles;
+      (name: _: lib.hasPrefix role name)
+      allSkillFiles;
 
-  # Non-role commands (aura:plan, aura:status, aura:test, aura:feedback, aura:msg:*, aura:impl:*, aura:user:*, aura:epoch)
+  # Non-role skills (plan, status, test, feedback, explore, research, msg-*, impl-*, user-*, etc.)
   coreCommands =
     lib.filterAttrs
       (name: _:
         let
-          isRoleSpecific = builtins.any (role: lib.hasPrefix "aura:${role}" name) roleNames;
+          isRoleSpecific = builtins.any (role: lib.hasPrefix role name) roleNames;
         in
         !isRoleSpecific
       )
-      allCommandFiles;
+      allSkillFiles;
 
-  # Build the set of command files to install based on enabled roles
+  # Build the set of skill files to install based on enabled roles
   enabledCommandFiles =
     let
       roleFiles = builtins.foldl'
@@ -82,7 +93,7 @@ in
       enable = mkOption {
         type = types.bool;
         default = true;
-        description = "Install launch-parallel and aura-swarm CLI tools";
+        description = "Install aura-parallel and aura-swarm CLI tools";
       };
     };
 
@@ -160,7 +171,7 @@ in
     # ── Packages ──
     (mkIf cfg.packages.enable {
       home.packages = [
-        self.packages.${pkgs.system}.launch-parallel
+        self.packages.${pkgs.system}.aura-parallel
         self.packages.${pkgs.system}.aura-swarm
       ];
     })
@@ -169,7 +180,7 @@ in
     (mkIf cfg.commands.enable {
       home.file = lib.mapAttrs'
         (name: path: {
-          name = "skills/${name}";
+          name = "skills/${name}/SKILL.md";
           value = { source = path; };
         })
         enabledCommandFiles;

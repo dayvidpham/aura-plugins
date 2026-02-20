@@ -2,7 +2,7 @@
 
 Send PROPOSAL-N task to reviewers for feedback.
 
-**-> [Full workflow in PROCESS.md](PROCESS.md#phase-4-plan-review)**
+**-> [Full workflow in PROCESS.md](../protocol/PROCESS.md#phase-4-plan-review)**
 
 ## When to Use
 

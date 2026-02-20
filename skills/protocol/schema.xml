@@ -451,7 +451,7 @@
 <!-- ═══════════════════════════════════════════════════════════════════════
      COMMANDS (skills)
 
-     Each command maps to a markdown file in commands/, belongs to a role,
+     Each skill maps to a SKILL.md file in skills/, belongs to a role,
      operates in specific phases, and may create specific labels on tasks.
      ═══════════════════════════════════════════════════════════════════════ -->
 

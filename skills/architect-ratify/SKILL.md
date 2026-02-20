@@ -2,7 +2,7 @@
 
 Add `aura:p6-plan:s6-ratify` label to accepted PROPOSAL-N after consensus and UAT.
 
-**-> [Full workflow in PROCESS.md](PROCESS.md#phase-6-ratification)**
+**-> [Full workflow in PROCESS.md](../protocol/PROCESS.md#phase-6-ratification)**
 
 ## When to Use
 

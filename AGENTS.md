@@ -73,20 +73,21 @@ bd dep add ure-id --blocked-by request-id
 
 ```
 aura-scripts/
-├── aura-swarm              # Epic-based worktree agent launcher (Python)
-├── launch-parallel.py      # Parallel agent launcher for tmux sessions (Python)
+├── scripts/                # Operational tooling (add to PATH)
+│   ├── aura-parallel       # Parallel agent launcher for tmux sessions (Python)
+│   └── aura-swarm          # Epic-based worktree agent launcher (Python)
 ├── flake.nix               # Nix flake packaging + Home Manager module
 ├── nix/hm-module.nix       # Home Manager module for config sync
-├── protocol/               # Reusable Aura Protocol documentation
-│   ├── README.md           # Protocol entry point and quick-start guide
-│   ├── CLAUDE.md           # Core agent directive (philosophy, constraints, roles)
-│   ├── CONSTRAINTS.md      # Coding standards, checklists, naming conventions
-│   ├── PROCESS.md          # Step-by-step workflow (single source of truth)
-│   ├── AGENTS.md           # Role taxonomy (phases, tools, handoffs per agent)
-│   ├── SKILLS.md           # Command reference (all /aura:* skills by phase)
-│   └── schema.xml          # Canonical protocol schema (BCNF)
 ├── skills/                 # Plugin skills (SKILL.md per directory)
-│   └── aura:*.md           # Role-specific agent instructions
+│   ├── protocol/           # Reusable Aura Protocol documentation
+│   │   ├── README.md       # Protocol entry point and quick-start guide
+│   │   ├── CLAUDE.md       # Core agent directive (philosophy, constraints, roles)
+│   │   ├── CONSTRAINTS.md  # Coding standards, checklists, naming conventions
+│   │   ├── PROCESS.md      # Step-by-step workflow (single source of truth)
+│   │   ├── AGENTS.md       # Role taxonomy (phases, tools, handoffs per agent)
+│   │   ├── SKILLS.md       # Command reference (all /aura:* skills by phase)
+│   │   └── schema.xml      # Canonical protocol schema (BCNF)
+│   └── */SKILL.md          # Role-specific agent instructions (35+ skills)
 ├── agents/                 # Custom agent definitions (~/.claude/agents/)
 │   └── tester.md           # BDD test writer agent
 └── AGENTS.md               # This file
@@ -100,13 +101,13 @@ Before committing changes to this project:
 # Ensure Nix flake evaluates cleanly
 nix flake check --no-build 2>&1
 
-# Build the packages (launch-parallel, aura-swarm)
-nix build .#launch-parallel --no-link
+# Build the packages (aura-parallel, aura-swarm)
+nix build .#aura-parallel --no-link
 nix build .#aura-swarm --no-link
 
 # Test CLI help output
 nix run .#aura-swarm -- --help
-nix run .#launch-parallel -- --help
+nix run .#aura-parallel -- --help
 ```
 
 ## Agent Orchestration
@@ -137,7 +138,7 @@ main
        └── agent/<task-id-3>
 ```
 
-### launch-parallel.py — Supervisor/Architect launches
+### aura-parallel — Supervisor/Architect launches
 
 Launches parallel Claude agents in tmux sessions with role-based instructions.
 
@@ -145,13 +146,13 @@ Launches parallel Claude agents in tmux sessions with role-based instructions.
 
 ```bash
 # Launch supervisor to coordinate an epic
-launch-parallel.py --role supervisor -n 1 --prompt "Coordinate implementation of..."
+aura-parallel --role supervisor -n 1 --prompt "Coordinate implementation of..."
 
 # Launch architect to propose a plan
-launch-parallel.py --role architect -n 1 --prompt "Propose plan for..."
+aura-parallel --role architect -n 1 --prompt "Propose plan for..."
 
 # Dry run (show commands without executing)
-launch-parallel.py --role supervisor -n 1 --prompt "..." --dry-run
+aura-parallel --role supervisor -n 1 --prompt "..." --dry-run
 ```
 
 **DO NOT use for reviewer rounds.** Reviewers are short-lived and should use subagents or TeamCreate instead.
@@ -167,7 +168,7 @@ Reviewers are spawned as subagents (via the Task tool) or coordinated via TeamCr
 | Scenario | Tool | Why |
 |----------|------|-----|
 | Epic implementation with worktree isolation | `aura-swarm` | Needs isolated branch + worktree |
-| New supervisor/architect for epic planning | `launch-parallel.py` | Long-running, needs own tmux session |
+| New supervisor/architect for epic planning | `aura-parallel` | Long-running, needs own tmux session |
 | Plan review (3 reviewers) | Subagents / TeamCreate | Short-lived, results collected in-session |
 | Code review (3 reviewers) | Subagents / TeamCreate | Short-lived, results collected in-session |
 | Ad-hoc research or exploration | Task tool (Explore agent) | Quick, no orchestration needed |

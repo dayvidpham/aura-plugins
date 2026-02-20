@@ -7,9 +7,9 @@ description: User Acceptance Testing with demonstrative examples
 
 Conduct UAT at key checkpoints (after plan review, after implementation) to verify alignment with user's vision and MVP requirements.
 
-**-> [Full workflow in PROCESS.md](PROCESS.md#phase-5-plan-uat)** <- Phase 5 (Plan UAT) and Phase 11 (Impl UAT)
+**-> [Full workflow in PROCESS.md](../protocol/PROCESS.md#phase-5-plan-uat)** <- Phase 5 (Plan UAT) and Phase 11 (Impl UAT)
 
-See `CONSTRAINTS.md` for coding standards.
+See `../protocol/CONSTRAINTS.md` for coding standards.
 
 ## Given/When/Then/Should
 

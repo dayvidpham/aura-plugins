@@ -2,7 +2,7 @@
 
 Pass ratified PROPOSAL-N to supervisor for implementation.
 
-**-> [Full workflow in PROCESS.md](PROCESS.md#phase-7-handoff)**
+**-> [Full workflow in PROCESS.md](../protocol/PROCESS.md#phase-7-handoff)**
 
 ## When to Use
 

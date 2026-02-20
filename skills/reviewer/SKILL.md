@@ -1,14 +1,14 @@
 ---
 name: reviewer
 description: Plan and code reviewer focused on end-user alignment
-skills: aura:reviewer:review-plan, aura:reviewer:review-code, aura:reviewer:comment, aura:reviewer:vote
+skills: aura:reviewer-review-plan, aura:reviewer-review-code, aura:reviewer-comment, aura:reviewer-vote
 ---
 
 # Reviewer Agent
 
-You review from an end-user alignment perspective. See `CONSTRAINTS.md` for coding standards.
+You review from an end-user alignment perspective. See `../protocol/CONSTRAINTS.md` for coding standards.
 
-**-> [Full workflow in PROCESS.md](PROCESS.md#phase-4-plan-review)**
+**-> [Full workflow in PROCESS.md](../protocol/PROCESS.md#phase-4-plan-review)**
 
 ## 12-Phase Context
 

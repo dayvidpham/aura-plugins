@@ -7,9 +7,9 @@ description: Vertical slice assignment and tracking for workers
 
 Manage vertical slice assignment to workers and track their progress.
 
-**-> [Full workflow in PROCESS.md](PROCESS.md#phase-9-worker-slices)** <- Phase 9
+**-> [Full workflow in PROCESS.md](../protocol/PROCESS.md#phase-9-worker-slices)** <- Phase 9
 
-See `CONSTRAINTS.md` for coding standards.
+See `../protocol/CONSTRAINTS.md` for coding standards.
 
 ## Given/When/Then/Should
 

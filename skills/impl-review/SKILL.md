@@ -7,9 +7,9 @@ description: Code review across all implementation slices (Phase 10)
 
 Conduct code review across ALL implementation slices. Each of 3 reviewers reviews every slice.
 
-**-> [Full workflow in PROCESS.md](PROCESS.md#phase-10-code-review)** <- Phase 10
+**-> [Full workflow in PROCESS.md](../protocol/PROCESS.md#phase-10-code-review)** <- Phase 10
 
-See `CONSTRAINTS.md` for coding standards and severity definitions.
+See `../protocol/CONSTRAINTS.md` for coding standards and severity definitions.
 
 ## Given/When/Then/Should
 
@@ -386,7 +386,7 @@ Inside the follow-up lifecycle, the same handoff types (h1-h4) apply but scoped 
 
 Follow-up handoff storage: `.git/.aura/handoff/{followup-epic-id}/{source}-to-{target}.md`
 
-See `HANDOFF_TEMPLATE.md` for full follow-up handoff examples and field requirements.
+See `../protocol/HANDOFF_TEMPLATE.md` for full follow-up handoff examples and field requirements.
 
 ## Proceeding to UAT
 

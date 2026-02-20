@@ -1,6 +1,6 @@
 # aura-scripts
 
-Multi-agent orchestration toolkit for the [Aura Protocol](protocol/PROCESS.md).
+Multi-agent orchestration toolkit for the [Aura Protocol](skills/protocol/PROCESS.md).
 Provides CLI tools for launching Claude agents in isolated worktrees and tmux
 sessions, role-based slash commands, and a Home Manager module for declarative
 distribution.
@@ -59,7 +59,7 @@ Then reference the packages:
 
 ```nix
 # In your system or home-manager config:
-aura-scripts.packages.${system}.launch-parallel
+aura-scripts.packages.${system}.aura-parallel
 aura-scripts.packages.${system}.aura-swarm
 aura-scripts.packages.${system}.default  # both tools
 ```
@@ -89,7 +89,7 @@ protocol docs into `~/.claude/`:
 
     agents.enable = true;               # install custom agents
 
-    protocol.enable = false;             # install protocol/ docs (off by default)
+    protocol.enable = false;             # install skills/protocol/ docs (off by default)
   };
 }
 ```
@@ -300,7 +300,7 @@ can be overwritten with `--restart`.
 `~/.local/share/aura/aura-swarm/prompts/<repo-hash>-<timestamp>-prompt.md` before
 launch. The tmux command references this file via `$(cat ...)` shell expansion
 rather than embedding the prompt inline, avoiding tmux's command length limit.
-Role instructions (from `skills/aura:<role>.md`) are referenced by
+Role instructions (from `skills/<role>/SKILL.md`) are referenced by
 their original path. Prompt files persist as an audit trail.
 
 ### Tmux session naming
@@ -311,7 +311,7 @@ for uniqueness. Retries up to 5 times on collision.
 
 ---
 
-## launch-parallel.py
+## aura-parallel
 
 Launches one or more Claude agents in parallel tmux sessions with role-based
 system prompts. Designed for long-running supervisor and architect agents that
@@ -320,7 +320,7 @@ need persistent context in their own sessions.
 ### Usage
 
 ```bash
-launch-parallel.py --role <role> -n <count> --prompt <text> [options]
+aura-parallel --role <role> -n <count> --prompt <text> [options]
 ```
 
 ### Arguments
@@ -362,10 +362,10 @@ The final prompt sent to each agent is assembled in order:
 
 ### Role instructions
 
-Instructions are loaded from `skills/aura:<role>.md`:
+Instructions are loaded from `skills/<role>/SKILL.md`:
 
-1. First checks `<working-dir>/skills/aura:<role>.md`
-2. Falls back to `~/skills/aura:<role>.md`
+1. First checks `<working-dir>/skills/<role>/SKILL.md`
+2. Falls back to `~/skills/<role>/SKILL.md`
 
 The script exits with an error if no instructions file is found at either
 location, printing both paths that were checked.
@@ -390,33 +390,33 @@ Retries up to 3 times on name collision.
 
 ```bash
 # Launch a supervisor to coordinate an epic
-launch-parallel.py --role supervisor -n 1 \
+aura-parallel --role supervisor -n 1 \
   --prompt "Read ratified plan aura-xyz and decompose into vertical slices"
 
 # Launch an architect with the opus model
-launch-parallel.py --role architect -n 1 --model opus \
+aura-parallel --role architect -n 1 --model opus \
   --prompt "Propose a plan for the authentication feature"
 
 # Distribute 3 tasks across 3 workers
-launch-parallel.py --role worker -n 3 \
+aura-parallel --role worker -n 3 \
   --task-id impl-001 --task-id impl-002 --task-id impl-003 \
   --prompt "Implement your assigned vertical slice"
 
 # Launch reviewers with a skill invocation
-launch-parallel.py --role reviewer -n 3 \
+aura-parallel --role reviewer -n 3 \
   --skill aura:reviewer:review-plan \
   --prompt "Review proposal-123 for end-user alignment"
 
 # Dry run: inspect generated commands and prompts
-launch-parallel.py --role supervisor -n 1 \
+aura-parallel --role supervisor -n 1 \
   --prompt "Coordinate implementation" --dry-run
 
 # Launch and immediately attach to the session
-launch-parallel.py --role supervisor -n 1 \
+aura-parallel --role supervisor -n 1 \
   --prompt "Start supervision" --attach
 
 # Custom working directory
-launch-parallel.py --role supervisor -n 1 \
+aura-parallel --role supervisor -n 1 \
   --working-dir /path/to/project \
   --prompt "Supervise implementation in this repo"
 ```
@@ -507,34 +507,34 @@ bd dep add ure-id --blocked-by request-id
 | Scenario                                | Tool                       | Why                                                |
 |-----------------------------------------|----------------------------|----------------------------------------------------|
 | Epic with multiple slices               | `aura-swarm start`         | Needs isolated worktree + automatic task discovery  |
-| New supervisor/architect for planning    | `launch-parallel.py`       | Long-running, needs its own tmux session            |
+| New supervisor/architect for planning    | `aura-parallel`            | Long-running, needs its own tmux session            |
 | Plan review (3 reviewers)               | Subagents / TeamCreate     | Short-lived, results collected in-session           |
 | Code review (3 reviewers)               | Subagents / TeamCreate     | Short-lived, results collected in-session           |
 | Ad-hoc research or exploration          | Task tool (Explore agent)  | Quick, no orchestration needed                      |
 
 **Rule of thumb:** if the agent needs its own persistent tmux session and
-long-running context, use `aura-swarm` or `launch-parallel.py`. If the agent is
+long-running context, use `aura-swarm` or `aura-parallel`. If the agent is
 short-lived and you need to collect its result, use subagents or TeamCreate.
 
 ---
 
 ## Protocol Documentation
 
-The `protocol/` directory contains the reusable Aura Protocol specification.
+The `skills/protocol/` directory contains the reusable Aura Protocol specification.
 These files are designed to be copied or symlinked into any project using the
 protocol.
 
-| File                                              | Purpose                                              |
-|---------------------------------------------------|------------------------------------------------------|
-| [`protocol/README.md`](protocol/README.md)        | Protocol entry point and quick-start guide            |
-| [`protocol/CLAUDE.md`](protocol/CLAUDE.md)        | Core agent directive: philosophy, constraints, roles  |
-| [`protocol/CONSTRAINTS.md`](protocol/CONSTRAINTS.md) | Coding standards, checklists, naming conventions  |
-| [`protocol/PROCESS.md`](protocol/PROCESS.md)      | Step-by-step workflow execution (single source of truth) |
-| [`protocol/AGENTS.md`](protocol/AGENTS.md)        | Role taxonomy: phases, tools, handoffs per agent      |
-| [`protocol/SKILLS.md`](protocol/SKILLS.md)        | Command reference: all `/aura:*` skills by phase      |
-| [`protocol/UAT_TEMPLATE.md`](protocol/UAT_TEMPLATE.md) | User Acceptance Test structured output template |
-| [`protocol/UAT_EXAMPLE.md`](protocol/UAT_EXAMPLE.md) | Worked UAT example                               |
-| [`protocol/schema.xml`](protocol/schema.xml)      | Canonical protocol schema (BCNF): entities, relationships, mappings |
+| File                                                              | Purpose                                              |
+|-------------------------------------------------------------------|------------------------------------------------------|
+| [`skills/protocol/README.md`](skills/protocol/README.md)          | Protocol entry point and quick-start guide            |
+| [`skills/protocol/CLAUDE.md`](skills/protocol/CLAUDE.md)          | Core agent directive: philosophy, constraints, roles  |
+| [`skills/protocol/CONSTRAINTS.md`](skills/protocol/CONSTRAINTS.md) | Coding standards, checklists, naming conventions  |
+| [`skills/protocol/PROCESS.md`](skills/protocol/PROCESS.md)        | Step-by-step workflow execution (single source of truth) |
+| [`skills/protocol/AGENTS.md`](skills/protocol/AGENTS.md)          | Role taxonomy: phases, tools, handoffs per agent      |
+| [`skills/protocol/SKILLS.md`](skills/protocol/SKILLS.md)          | Command reference: all `/aura:*` skills by phase      |
+| [`skills/protocol/UAT_TEMPLATE.md`](skills/protocol/UAT_TEMPLATE.md) | User Acceptance Test structured output template |
+| [`skills/protocol/UAT_EXAMPLE.md`](skills/protocol/UAT_EXAMPLE.md) | Worked UAT example                               |
+| [`skills/protocol/schema.xml`](skills/protocol/schema.xml)        | Canonical protocol schema (BCNF): entities, relationships, mappings |
 
 ### Workflow phases (v2, 12-phase)
 
@@ -559,9 +559,9 @@ Phase 12: Landing (commit, push, hand off)
 
 ## Slash Commands
 
-The `commands/` directory contains role-specific instructions installed to
-`~/skills/` (either manually or via the Home Manager module). These
-are invoked as `/aura:<command>` in Claude sessions.
+The `skills/` directory contains role-specific instructions (one `SKILL.md` per
+subdirectory) installed to `~/.claude/` (either manually or via the Home Manager
+module). These are invoked as `/aura:<command>` in Claude sessions.
 
 ### Roles
 
@@ -628,26 +628,34 @@ are invoked as `/aura:<command>` in Claude sessions.
 
 ```
 aura-scripts/
-├── aura-swarm                 Epic-based worktree agent launcher
-├── launch-parallel.py         Parallel tmux session launcher
+├── .claude-plugin/            Plugin manifests
+│   ├── marketplace.json
+│   └── plugin.json
+├── scripts/                   Operational tooling (add to PATH)
+│   ├── aura-parallel          Parallel tmux session launcher
+│   └── aura-swarm             Epic-based worktree agent launcher
+├── skills/                    Plugin skills (SKILL.md per directory)
+│   ├── architect/             Architect orchestrator
+│   ├── epoch/                 Master orchestrator
+│   ├── protocol/              Reusable protocol documentation
+│   │   ├── PROCESS.md         Workflow execution (single source of truth)
+│   │   ├── CLAUDE.md          Core agent directive
+│   │   ├── CONSTRAINTS.md     Coding standards and checklists
+│   │   ├── AGENTS.md          Role taxonomy
+│   │   ├── SKILLS.md          Skill reference by phase
+│   │   ├── schema.xml         Canonical protocol schema
+│   │   └── ...                Templates, examples, migration docs
+│   ├── reviewer/              Reviewer orchestrator
+│   ├── supervisor/            Supervisor orchestrator
+│   ├── worker/                Worker orchestrator
+│   └── .../                   35+ role-specific skills
 ├── flake.nix                  Nix packaging + Home Manager module entry
 ├── nix/hm-module.nix          Home Manager module implementation
-├── pyproject.toml             Python project metadata (v0.1.0)
-├── protocol/                  Reusable Aura Protocol documentation
-│   ├── README.md              Protocol entry point and quick-start
-│   ├── CLAUDE.md              Core agent directive
-│   ├── CONSTRAINTS.md         Coding standards and checklists
-│   ├── PROCESS.md             Workflow execution guide (single source of truth)
-│   ├── AGENTS.md              Role taxonomy (phases, tools, handoffs)
-│   ├── SKILLS.md              Command reference (all /aura:* skills)
-│   ├── schema.xml             Canonical protocol schema (BCNF)
-│   ├── UAT_TEMPLATE.md        UAT structured output template
-│   └── UAT_EXAMPLE.md         Worked UAT example
-├── skills/                  Plugin skills (SKILL.md per directory)
-│   └── aura:*.md              33 role-specific instruction files
-├── agents/                    Custom agent definitions for ~/.claude/agents/
+├── pyproject.toml             Python project metadata
+├── agents/                    Custom agent definitions
 │   └── tester.md              BDD test writer agent
-└── AGENTS.md                  Agent orchestration guide (for agents working on this repo)
+├── AGENTS.md                  Agent orchestration guide
+└── README.md
 ```
 
 ## Validation
@@ -657,12 +665,12 @@ aura-scripts/
 nix flake check --no-build 2>&1
 
 # Build both packages
-nix build .#launch-parallel --no-link
+nix build .#aura-parallel --no-link
 nix build .#aura-swarm --no-link
 
 # Test CLI help output
 nix run .#aura-swarm -- --help
-nix run .#launch-parallel -- --help
+nix run .#aura-parallel -- --help
 ```
 
 ## License

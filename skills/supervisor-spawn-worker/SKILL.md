@@ -2,7 +2,7 @@
 
 Launch worker for a vertical slice assignment.
 
-**-> [Full workflow in PROCESS.md](PROCESS.md#phase-9-worker-slices)** <- Phase 9
+**-> [Full workflow in PROCESS.md](../protocol/PROCESS.md#phase-9-worker-slices)** <- Phase 9
 
 ## When to Use
 

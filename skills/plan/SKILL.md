@@ -2,7 +2,7 @@
 
 Orchestrate the full Beads planning workflow. Replaces EnterPlanMode.
 
-**-> [Full workflow in PROCESS.md](PROCESS.md#phase-3-proposal-n)**
+**-> [Full workflow in PROCESS.md](../protocol/PROCESS.md#phase-3-proposal-n)**
 
 ## When to Use
 

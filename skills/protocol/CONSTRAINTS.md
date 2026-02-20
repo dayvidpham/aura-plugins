@@ -211,7 +211,6 @@ Every `skills/*/SKILL.md` file must start with:
 ---
 name: agent-name
 description: Brief role/purpose
-tools: Tool1, Tool2, Tool3
 ---
 
 # Agent Name
