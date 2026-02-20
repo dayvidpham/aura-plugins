@@ -5,10 +5,10 @@
   # INPUTS
   # ============================================================
 
-  inputs = rec {
+  inputs = {
     nixpkgs-stable.url = "github:NixOS/nixpkgs/nixos-25.11";
     nixpkgs-unstable.url = "github:NixOS/nixpkgs/nixos-unstable";
-    nixpkgs = nixpkgs-stable;
+    nixpkgs.follows = "nixpkgs-stable";
     flake-utils.url = "github:numtide/flake-utils";
   };
 
