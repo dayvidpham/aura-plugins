@@ -2,7 +2,7 @@
 
 This project is the **Aura Protocol** toolkit — multi-agent orchestration scripts, slash commands, and protocol documentation for Claude-based AI agent teams.
 
-This project uses **bd** (beads) for issue tracking. Run `bd onboard` to get started.
+This project uses **bd** (beads) for issue tracking. Run `bd prime` to get started.
 
 ## Quick Reference
 

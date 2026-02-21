@@ -1,0 +1,465 @@
+#!/usr/bin/env python3
+"""
+aura-release — Automated version bump, changelog, and git tag.
+
+Updates version across all manifest files, generates a changelog from
+git history, creates a commit, and tags the release.
+
+Usage:
+    aura-release <major|minor|patch> [--dry-run] [--sync] [--no-changelog]
+                                     [--no-commit] [--no-tag]
+    aura-release --check
+"""
+
+from __future__ import annotations
+
+import argparse
+import json
+import re
+import subprocess
+import sys
+from datetime import datetime, timezone
+from pathlib import Path
+from typing import NamedTuple
+
+
+# ── Constants ────────────────────────────────────────────────────────
+
+REPO_ROOT = Path(__file__).resolve().parent.parent
+
+VERSION_FILES = {
+    "pyproject": REPO_ROOT / "pyproject.toml",
+    "plugin": REPO_ROOT / ".claude-plugin" / "plugin.json",
+    "marketplace": REPO_ROOT / ".claude-plugin" / "marketplace.json",
+}
+
+CHANGELOG_PATH = REPO_ROOT / "CHANGELOG.md"
+
+# Conventional commit prefix → Keep a Changelog section
+COMMIT_SECTIONS = {
+    "feat": "Added",
+    "fix": "Fixed",
+    "refactor": "Changed",
+    "perf": "Changed",
+    "docs": "Documentation",
+}
+DEFAULT_SECTION = "Other"
+
+# Regex: match `version = "X.Y.Z"` only within the [project] TOML section.
+# Anchored to [project] header, stops before next [section] header.
+_PYPROJECT_VERSION_RE = re.compile(
+    r"(\[project\]\s*\n(?:(?!\[).*\n)*?version\s*=\s*\")(\d+\.\d+\.\d+)(\")",
+    re.MULTILINE,
+)
+
+
+# ── Data types ───────────────────────────────────────────────────────
+
+
+class SemVer(NamedTuple):
+    major: int
+    minor: int
+    patch: int
+
+    @classmethod
+    def parse(cls, version_str: str) -> SemVer:
+        m = re.fullmatch(r"(\d+)\.(\d+)\.(\d+)", version_str)
+        if not m:
+            raise ValueError(f"Invalid semver: {version_str!r}")
+        return cls(int(m.group(1)), int(m.group(2)), int(m.group(3)))
+
+    def bump(self, kind: str) -> SemVer:
+        if kind == "major":
+            return SemVer(self.major + 1, 0, 0)
+        if kind == "minor":
+            return SemVer(self.major, self.minor + 1, 0)
+        if kind == "patch":
+            return SemVer(self.major, self.minor, self.patch + 1)
+        raise ValueError(f"Unknown bump kind: {kind!r}")
+
+    def __str__(self) -> str:
+        return f"{self.major}.{self.minor}.{self.patch}"
+
+
+# ── Git helpers ──────────────────────────────────────────────────────
+
+
+def git(*args: str, check: bool = True) -> subprocess.CompletedProcess[str]:
+    return subprocess.run(
+        ["git", *args],
+        cwd=REPO_ROOT,
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        check=check,
+    )
+
+
+def is_detached_head() -> bool:
+    r = git("symbolic-ref", "--quiet", "HEAD", check=False)
+    return r.returncode != 0
+
+
+def working_tree_dirty() -> bool:
+    """Return True if working tree has changes outside .beads/."""
+    r = git("status", "--porcelain")
+    for line in r.stdout.strip().splitlines():
+        # status lines: XY <path> or XY <path> -> <path>
+        filepath = line[3:].split(" -> ")[-1]
+        if not filepath.startswith(".beads/"):
+            return True
+    return False
+
+
+def latest_version_tag() -> str | None:
+    """Find the most recent vX.Y.Z tag reachable from HEAD."""
+    r = git("tag", "--list", "v*", "--sort=-v:refname", check=False)
+    for tag in r.stdout.strip().splitlines():
+        tag = tag.strip()
+        if re.fullmatch(r"v\d+\.\d+\.\d+", tag):
+            return tag
+    return None
+
+
+def root_commit() -> str:
+    r = git("rev-list", "--max-parents=0", "HEAD")
+    return r.stdout.strip().splitlines()[0]
+
+
+def commits_since(ref: str) -> list[str]:
+    """Return commit subject lines since ref (exclusive)."""
+    r = git("log", f"{ref}..HEAD", "--format=%s", check=False)
+    if r.returncode != 0:
+        return []
+    return [line for line in r.stdout.strip().splitlines() if line]
+
+
+def all_commits() -> list[str]:
+    """Return all commit subject lines."""
+    r = git("log", "--format=%s")
+    return [line for line in r.stdout.strip().splitlines() if line]
+
+
+# ── Version read/write ───────────────────────────────────────────────
+
+
+def read_pyproject_version() -> str:
+    text = VERSION_FILES["pyproject"].read_text(encoding="utf-8")
+    m = _PYPROJECT_VERSION_RE.search(text)
+    if not m:
+        raise RuntimeError("Could not find version in [project] section of pyproject.toml")
+    return m.group(2)
+
+
+def write_pyproject_version(old: str, new: str, *, dry_run: bool = False) -> None:
+    path = VERSION_FILES["pyproject"]
+    text = path.read_text(encoding="utf-8")
+    if not _PYPROJECT_VERSION_RE.search(text):
+        raise RuntimeError("Could not find version in [project] section of pyproject.toml")
+    updated = _PYPROJECT_VERSION_RE.sub(rf"\g<1>{new}\3", text, count=1)
+    if not dry_run:
+        path.write_text(updated, encoding="utf-8")
+
+
+def read_plugin_version() -> str:
+    data = json.loads(VERSION_FILES["plugin"].read_text(encoding="utf-8"))
+    return data["version"]
+
+
+def write_plugin_version(new: str, *, dry_run: bool = False) -> None:
+    path = VERSION_FILES["plugin"]
+    data = json.loads(path.read_text(encoding="utf-8"))
+    data["version"] = new
+    if not dry_run:
+        path.write_text(json.dumps(data, indent=2) + "\n", encoding="utf-8")
+
+
+def read_marketplace_version() -> str:
+    data = json.loads(VERSION_FILES["marketplace"].read_text(encoding="utf-8"))
+    return data["metadata"]["version"]
+
+
+def read_marketplace_aura_plugin_version() -> str:
+    data = json.loads(VERSION_FILES["marketplace"].read_text(encoding="utf-8"))
+    for plugin in data["plugins"]:
+        if plugin["name"] == "aura":
+            return plugin["version"]
+    raise RuntimeError("No plugin named 'aura' in marketplace.json")
+
+
+def write_marketplace_version(new: str, *, dry_run: bool = False) -> None:
+    path = VERSION_FILES["marketplace"]
+    data = json.loads(path.read_text(encoding="utf-8"))
+    data["metadata"]["version"] = new
+    for plugin in data["plugins"]:
+        if plugin["name"] == "aura":
+            plugin["version"] = new
+            break
+    else:
+        raise RuntimeError("No plugin named 'aura' in marketplace.json")
+    if not dry_run:
+        path.write_text(json.dumps(data, indent=2) + "\n", encoding="utf-8")
+
+
+def read_all_versions() -> dict[str, str]:
+    """Read version from each source. Returns {source_name: version}."""
+    return {
+        "pyproject.toml": read_pyproject_version(),
+        "plugin.json": read_plugin_version(),
+        "marketplace.json (metadata)": read_marketplace_version(),
+        "marketplace.json (aura plugin)": read_marketplace_aura_plugin_version(),
+    }
+
+
+def versions_consistent(versions: dict[str, str]) -> bool:
+    return len(set(versions.values())) == 1
+
+
+# ── Changelog ────────────────────────────────────────────────────────
+
+
+def group_commits(subjects: list[str]) -> dict[str, list[str]]:
+    """Group commit subjects by conventional commit prefix."""
+    groups: dict[str, list[str]] = {}
+    for subject in subjects:
+        m = re.match(r"^(\w+)(?:\(.+?\))?:\s*", subject)
+        if m:
+            prefix = m.group(1).lower()
+            section = COMMIT_SECTIONS.get(prefix, DEFAULT_SECTION)
+        else:
+            section = DEFAULT_SECTION
+        groups.setdefault(section, []).append(subject)
+    return groups
+
+
+def generate_changelog_entry(version: str, subjects: list[str]) -> str:
+    """Generate a single changelog entry in Keep a Changelog format."""
+    today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    lines = [f"## [{version}] - {today}", ""]
+
+    groups = group_commits(subjects)
+    # Deterministic section order
+    section_order = ["Added", "Fixed", "Changed", "Documentation", "Other"]
+    for section in section_order:
+        if section not in groups:
+            continue
+        lines.append(f"### {section}")
+        for subject in groups[section]:
+            lines.append(f"- {subject}")
+        lines.append("")
+
+    return "\n".join(lines)
+
+
+def update_changelog(entry: str, *, dry_run: bool = False) -> None:
+    """Prepend a changelog entry to CHANGELOG.md (create if missing)."""
+    header = "# Changelog\n\n"
+    if CHANGELOG_PATH.exists():
+        existing = CHANGELOG_PATH.read_text(encoding="utf-8")
+        if existing.startswith("# Changelog"):
+            # Insert after the header line
+            rest = existing[existing.index("\n") + 1 :].lstrip("\n")
+            content = header + entry + "\n" + rest
+        else:
+            content = header + entry + "\n" + existing
+    else:
+        content = header + entry
+
+    if not dry_run:
+        CHANGELOG_PATH.write_text(content, encoding="utf-8")
+
+
+# ── Rollback ─────────────────────────────────────────────────────────
+
+
+def rollback(files: list[Path]) -> None:
+    """Restore files to their last committed state."""
+    paths = [str(f.relative_to(REPO_ROOT)) for f in files if f.exists()]
+    if paths:
+        git("checkout", "--", *paths, check=False)
+    print("Rolled back file changes.", file=sys.stderr)
+
+
+# ── Main workflow ────────────────────────────────────────────────────
+
+
+def cmd_check() -> int:
+    """Validate version consistency across all manifest files."""
+    versions = read_all_versions()
+    consistent = versions_consistent(versions)
+
+    print("Version consistency check:")
+    for source, ver in versions.items():
+        canonical = versions["pyproject.toml"]
+        marker = " " if consistent else ("*" if ver != canonical else " ")
+        print(f"  {marker} {source}: {ver}")
+
+    if consistent:
+        print(f"\nAll files at {list(versions.values())[0]}")
+        return 0
+    else:
+        print("\nDrift detected! Use --sync to align before bumping.")
+        return 1
+
+
+def cmd_release(args: argparse.Namespace) -> int:
+    """Main release workflow."""
+    bump_kind: str = args.bump
+    dry_run: bool = args.dry_run
+    do_sync: bool = args.sync
+    do_changelog: bool = not args.no_changelog
+    do_commit: bool = not args.no_commit
+    do_tag: bool = not args.no_tag
+
+    prefix = "[dry-run] " if dry_run else ""
+
+    # ── Pre-flight ────────────────────────────────────────────────
+    if is_detached_head():
+        print("Error: detached HEAD. Check out a branch first.", file=sys.stderr)
+        return 2
+
+    if not dry_run and working_tree_dirty():
+        print("Error: working tree has uncommitted changes (outside .beads/).", file=sys.stderr)
+        print("Commit or stash them first.", file=sys.stderr)
+        return 2
+
+    versions = read_all_versions()
+    if not versions_consistent(versions):
+        if do_sync:
+            canonical = versions["pyproject.toml"]
+            print(f"{prefix}Syncing all files to pyproject.toml version: {canonical}")
+            write_plugin_version(canonical, dry_run=dry_run)
+            write_marketplace_version(canonical, dry_run=dry_run)
+            if not do_commit and not dry_run:
+                print("Warning: --sync with --no-commit leaves synced files uncommitted.", file=sys.stderr)
+            current_str = canonical
+        else:
+            print("Error: version drift detected:", file=sys.stderr)
+            for source, ver in versions.items():
+                print(f"  {source}: {ver}", file=sys.stderr)
+            print("\nUse --sync to align before bumping.", file=sys.stderr)
+            return 2
+    else:
+        current_str = versions["pyproject.toml"]
+
+    current = SemVer.parse(current_str)
+    new = current.bump(bump_kind)
+    new_str = str(new)
+    tag_name = f"v{new_str}"
+
+    print(f"{prefix}Bumping: {current_str} -> {new_str} ({bump_kind})")
+
+    # ── Define rollback set ───────────────────────────────────────
+    rollback_files = [
+        VERSION_FILES["pyproject"],
+        VERSION_FILES["plugin"],
+        VERSION_FILES["marketplace"],
+        CHANGELOG_PATH,
+    ]
+
+    try:
+        # ── Update version files ──────────────────────────────────
+        print(f"{prefix}Updating pyproject.toml")
+        write_pyproject_version(current_str, new_str, dry_run=dry_run)
+
+        print(f"{prefix}Updating plugin.json")
+        write_plugin_version(new_str, dry_run=dry_run)
+
+        print(f"{prefix}Updating marketplace.json")
+        write_marketplace_version(new_str, dry_run=dry_run)
+
+        # ── Changelog ─────────────────────────────────────────────
+        if do_changelog:
+            prev_tag = latest_version_tag()
+            if prev_tag:
+                subjects = commits_since(prev_tag)
+                print(f"{prefix}Changelog: {len(subjects)} commits since {prev_tag}")
+            else:
+                subjects = all_commits()
+                print(f"{prefix}Changelog: {len(subjects)} commits (first release, no prior tag)")
+
+            if subjects:
+                entry = generate_changelog_entry(new_str, subjects)
+                if dry_run:
+                    print(f"\n{prefix}Changelog entry:\n{entry}")
+                else:
+                    update_changelog(entry)
+                    print(f"{prefix}Updated CHANGELOG.md")
+            else:
+                print(f"{prefix}No commits to include in changelog")
+
+        # ── Git commit ────────────────────────────────────────────
+        if do_commit and not dry_run:
+            stage_files = [
+                str(VERSION_FILES["pyproject"].relative_to(REPO_ROOT)),
+                str(VERSION_FILES["plugin"].relative_to(REPO_ROOT)),
+                str(VERSION_FILES["marketplace"].relative_to(REPO_ROOT)),
+            ]
+            if do_changelog and CHANGELOG_PATH.exists():
+                stage_files.append(str(CHANGELOG_PATH.relative_to(REPO_ROOT)))
+
+            git("add", *stage_files)
+            git("commit", "-m", f"chore: release {tag_name}")
+            print(f"Committed: chore: release {tag_name}")
+        elif do_commit and dry_run:
+            print(f"{prefix}Would commit: chore: release {tag_name}")
+
+        # ── Git tag ───────────────────────────────────────────────
+        if do_tag and not dry_run:
+            git("tag", "-a", tag_name, "-m", f"Release {new_str}")
+            print(f"Tagged: {tag_name}")
+        elif do_tag and dry_run:
+            print(f"{prefix}Would tag: {tag_name}")
+
+    except Exception as exc:
+        print(f"Error during release: {exc}", file=sys.stderr)
+        if not dry_run:
+            rollback(rollback_files)
+        return 2
+
+    # ── Summary ───────────────────────────────────────────────────
+    print(f"\n{'[dry-run] ' if dry_run else ''}Release {tag_name} complete!")
+    if not dry_run and do_commit:
+        print("Next: git push && git push --tags")
+    return 0
+
+
+# ── CLI ──────────────────────────────────────────────────────────────
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(
+        prog="aura-release",
+        description="Bump version, generate changelog, commit and tag a release.",
+    )
+
+    parser.add_argument(
+        "bump",
+        nargs="?",
+        choices=["major", "minor", "patch"],
+        help="Semver bump type",
+    )
+    parser.add_argument("--check", action="store_true", help="Check version consistency and exit")
+    parser.add_argument("--dry-run", action="store_true", help="Show what would happen without making changes")
+    parser.add_argument("--sync", action="store_true", help="Sync all files to pyproject.toml version before bumping")
+    parser.add_argument("--no-changelog", action="store_true", help="Skip changelog generation")
+    parser.add_argument("--no-commit", action="store_true", help="Skip git commit")
+    parser.add_argument("--no-tag", action="store_true", help="Skip git tag")
+
+    args = parser.parse_args()
+
+    if args.check:
+        if args.bump:
+            parser.error("--check cannot be used with a bump argument")
+        if args.sync:
+            parser.error("--check and --sync are mutually exclusive")
+        return cmd_check()
+
+    if not args.bump:
+        parser.error("bump type required (major, minor, or patch). Use --check for consistency validation.")
+
+    return cmd_release(args)
+
+
+if __name__ == "__main__":
+    sys.exit(main())
