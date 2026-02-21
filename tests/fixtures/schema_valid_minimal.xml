@@ -1,0 +1,106 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Minimal but complete valid schema fixture for testing validate_schema.py.
+  All cross-references are valid. This is NOT the real protocol schema.
+-->
+<aura-protocol version="2.0">
+
+<enums>
+  <enum name="DomainType">
+    <value id="user" description="User-facing interaction"/>
+    <value id="plan" description="Planning and design"/>
+    <value id="impl" description="Implementation"/>
+  </enum>
+  <enum name="SeverityLevel">
+    <value id="BLOCKER" description="Blocks progress"/>
+  </enum>
+</enums>
+
+<labels>
+  <label id="L-p1s1" value="aura:p1-user:s1-test" phase-ref="p1" substep-ref="s1"/>
+  <label id="L-p2s2" value="aura:p2-user:s2-test" phase-ref="p2" substep-ref="s2"/>
+  <label id="L-special" value="aura:test:special" special="true" description="Test special label"/>
+</labels>
+
+<review-axes>
+  <axis id="axis-A" letter="A" name="Correctness">
+    <key-questions><q>Is it correct?</q></key-questions>
+  </axis>
+</review-axes>
+
+<phases>
+  <phase id="p1" number="1" domain="user" name="Phase One">
+    <description>Test phase 1</description>
+    <substeps>
+      <substep id="s1" type="test" execution="sequential" order="1" label-ref="L-p1s1">
+        <description>Test substep 1</description>
+      </substep>
+    </substeps>
+    <transitions>
+      <transition to-phase="p2" condition="test complete"/>
+    </transitions>
+  </phase>
+  <phase id="p2" number="2" domain="user" name="Phase Two">
+    <description>Test phase 2</description>
+    <substeps>
+      <substep id="s2" type="test" execution="sequential" order="1" label-ref="L-p2s2">
+        <description>Test substep 2</description>
+      </substep>
+    </substeps>
+    <transitions>
+      <transition to-phase="complete" condition="done"/>
+    </transitions>
+  </phase>
+</phases>
+
+<roles>
+  <role id="role-test" name="TestRole" description="Test role">
+    <owns-phases>
+      <phase-ref ref="p1"/>
+      <phase-ref ref="p2"/>
+    </owns-phases>
+  </role>
+</roles>
+
+<commands>
+  <command id="cmd-test" name="test-cmd" role-ref="role-test" description="Test command">
+    <phases>
+      <phase-ref ref="p1"/>
+    </phases>
+    <creates-labels>
+      <label-ref ref="L-p1s1"/>
+    </creates-labels>
+    <file>skills/test/SKILL.md</file>
+  </command>
+</commands>
+
+<handoffs>
+  <handoff id="h-test" source-role="role-test" target-role="role-test"
+           at-phase="p1" content-level="full-provenance">
+    <required-fields>test</required-fields>
+  </handoff>
+</handoffs>
+
+<constraints>
+  <constraint id="C-test"
+              given="test condition"
+              when="testing"
+              then="pass"
+              should-not="fail"/>
+</constraints>
+
+<task-titles>
+  <title-convention pattern="TEST: {description}"
+                    label-ref="L-p1s1" created-by="role-test"
+                    phase-ref="p1"/>
+</task-titles>
+
+<documents>
+  <document id="doc-test" path="test.md" purpose="Test document">
+    <covers>
+      <entity type="phase" refs="p1,p2" depth="full"/>
+    </covers>
+  </document>
+</documents>
+
+</aura-protocol>
