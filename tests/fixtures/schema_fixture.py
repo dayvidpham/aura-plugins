@@ -183,6 +183,57 @@ STRUCTURAL_MUTATIONS: list[SchemaMutation] = [
         category="command",
         apply_fn=_del_attr(".//command[@id='cmd-test']", "name"),
     ),
+    # ── Startup sequence ──
+    SchemaMutation(
+        name="missing_step_order",
+        layer=ErrorLayer.STRUCTURAL,
+        description="Startup sequence step without order attribute",
+        expected_fragment="order",
+        category="startup_sequence",
+        apply_fn=_del_attr(".//startup-sequence/step", "order"),
+    ),
+    # ── Standing teams ──
+    SchemaMutation(
+        name="missing_team_id",
+        layer=ErrorLayer.STRUCTURAL,
+        description="Standing team without id attribute",
+        expected_fragment="id",
+        category="standing_team",
+        apply_fn=_del_attr(".//standing-teams/team[@id='team-test']", "id"),
+    ),
+    SchemaMutation(
+        name="missing_agent_template_role",
+        layer=ErrorLayer.STRUCTURAL,
+        description="Agent template without role attribute",
+        expected_fragment="role",
+        category="agent_template",
+        apply_fn=_del_attr(".//agent-template", "role"),
+    ),
+    SchemaMutation(
+        name="missing_agent_template_skill_ref",
+        layer=ErrorLayer.STRUCTURAL,
+        description="Agent template without skill-ref attribute",
+        expected_fragment="skill-ref",
+        category="agent_template",
+        apply_fn=_del_attr(".//agent-template", "skill-ref"),
+    ),
+    SchemaMutation(
+        name="missing_agent_template_min_count",
+        layer=ErrorLayer.STRUCTURAL,
+        description="Agent template without min-count attribute",
+        expected_fragment="min-count",
+        category="agent_template",
+        apply_fn=_del_attr(".//agent-template", "min-count"),
+    ),
+    # ── Skill invocation ──
+    SchemaMutation(
+        name="missing_skill_invocation_directive",
+        layer=ErrorLayer.STRUCTURAL,
+        description="Skill invocation without directive attribute",
+        expected_fragment="directive",
+        category="skill_invocation",
+        apply_fn=_del_attr(".//skill-invocation", "directive"),
+    ),
 ]
 
 # ─── Referential integrity mutations ─────────────────────────────────────────
@@ -278,6 +329,25 @@ REFERENTIAL_MUTATIONS: list[SchemaMutation] = [
             ".//role[@id='role-test']/owns-phases/phase-ref[@ref='p1']", "ref", "p99"
         ),
     ),
+    # ── Skill invocation refs ──
+    SchemaMutation(
+        name="dangling_skill_invocation_command_ref",
+        layer=ErrorLayer.REFERENTIAL,
+        description="Skill invocation references nonexistent command",
+        expected_fragment="cmd-nonexistent",
+        category="skill_invocation_to_command",
+        apply_fn=_set_attr(
+            ".//skill-invocation[@command-ref='cmd-test']", "command-ref", "cmd-nonexistent"
+        ),
+    ),
+    SchemaMutation(
+        name="dangling_agent_template_skill_ref",
+        layer=ErrorLayer.REFERENTIAL,
+        description="Agent template skill-ref references nonexistent command",
+        expected_fragment="cmd-nonexistent",
+        category="agent_template_to_command",
+        apply_fn=_set_attr(".//agent-template", "skill-ref", "cmd-nonexistent"),
+    ),
 ]
 
 # ─── Semantic mutations ──────────────────────────────────────────────────────
@@ -366,6 +436,24 @@ SEMANTIC_MUTATIONS: list[SchemaMutation] = [
         expected_fragment="DomainType",
         category="domain_enum",
         apply_fn=_set_attr(".//phase[@id='p1']", "domain", "unknown"),
+    ),
+    # ── Startup sequence ordering ──
+    SchemaMutation(
+        name="startup_step_order_gap",
+        layer=ErrorLayer.SEMANTIC,
+        description="Startup sequence steps have gap (1, 3 instead of 1, 2)",
+        expected_fragment="sequential",
+        category="startup_sequence_ordering",
+        apply_fn=_set_attr(".//startup-sequence/step[@order='2']", "order", "3"),
+    ),
+    # ── Agent template counts ──
+    SchemaMutation(
+        name="agent_template_min_exceeds_max",
+        layer=ErrorLayer.SEMANTIC,
+        description="Agent template min-count exceeds max-count",
+        expected_fragment="min-count",
+        category="agent_template_counts",
+        apply_fn=_set_attr(".//agent-template", "min-count", "5"),
     ),
 ]
 

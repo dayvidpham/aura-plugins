@@ -34,10 +34,16 @@
     <substeps>
       <substep id="s1" type="test" execution="sequential" order="1" label-ref="L-p1s1">
         <description>Test substep 1</description>
+        <startup-sequence>
+          <step order="1">Load role instructions</step>
+          <step order="2">Read context</step>
+        </startup-sequence>
       </substep>
     </substeps>
     <transitions>
-      <transition to-phase="p2" condition="test complete"/>
+      <transition to-phase="p2" condition="test complete">
+        <skill-invocation command-ref="cmd-test" directive="Must call Skill(/test)"/>
+      </transition>
     </transitions>
   </phase>
   <phase id="p2" number="2" domain="user" name="Phase Two">
@@ -59,6 +65,14 @@
       <phase-ref ref="p1"/>
       <phase-ref ref="p2"/>
     </owns-phases>
+    <standing-teams>
+      <team id="team-test" purpose="Test standing team">
+        <agent-template role="explorer" skill-ref="cmd-test"
+                        invocation="Skill(/test)" min-count="1" max-count="4">
+          <scoping>Test domain scoping</scoping>
+        </agent-template>
+      </team>
+    </standing-teams>
   </role>
 </roles>
 
@@ -78,6 +92,7 @@
   <handoff id="h-test" source-role="role-test" target-role="role-test"
            at-phase="p1" content-level="full-provenance">
     <required-fields>test</required-fields>
+    <skill-invocation directive="Must call Skill(/test)"/>
   </handoff>
 </handoffs>
 

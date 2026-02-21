@@ -39,11 +39,13 @@ class SchemaIndex:
     handoff_ids: set[str] = field(default_factory=set)
     constraint_ids: set[str] = field(default_factory=set)
     document_ids: set[str] = field(default_factory=set)
+    team_ids: set[str] = field(default_factory=set)
     enum_value_ids: dict[str, set[str]] = field(default_factory=dict)
     severity_ids: set[str] = field(default_factory=set)
 
     # Metadata for semantic checks
     phase_numbers: dict[str, int] = field(default_factory=dict)
+    startup_step_orders: dict[str, list[int]] = field(default_factory=dict)
     phase_domains: dict[str, str] = field(default_factory=dict)
     phase_substep_orders: dict[str, list[tuple[str, int, str]]] = field(
         default_factory=dict
@@ -227,6 +229,28 @@ def build_index(root: ET.Element) -> tuple[SchemaIndex, list[ValidationError]]:
                             message=f"order='{order_str}' is not a valid integer",
                         )
                     )
+            # Startup sequence steps
+            startup_seq = substep.find("startup-sequence")
+            if startup_seq is not None:
+                step_orders: list[int] = []
+                for step_el in startup_seq.findall("step"):
+                    step_desc = f"{sdesc}/startup-sequence/step[@order='{step_el.get('order', '')}']"
+                    _check_required(errors, step_desc, step_el, ["order"])
+                    sorder_str = step_el.get("order")
+                    if sorder_str:
+                        try:
+                            step_orders.append(int(sorder_str))
+                        except ValueError:
+                            errors.append(
+                                ValidationError(
+                                    layer=ErrorLayer.STRUCTURAL,
+                                    element_path=step_desc,
+                                    message=f"order='{sorder_str}' is not a valid integer",
+                                )
+                            )
+                if sid:
+                    idx.startup_step_orders[sid] = step_orders
+
             if sid:
                 substep_data.append((sid, order, execution))
         if pid:
@@ -247,6 +271,33 @@ def build_index(root: ET.Element) -> tuple[SchemaIndex, list[ValidationError]]:
                     if ref:
                         phase_refs.add(ref)
             idx.role_phase_refs[rid] = phase_refs
+
+            # Standing teams
+            for team in role.iter("team"):
+                team_desc = f"{desc}/standing-teams/{_elem_desc(team)}"
+                _check_required(errors, team_desc, team, ["id"])
+                tid = team.get("id")
+                if tid:
+                    _check_id_unique(errors, tid, idx.team_ids, team_desc, "team")
+                for agent_tmpl in team.findall("agent-template"):
+                    at_desc = f"{team_desc}/agent-template"
+                    _check_required(
+                        errors, at_desc, agent_tmpl,
+                        ["role", "skill-ref", "invocation", "min-count", "max-count"],
+                    )
+                    for count_attr in ("min-count", "max-count"):
+                        count_str = agent_tmpl.get(count_attr)
+                        if count_str:
+                            try:
+                                int(count_str)
+                            except ValueError:
+                                errors.append(
+                                    ValidationError(
+                                        layer=ErrorLayer.STRUCTURAL,
+                                        element_path=at_desc,
+                                        message=f"{count_attr}='{count_str}' is not a valid integer",
+                                    )
+                                )
 
     # Commands (only within <commands> section, not <command> text elements elsewhere)
     commands_section = root.find("commands")
@@ -293,6 +344,12 @@ def build_index(root: ET.Element) -> tuple[SchemaIndex, list[ValidationError]]:
     for tc in root.iter("title-convention"):
         desc = _elem_desc(tc)
         _check_required(errors, desc, tc, ["pattern", "label-ref", "created-by"])
+
+    # Skill invocations (structural: directive required)
+    for si in root.iter("skill-invocation"):
+        cmd_ref = si.get("command-ref")
+        si_desc = f"skill-invocation[@command-ref='{cmd_ref}']" if cmd_ref else "skill-invocation"
+        _check_required(errors, si_desc, si, ["directive"])
 
     return idx, errors
 
@@ -420,6 +477,17 @@ def check_refs(root: ET.Element, index: SchemaIndex) -> list[ValidationError]:
                 p = p.strip()
                 if p:
                     _check_ref(errors, d_desc, "phases", p, index.phase_ids, "phase")
+
+    # Skill invocations: command-ref → command_ids
+    for si in root.iter("skill-invocation"):
+        cmd_ref = si.get("command-ref")
+        si_desc = f"skill-invocation[@command-ref='{cmd_ref}']" if cmd_ref else "skill-invocation"
+        _check_ref(errors, si_desc, "command-ref", cmd_ref, index.command_ids, "command")
+
+    # Agent templates: skill-ref → command_ids
+    for at in root.iter("agent-template"):
+        at_desc = _elem_desc(at)
+        _check_ref(errors, at_desc, "skill-ref", at.get("skill-ref"), index.command_ids, "command")
 
     # Document entities: refs (comma-separated or wildcard)
     for doc in root.iter("document"):
@@ -579,7 +647,39 @@ def check_semantics(root: ET.Element, index: SchemaIndex) -> list[ValidationErro
         else:
             seen_letters[letter] = aid
 
-    # 12. Domain enum values match phase domains
+    # 12. Startup sequence step orders sequential
+    for sid, orders in index.startup_step_orders.items():
+        if orders:
+            sorted_orders = sorted(orders)
+            expected = list(range(1, len(orders) + 1))
+            if sorted_orders != expected:
+                errors.append(
+                    ValidationError(
+                        layer=ErrorLayer.SEMANTIC,
+                        element_path=f"substep[@id='{sid}']/startup-sequence",
+                        message=f"step orders not sequential: found {sorted_orders}, expected {expected}",
+                    )
+                )
+
+    # 13. Agent template min-count <= max-count
+    for at in root.iter("agent-template"):
+        min_str = at.get("min-count")
+        max_str = at.get("max-count")
+        if min_str and max_str:
+            try:
+                if int(min_str) > int(max_str):
+                    at_desc = _elem_desc(at) or "agent-template"
+                    errors.append(
+                        ValidationError(
+                            layer=ErrorLayer.SEMANTIC,
+                            element_path=at_desc,
+                            message=f"min-count ({min_str}) > max-count ({max_str})",
+                        )
+                    )
+            except ValueError:
+                pass  # Non-integer caught by structural layer
+
+    # 14. Domain enum values match phase domains
     domain_enum_values = index.enum_value_ids.get("DomainType", set())
     if domain_enum_values:
         for pid, domain in index.phase_domains.items():
