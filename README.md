@@ -118,7 +118,7 @@ Both scripts are standalone Python 3.10+ with no external dependencies:
 ```bash
 git clone https://github.com/dayvidpham/aura-plugins
 cd aura-plugins
-chmod +x bin/aura-swarm bin/aura-parallel
+chmod +x bin/aura-swarm bin/aura-parallel bin/aura-release
 # Add bin/ to PATH or symlink into a PATH directory
 ```
 
@@ -321,6 +321,105 @@ their original path. Prompt files persist as an audit trail.
 Format: `epic-<suffix>--<hex4>`, where `<suffix>` is extracted from the epic ID
 (e.g. `aura-dyu` &rarr; `dyu`) and `<hex4>` is a random 4-character hex token
 for uniqueness. Retries up to 5 times on collision.
+
+---
+
+## aura-release
+
+Bumps the version across all manifest files, auto-generates a changelog from git
+history, commits the changes, and creates an annotated git tag.
+
+### Usage
+
+```bash
+aura-release <major|minor|patch> [options]
+aura-release --check
+```
+
+### Subcommands and Options
+
+| Argument         | Description                                          |
+|------------------|------------------------------------------------------|
+| `major`          | Bump major version (0.2.3 &rarr; 1.0.0)             |
+| `minor`          | Bump minor version (0.2.3 &rarr; 0.3.0)             |
+| `patch`          | Bump patch version (0.2.3 &rarr; 0.2.4)             |
+| `--check`        | Validate version consistency across files and exit   |
+| `--dry-run`      | Preview changes without writing files                |
+| `--sync`         | Align all files to pyproject.toml version before bumping |
+| `--no-changelog` | Skip CHANGELOG.md generation                         |
+| `--no-commit`    | Skip git commit                                      |
+| `--no-tag`       | Skip git tag creation                                |
+
+### Version files
+
+`aura-release` keeps these files in sync:
+
+| File                              | Field(s) updated                              |
+|-----------------------------------|-----------------------------------------------|
+| `pyproject.toml`                  | `[project].version` (source of truth)         |
+| `.claude-plugin/plugin.json`      | `.version`                                    |
+| `.claude-plugin/marketplace.json` | `.metadata.version` and `.plugins[].version` where `name == "aura"` |
+
+The `agentfilter` plugin entry in marketplace.json is never modified.
+
+### Pre-flight checks
+
+Before making any changes, `aura-release` verifies:
+
+- Not on a detached HEAD (must be on a branch)
+- Working tree is clean (tracked files outside `.beads/` have no uncommitted changes)
+- All version files are consistent (or `--sync` is used to fix drift)
+
+### Changelog format
+
+Generates entries in [Keep a Changelog](https://keepachangelog.com) format,
+grouping commits by conventional commit prefix:
+
+| Prefix              | Changelog section |
+|---------------------|-------------------|
+| `feat`              | Added             |
+| `fix`               | Fixed             |
+| `refactor`, `perf`  | Changed           |
+| `docs`              | Documentation     |
+| everything else     | Other             |
+
+On first release (no prior tags), all commits are included.
+
+### Error recovery
+
+If any step fails after files have been modified, all changes are rolled back
+via `git checkout`. The commit and tag are only created after all file writes
+succeed.
+
+### Examples
+
+```bash
+# Check version consistency (detects drift between files)
+aura-release --check
+
+# Preview a patch release (no changes made)
+aura-release patch --dry-run
+
+# Fix version drift and bump patch
+aura-release patch --sync
+
+# Bump minor version
+aura-release minor
+
+# Bump without changelog or tag (files only)
+aura-release patch --no-changelog --no-tag --no-commit
+
+# After release, push manually:
+git push && git push --tags
+```
+
+### Exit codes
+
+| Code | Meaning                                                |
+|------|--------------------------------------------------------|
+| 0    | Success (or `--check` with consistent versions)       |
+| 1    | `--check` found version drift                         |
+| 2    | Pre-flight failure or runtime error                   |
 
 ---
 
@@ -688,6 +787,7 @@ aura-plugins/
 │   └── plugin.json
 ├── bin/                       Operational tooling (add to PATH)
 │   ├── aura-parallel          Parallel tmux session launcher
+│   ├── aura-release           Version bump, changelog, and git tag
 │   └── aura-swarm             Epic-based worktree agent launcher
 ├── skills/                    Plugin skills (SKILL.md per directory)
 │   ├── architect/             Architect orchestrator
@@ -726,6 +826,9 @@ nix build .#aura-swarm --no-link
 # Test CLI help output
 nix run .#aura-swarm -- --help
 nix run .#aura-parallel -- --help
+
+# Check version consistency across manifests
+bin/aura-release --check
 ```
 
 ## License

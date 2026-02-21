@@ -75,6 +75,7 @@ bd dep add ure-id --blocked-by request-id
 aura-plugins/
 ├── bin/                    # Operational tooling (add to PATH)
 │   ├── aura-parallel       # Parallel agent launcher for tmux sessions (Python)
+│   ├── aura-release        # Version bump, changelog, and git tag (Python)
 │   └── aura-swarm          # Epic-based worktree agent launcher (Python)
 ├── flake.nix               # Nix flake packaging + Home Manager module
 ├── nix/hm-module.nix       # Home Manager module for config sync
@@ -108,6 +109,29 @@ nix build .#aura-swarm --no-link
 # Test CLI help output
 nix run .#aura-swarm -- --help
 nix run .#aura-parallel -- --help
+
+# Check version consistency across manifests
+bin/aura-release --check
+```
+
+## Releasing
+
+Use `bin/aura-release` to create releases. It bumps the version across all
+manifest files (pyproject.toml, plugin.json, marketplace.json), auto-generates
+CHANGELOG.md, commits, and creates an annotated git tag.
+
+```bash
+# Check version consistency
+bin/aura-release --check
+
+# Preview a release
+bin/aura-release patch --dry-run
+
+# Create a patch release (fix drift if needed)
+bin/aura-release patch --sync
+
+# Push after release
+git push && git push --tags
 ```
 
 ## Agent Orchestration
