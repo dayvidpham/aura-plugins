@@ -5,11 +5,19 @@
 *.db-wal
 *.db-shm
 
+# Ephemeral/wisp storage (local-only, regenerated at runtime)
+ephemeral.sqlite3
+
+# Dolt database (local-only, regenerated from JSONL via bd init/import)
+dolt/
+dolt-access.lock
+
 # Daemon runtime files
 daemon.lock
 daemon.log
 daemon.pid
 bd.sock
+bd.sock.startlock
 sync-state.json
 last-touched
 
