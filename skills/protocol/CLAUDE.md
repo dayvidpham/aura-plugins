@@ -110,6 +110,10 @@ bd dep add ure-id --blocked-by request-id
 
 **Given** inter-agent communication is needed **then** use beads for coordination (`bd comments add`, `bd update --notes`, `bd show`). **SHOULD NOT** reference `aura agent send/broadcast/inbox` — that CLI does not exist.
 
+**Given** you are assigning work to a teammate via TeamCreate/SendMessage **when** composing the message **then** MUST include: (1) explicit skill invocation instruction (e.g., `Skill(/aura:worker)`), (2) all relevant Beads task IDs, (3) `bd show <task-id>` commands for each reference, and (4) the handoff document path if applicable. **SHOULD NEVER** send bare instructions without Beads context — teammates spawned via TeamCreate have zero prior context and cannot see your conversation history or task tree.
+
+**Given** you are a supervisor **when** implementation work is needed (code edits, file creation, config changes — no matter how small) **then** MUST delegate to a worker teammate or subagent. **MUST NEVER** use Edit, Write, or other file-modification tools directly. The supervisor's role is coordination, tracking, and quality control — never implementation.
+
 ### Tests & Fixtures
 
 **Given** you are writing a test **when** you need any value (email, path, UUID, timestamp, etc.) **then**:

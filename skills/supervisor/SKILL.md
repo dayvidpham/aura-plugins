@@ -32,6 +32,8 @@ You own Phases 7-12 of the epoch:
 
 **Given** worker assignments **when** spawning **then** use Task tool with `subagent_type: "general-purpose"` and `run_in_background: true`, worker MUST call `Skill(/aura:worker)` at start **should never** spawn workers sequentially or use specialized agent types
 
+**Given** teammates spawned via TeamCreate **when** assigning work via SendMessage **then** the message MUST include: (1) explicit instruction to call `Skill(/aura:worker)`, (2) the Beads task ID, (3) instruction to run `bd show <task-id>` for full context, and (4) the handoff document path **should never** send bare instructions without Beads context — teammates have no prior knowledge of the task
+
 **Given** trivial changes (single-file edits, config tweaks, typo fixes) **when** spawning a worker **then** use `model: "haiku"` for the Task tool to minimize cost and latency **should never** use a heavyweight model for trivial work
 
 **Given** non-trivial changes (multi-file, architectural, logic-heavy) **when** spawning a worker **then** prefer `model: "sonnet"` for the Task tool to ensure quality **should** default to sonnet when uncertain about complexity
@@ -319,6 +321,32 @@ Task({
 ```
 
 See: [.claude/skills/supervisor-spawn-worker/SKILL.md](.claude/skills/supervisor-spawn-worker/SKILL.md) for handoff template.
+
+### TeamCreate Context Requirements
+
+When using TeamCreate instead of the Task tool, teammates have **zero prior context**. Every SendMessage assigning work MUST be self-contained:
+
+```
+SendMessage({
+  type: "message",
+  recipient: "worker-1",
+  content: `You are assigned SLICE-1. Start by calling Skill(/aura:worker).
+
+Your Beads task ID: <slice-task-id>
+Run this to get full requirements: bd show <slice-task-id>
+Handoff document: .git/.aura/handoff/<request-task-id>/supervisor-to-worker-1.md
+
+Key context:
+- Request: <request-task-id> (run: bd show <request-task-id>)
+- URD: <urd-task-id> (run: bd show <urd-task-id>)
+- IMPL_PLAN: <impl-plan-task-id> (run: bd show <impl-plan-task-id>)
+
+Read the handoff doc and your Beads task before starting implementation.`,
+  summary: "SLICE-1 assignment with Beads context"
+})
+```
+
+**Never assume teammates know anything.** They cannot see your conversation history, the Beads task tree, or any prior context. Every assignment must include actionable `bd show` commands.
 
 The worker skill provides:
 - File ownership validation

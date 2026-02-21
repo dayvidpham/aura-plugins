@@ -76,6 +76,33 @@ Handoff doc: .git/.aura/handoff/<request-task-id>/supervisor-to-worker-<N>.md`,
 
 **Important:** Use `subagent_type: "general-purpose"`, not a custom agent type. The worker skill is invoked inside the agent via `Skill(/aura:worker)`.
 
+## TeamCreate: SendMessage Assignment
+
+When workers are spawned via TeamCreate, they receive context through SendMessage instead of a Task prompt. The message MUST be self-contained — teammates have **no prior context**:
+
+```
+SendMessage({
+  type: "message",
+  recipient: "worker-1",
+  content: `You are assigned SLICE-1. Start by calling Skill(/aura:worker).
+
+Your Beads task ID: <slice-task-id>
+Run this to get full requirements: bd show <slice-task-id>
+Handoff document: .git/.aura/handoff/<request-task-id>/supervisor-to-worker-1.md
+
+Key references (run bd show on each for full context):
+- Request: <request-task-id>
+- URD: <urd-task-id>
+- IMPL_PLAN: <impl-plan-task-id>
+- Ratified Proposal: <proposal-task-id>
+
+Read the handoff doc and your Beads task before starting implementation.`,
+  summary: "SLICE-1 assignment with Beads context"
+})
+```
+
+**Critical:** Never send bare instructions like "implement SLICE-1" without Beads task IDs and `bd show` commands. Teammates cannot see your conversation or task tree.
+
 ## Worker Should Update Beads Status
 
 - On start: `bd update <task-id> --status=in_progress`
