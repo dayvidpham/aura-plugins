@@ -1,5 +1,20 @@
 # Changelog
 
+## [0.4.0] - 2026-02-22
+
+### Added
+- feat(interfaces): SLICE-4 — cross-project integration interfaces + A2A types
+- feat(workflow): SLICE-5 — Temporal workflow wrapper for epoch lifecycle
+- feat(constraints): SLICE-3 — RuntimeConstraintChecker + test_constraints.py
+- feat(state_machine): SLICE-2 — 12-phase epoch lifecycle state machine
+- feat(aura_protocol): SLICE-1 — protocol type definitions (types.py + __init__.py + tests)
+
+### Fixed
+- fix(aura-parallel): use file-based indirection to avoid tmux command length limit
+
+### Other
+- Merge branch 'bug-skill-location'
+
 ## [0.3.2] - 2026-02-22
 
 ### Fixed
