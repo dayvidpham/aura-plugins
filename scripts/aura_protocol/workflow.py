@@ -79,13 +79,20 @@ class EpochResult:
 
     epoch_id: the epoch that completed
     final_phase: should always be PhaseId.COMPLETE
-    transition_count: total number of phase transitions made
+    transition_count: total number of records in transition_history, including
+        failed attempts (those with TransitionRecord.success == False).
+        This is the raw audit count; use successful_transition_count for the
+        count of successful phase advances only.
+    successful_transition_count: number of successful (non-failed) phase
+        transitions. Failed attempts (TransitionRecord.success == False) are
+        excluded. Equal to transition_count when no failures occurred.
     constraint_violations_total: cumulative violations detected during the run
     """
 
     epoch_id: str
     final_phase: PhaseId
     transition_count: int
+    successful_transition_count: int
     constraint_violations_total: int
 
 
@@ -221,13 +228,18 @@ class EpochWorkflow:
         self._sm = EpochStateMachine(input.epoch_id)
 
         # Set initial search attributes.
+        # SA_EPOCH_ID is immutable for the lifetime of this workflow run — it
+        # identifies the epoch and never changes. It is set here (once) and
+        # intentionally omitted from per-transition upserts below. Temporal
+        # preserves existing search attribute values across upserts, so the
+        # epoch ID remains indexed for forensic lookup throughout the run.
         initial_phase = self._sm.state.current_phase
         initial_domain = PHASE_DOMAIN[initial_phase].value if initial_phase in PHASE_DOMAIN else ""
         workflow.upsert_search_attributes(
             [
                 SA_EPOCH_ID.value_set(input.epoch_id),
                 SA_PHASE.value_set(initial_phase.value),
-                SA_ROLE.value_set(self._sm.state.current_role),
+                SA_ROLE.value_set(self._sm.state.current_role.value),
                 SA_STATUS.value_set("running"),
                 SA_DOMAIN.value_set(initial_domain),
             ]
@@ -260,36 +272,36 @@ class EpochWorkflow:
             self._total_violations += len(violations)
 
             # 2b. Advance state machine (pure, deterministic).
-            # Use workflow.now() — deterministic time source inside workflow.
+            # Pass timestamp=workflow.now() directly so the record uses
+            # deterministic workflow time — no post-hoc mutation needed.
             try:
                 record = self._sm.advance(
                     advance_signal.to_phase,
                     triggered_by=advance_signal.triggered_by,
                     condition_met=advance_signal.condition_met,
+                    timestamp=workflow.now(),
                 )
             except TransitionError as e:
-                # Invalid advance — stay in current phase and record the error
-                # for query observability via current_state().last_error.
+                # Invalid advance — record the failed attempt in the audit trail
+                # so the transition_history captures all attempts (not just successes).
+                # The failed record uses condition_met="FAILED: {error}" for display
+                # and success=False for all programmatic success/failure checks.
+                failed_record = TransitionRecord(
+                    from_phase=self._sm.state.current_phase,
+                    to_phase=advance_signal.to_phase,
+                    timestamp=workflow.now(),
+                    triggered_by=advance_signal.triggered_by,
+                    condition_met=f"FAILED: {e}",
+                    success=False,
+                )
+                self._sm.state.transition_history.append(failed_record)
                 self._sm.state.last_error = str(e)
                 continue
-
-            # Override the record timestamp to use workflow deterministic time.
-            # TransitionRecord is frozen, so we recreate it with workflow.now().
-            deterministic_record = TransitionRecord(
-                from_phase=record.from_phase,
-                to_phase=record.to_phase,
-                timestamp=workflow.now(),
-                triggered_by=record.triggered_by,
-                condition_met=record.condition_met,
-            )
-            # Replace the last record in history with the deterministic-timestamp one.
-            if self._sm.state.transition_history:
-                self._sm.state.transition_history[-1] = deterministic_record
 
             # 2c. Record transition (activity — I/O boundary).
             await workflow.execute_activity(
                 record_transition,
-                args=[deterministic_record],
+                args=[record],
                 start_to_close_timeout=timedelta(seconds=10),
             )
 
@@ -303,7 +315,7 @@ class EpochWorkflow:
             workflow.upsert_search_attributes(
                 [
                     SA_PHASE.value_set(current.value),
-                    SA_ROLE.value_set(self._sm.state.current_role),
+                    SA_ROLE.value_set(self._sm.state.current_role.value),
                     SA_STATUS.value_set(
                         "complete" if current == PhaseId.COMPLETE else "running"
                     ),
@@ -311,10 +323,13 @@ class EpochWorkflow:
                 ]
             )
 
+        history = self._sm.state.transition_history
+        successful = sum(1 for r in history if r.success)
         return EpochResult(
             epoch_id=input.epoch_id,
             final_phase=self._sm.state.current_phase,
-            transition_count=len(self._sm.state.transition_history),
+            transition_count=len(history),
+            successful_transition_count=successful,
             constraint_violations_total=self._total_violations,
         )
 
