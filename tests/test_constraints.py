@@ -59,19 +59,11 @@ from aura_protocol.types import (
     SeverityLevel,
     VoteType,
 )
+from conftest import _advance_to, _make_state
 from datetime import datetime, timezone
 
 
 # ─── Helpers ──────────────────────────────────────────────────────────────────
-
-
-def _make_state(
-    phase: PhaseId = PhaseId.P1_REQUEST,
-    epoch_id: str = "test-epoch",
-    **kwargs,
-) -> EpochState:
-    """Return a fresh EpochState at the given phase."""
-    return EpochState(epoch_id=epoch_id, current_phase=phase, **kwargs)
 
 
 def _make_state_at_p4_with_votes(**votes: VoteType) -> EpochState:
@@ -239,13 +231,19 @@ class TestAC4CheckState:
     def test_check_state_does_not_short_circuit(self) -> None:
         """check_state must aggregate ALL violations — not stop at first."""
         checker = _make_checker()
-        # p10 with blockers AND no consensus AND no severity groups
+        # p10 with blockers AND no consensus AND no severity groups AND no audit trail
         state = _make_state(phase=PhaseId.P10_CODE_REVIEW, blocker_count=3)
         violations = checker.check_state(state)
         constraint_ids = {v.constraint_id for v in violations}
-        # Both C-review-consensus and C-worker-gates should appear
+        # All 4 violations should appear:
+        # 1. C-review-consensus: no votes in review phase
+        # 2. C-worker-gates: blocker_count=3 > 0
+        # 3. C-severity-eager: no severity groups present
+        # 4. C-audit-never-delete: at p10 with empty transition_history
         assert "C-review-consensus" in constraint_ids
         assert "C-worker-gates" in constraint_ids
+        assert "C-severity-eager" in constraint_ids
+        assert "C-audit-never-delete" in constraint_ids
 
     def test_check_state_violations_have_non_empty_messages(self) -> None:
         checker = _make_checker()
@@ -764,7 +762,6 @@ class TestCheckSeverityTree:
 
     def test_p10_state_machine_advance_populates_severity_groups(self) -> None:
         """Advancing to p10 via EpochStateMachine auto-populates all 3 severity groups."""
-        from conftest import _advance_to
         sm = EpochStateMachine("test-p10-severity")
         _advance_to(sm, PhaseId.P10_CODE_REVIEW)
         state = sm.state

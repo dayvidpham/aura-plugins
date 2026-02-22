@@ -103,6 +103,21 @@ _SAME_ACTOR: frozenset[tuple[PhaseId, PhaseId]] = frozenset(
     }
 )
 
+# Action types that constitute direct code implementation (used by C-supervisor-no-impl).
+_IMPL_ACTIONS: frozenset[str] = frozenset(
+    {"file_edit", "file_write", "code_change", "write_file", "edit_file"}
+)
+
+# Valid title prefixes for follow-up lifecycle tasks (used by C-followup-lifecycle).
+_FOLLOWUP_PREFIXES: tuple[str, ...] = (
+    "FOLLOWUP:",
+    "FOLLOWUP_URE:",
+    "FOLLOWUP_URD:",
+    "FOLLOWUP_PROPOSAL-",
+    "FOLLOWUP_IMPL_PLAN:",
+    "FOLLOWUP_SLICE-",
+)
+
 
 # ─── Checker ──────────────────────────────────────────────────────────────────
 
@@ -115,7 +130,7 @@ class RuntimeConstraintChecker:
 
     Usage:
         checker = RuntimeConstraintChecker()
-        violations = checker.check_all(state)
+        violations = checker.check_state(state)
         if violations:
             for v in violations:
                 print(f"[{v.constraint_id}] {v.message}")
@@ -1042,10 +1057,6 @@ class RuntimeConstraintChecker:
         External enforcement note: Full enforcement requires monitoring tool
         calls at the agent level.
         """
-        _IMPL_ACTIONS: frozenset[str] = frozenset(
-            {"file_edit", "file_write", "code_change", "write_file", "edit_file"}
-        )
-
         if role != RoleId.SUPERVISOR.value:
             return []
 
@@ -1081,15 +1092,6 @@ class RuntimeConstraintChecker:
 
         Returns violation if the title lacks the FOLLOWUP prefix.
         """
-        _FOLLOWUP_PREFIXES: tuple[str, ...] = (
-            "FOLLOWUP:",
-            "FOLLOWUP_URE:",
-            "FOLLOWUP_URD:",
-            "FOLLOWUP_PROPOSAL-",
-            "FOLLOWUP_IMPL_PLAN:",
-            "FOLLOWUP_SLICE-",
-        )
-
         for prefix in _FOLLOWUP_PREFIXES:
             if followup_task_title.startswith(prefix):
                 return []
