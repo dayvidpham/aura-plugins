@@ -41,6 +41,8 @@ State Machine (from state_machine.py):
 Runtime Constraint Checking (from constraints.py):
     ConstraintViolation     — frozen dataclass: constraint_id, message, context
     RuntimeConstraintChecker — checks all 22 C-* constraints against epoch state
+        check_state_constraints(state) — aggregates the 5 state-based checks
+        check_transition_constraints(state, to_phase) — combines transition-specific checks
 
 Protocol Interfaces (runtime_checkable, from interfaces.py):
     ConstraintValidatorInterface

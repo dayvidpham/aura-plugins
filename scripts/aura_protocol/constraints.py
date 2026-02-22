@@ -11,7 +11,12 @@ Key types:
 Design decisions:
     - DI: accepts optional constraint_specs/handoff_specs; defaults to canonical dicts
     - Returns list[ConstraintViolation] — never raises, never silently swallows
-    - check_all aggregates ALL checks; no short-circuit
+    - Two aggregation entry points:
+        check_state_constraints(state) — aggregates the 5 state-based checks
+        check_transition_constraints(state, to_phase) — combines transition-specific checks
+          (consensus gate, handoff requirement, blocker gate)
+    - Individual check methods (check_dep_direction, check_agent_commit, etc.) are kept
+      intact — they have different signatures and cannot be unified into a single entry point
     - Structural / git-level constraints (e.g. C-agent-commit) validate what CAN be
       checked at runtime and document what requires external enforcement
 """
@@ -112,15 +117,26 @@ class RuntimeConstraintChecker:
             handoff_specs if handoff_specs is not None else HANDOFF_SPECS
         )
 
-    # ── Aggregation ───────────────────────────────────────────────────────────
+    # ── Aggregation Entry Points ──────────────────────────────────────────────
 
-    def check_all(self, state: EpochState) -> list[ConstraintViolation]:
-        """Run all runtime-checkable constraint checks against current state.
+    def check_state_constraints(self, state: EpochState) -> list[ConstraintViolation]:
+        """Run state-based constraint checks against current epoch state.
 
-        Aggregates results from every check method. Does NOT short-circuit —
+        Aggregates the 5 state-based checks. Does NOT short-circuit —
         all checks run regardless of earlier violations.
 
-        Returns combined list of all violations (empty = all constraints satisfied).
+        This entry point covers constraints that can be evaluated from state alone,
+        without knowledge of the intended next phase:
+        - C-review-consensus: all 3 axes must ACCEPT in review phases
+        - C-severity-not-plan: p4 must NOT use severity trees
+        - C-worker-gates: p10 with unresolved blockers
+        - C-audit-never-delete / C-audit-dep-chain: audit trail integrity
+        - C-vertical-slices: role-phase ownership
+
+        For transition-specific checks (consensus gate, handoff, blocker gate as
+        a transition precondition), use check_transition_constraints(state, to_phase).
+
+        Returns combined list of all violations (empty = all state constraints satisfied).
         """
         violations: list[ConstraintViolation] = []
         violations.extend(self.check_review_consensus(state))
@@ -130,15 +146,18 @@ class RuntimeConstraintChecker:
         violations.extend(self.check_role_ownership(state))
         return violations
 
-    def check_transition(
+    def check_transition_constraints(
         self, state: EpochState, to_phase: PhaseId
     ) -> list[ConstraintViolation]:
         """Check constraints specific to a proposed phase transition.
 
-        Validates:
+        Combines the transition-specific checks into one entry point:
         - C-review-consensus: p4→p5 or p10→p11 requires all 3 ACCEPT
         - C-handoff-skill-invocation: actor-change transitions require handoff
-        - C-audit-dep-chain: transitions must have a reason (condition_met)
+        - C-worker-gates (blocker gate): p10→p11 blocked while blocker_count > 0
+
+        Does NOT short-circuit — all transition checks run regardless of
+        earlier violations.
 
         Returns list of violations (empty = transition is protocol-valid).
         """
@@ -155,7 +174,23 @@ class RuntimeConstraintChecker:
         # C-handoff-skill-invocation: handoff required for actor-change transitions
         violations.extend(self.check_handoff_required(current, to_phase))
 
+        # C-worker-gates: blocker gate — p10→p11 blocked while blocker_count > 0
+        if current == PhaseId.P10_CODE_REVIEW and to_phase == PhaseId.P11_IMPL_UAT:
+            violations.extend(self.check_blocker_gate(state))
+
         return violations
+
+    def check_transition(
+        self, state: EpochState, to_phase: PhaseId
+    ) -> list[ConstraintViolation]:
+        """Check constraints specific to a proposed phase transition.
+
+        Deprecated alias for check_transition_constraints(). Kept for backwards
+        compatibility. Use check_transition_constraints() for new code.
+
+        Returns list of violations (empty = transition is protocol-valid).
+        """
+        return self.check_transition_constraints(state, to_phase)
 
     # ── Named Constraint Checks ────────────────────────────────────────────────
 

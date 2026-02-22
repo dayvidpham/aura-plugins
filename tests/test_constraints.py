@@ -7,8 +7,9 @@ BDD Acceptance Criteria:
 Coverage:
     - ConstraintViolation dataclass: frozen, fields, context dict
     - RuntimeConstraintChecker: DI constructor, default specs
-    - check_all: aggregates all violations, no short-circuit
-    - check_transition: phase-specific constraint validation
+    - check_state_constraints: aggregates 5 state-based checks, no short-circuit
+    - check_transition_constraints: combines transition-specific checks
+    - check_transition: backwards-compat alias for check_transition_constraints
     - check_review_consensus: C-review-consensus (p4/p10 must have 3 ACCEPT)
     - check_dep_direction: C-dep-direction (non-empty, distinct IDs)
     - check_severity_tree: C-severity-eager / C-severity-not-plan (p4/p10 rules)
@@ -185,76 +186,167 @@ class TestRuntimeConstraintCheckerConstructor:
         assert checker is not None
 
 
-# ─── AC5: check_all Aggregation ───────────────────────────────────────────────
+# ─── AC5: check_state_constraints Aggregation ─────────────────────────────────
 
 
-class TestAC5CheckAll:
-    """AC5: Given violated state, check_all returns non-empty ConstraintViolation list."""
+class TestAC5CheckStateConstraints:
+    """AC5: Given violated state, check_state_constraints returns non-empty ConstraintViolation list."""
 
-    def test_check_all_returns_list(self) -> None:
+    def test_check_state_constraints_returns_list(self) -> None:
         checker = _make_checker()
         state = _make_state()
-        result = checker.check_all(state)
+        result = checker.check_state_constraints(state)
         assert isinstance(result, list)
 
-    def test_check_all_returns_violations_for_p4_without_consensus(self) -> None:
-        """At p4 with no votes, check_all should include C-review-consensus violation."""
+    def test_check_state_constraints_returns_violations_for_p4_without_consensus(self) -> None:
+        """At p4 with no votes, check_state_constraints should include C-review-consensus violation."""
         checker = _make_checker()
         state = _make_state_at_p4_with_votes()  # no votes
-        violations = checker.check_all(state)
+        violations = checker.check_state_constraints(state)
         constraint_ids = {v.constraint_id for v in violations}
         assert "C-review-consensus" in constraint_ids
 
-    def test_check_all_returns_violations_for_p10_with_blockers(self) -> None:
-        """At p10 with blockers, check_all should include C-worker-gates violation."""
+    def test_check_state_constraints_returns_violations_for_p10_with_blockers(self) -> None:
+        """At p10 with blockers, check_state_constraints should include C-worker-gates violation."""
         checker = _make_checker()
         state = _make_state(phase=PhaseId.P10_CODE_REVIEW, blocker_count=2)
-        violations = checker.check_all(state)
+        violations = checker.check_state_constraints(state)
         constraint_ids = {v.constraint_id for v in violations}
         assert "C-worker-gates" in constraint_ids
 
-    def test_check_all_returns_empty_for_clean_p1_state(self) -> None:
+    def test_check_state_constraints_returns_empty_for_clean_p1_state(self) -> None:
         """A fresh p1 state with no violations should return empty list."""
         checker = _make_checker()
         state = _make_state(phase=PhaseId.P1_REQUEST)
-        violations = checker.check_all(state)
+        violations = checker.check_state_constraints(state)
         assert violations == []
 
-    def test_check_all_does_not_short_circuit(self) -> None:
-        """check_all must aggregate ALL violations — not stop at first."""
+    def test_check_state_constraints_does_not_short_circuit(self) -> None:
+        """check_state_constraints must aggregate ALL violations — not stop at first."""
         checker = _make_checker()
         # p10 with blockers AND no consensus — should get both violations
         state = _make_state(phase=PhaseId.P10_CODE_REVIEW, blocker_count=3)
         # no votes recorded
-        violations = checker.check_all(state)
+        violations = checker.check_state_constraints(state)
         constraint_ids = {v.constraint_id for v in violations}
         # Both C-review-consensus and C-worker-gates should appear
         assert "C-review-consensus" in constraint_ids
         assert "C-worker-gates" in constraint_ids
 
-    def test_check_all_violations_have_non_empty_messages(self) -> None:
+    def test_check_state_constraints_violations_have_non_empty_messages(self) -> None:
         checker = _make_checker()
         state = _make_state(phase=PhaseId.P4_REVIEW)
-        violations = checker.check_all(state)
+        violations = checker.check_state_constraints(state)
         for v in violations:
             assert v.message, f"Empty message in violation: {v.constraint_id}"
 
-    def test_check_all_violations_have_valid_constraint_ids(self) -> None:
+    def test_check_state_constraints_violations_have_valid_constraint_ids(self) -> None:
         """All violation constraint_ids must match a known C-* constraint."""
         checker = _make_checker()
         state = _make_state(phase=PhaseId.P4_REVIEW, blocker_count=1)
-        violations = checker.check_all(state)
+        violations = checker.check_state_constraints(state)
         for v in violations:
             assert v.constraint_id in CONSTRAINT_SPECS, (
                 f"Unknown constraint_id: {v.constraint_id!r}"
             )
 
 
-# ─── check_transition ─────────────────────────────────────────────────────────
+# ─── check_transition_constraints ────────────────────────────────────────────
+
+
+class TestCheckTransitionConstraints:
+    """check_transition_constraints validates constraints for proposed phase transitions."""
+
+    def test_p4_to_p5_without_consensus_returns_violation(self) -> None:
+        checker = _make_checker()
+        state = _make_state_at_p4_with_votes(A=VoteType.ACCEPT)  # only 1 axis
+        violations = checker.check_transition_constraints(state, PhaseId.P5_UAT)
+        ids = {v.constraint_id for v in violations}
+        assert "C-review-consensus" in ids
+
+    def test_p4_to_p5_with_consensus_returns_no_consensus_violation(self) -> None:
+        checker = _make_checker()
+        state = _all_accept_state(PhaseId.P4_REVIEW)
+        violations = checker.check_transition_constraints(state, PhaseId.P5_UAT)
+        ids = {v.constraint_id for v in violations}
+        assert "C-review-consensus" not in ids
+
+    def test_p10_to_p11_without_consensus_returns_violation(self) -> None:
+        checker = _make_checker()
+        state = _make_state_at_p10_with_votes(A=VoteType.ACCEPT, B=VoteType.ACCEPT)
+        violations = checker.check_transition_constraints(state, PhaseId.P11_IMPL_UAT)
+        ids = {v.constraint_id for v in violations}
+        assert "C-review-consensus" in ids
+
+    def test_p10_to_p11_with_consensus_returns_no_consensus_violation(self) -> None:
+        checker = _make_checker()
+        state = _all_accept_state(PhaseId.P10_CODE_REVIEW)
+        violations = checker.check_transition_constraints(state, PhaseId.P11_IMPL_UAT)
+        ids = {v.constraint_id for v in violations}
+        assert "C-review-consensus" not in ids
+
+    def test_p1_to_p2_returns_no_violations(self) -> None:
+        checker = _make_checker()
+        state = _make_state(phase=PhaseId.P1_REQUEST)
+        violations = checker.check_transition_constraints(state, PhaseId.P2_ELICIT)
+        assert violations == []
+
+    def test_handoff_required_transition_returns_violation(self) -> None:
+        checker = _make_checker()
+        state = _make_state(phase=PhaseId.P7_HANDOFF)
+        violations = checker.check_transition_constraints(state, PhaseId.P8_IMPL_PLAN)
+        ids = {v.constraint_id for v in violations}
+        assert "C-handoff-skill-invocation" in ids
+
+    def test_same_actor_transition_returns_no_handoff_violation(self) -> None:
+        checker = _make_checker()
+        # p5→p6 and p6→p7 are same-actor (no handoff needed)
+        state = _make_state(phase=PhaseId.P5_UAT)
+        violations = checker.check_transition_constraints(state, PhaseId.P6_RATIFY)
+        ids = {v.constraint_id for v in violations}
+        assert "C-handoff-skill-invocation" not in ids
+
+    def test_p10_to_p11_with_blockers_returns_blocker_gate_violation(self) -> None:
+        """p10→p11 transition is blocked while blocker_count > 0."""
+        checker = _make_checker()
+        state = _all_accept_state(PhaseId.P10_CODE_REVIEW)
+        state.blocker_count = 2
+        violations = checker.check_transition_constraints(state, PhaseId.P11_IMPL_UAT)
+        ids = {v.constraint_id for v in violations}
+        assert "C-worker-gates" in ids
+
+    def test_p10_to_p11_with_zero_blockers_no_blocker_gate_violation(self) -> None:
+        """p10→p11 is not blocked when blocker_count is 0."""
+        checker = _make_checker()
+        state = _all_accept_state(PhaseId.P10_CODE_REVIEW)
+        state.blocker_count = 0
+        violations = checker.check_transition_constraints(state, PhaseId.P11_IMPL_UAT)
+        ids = {v.constraint_id for v in violations}
+        assert "C-worker-gates" not in ids
+
+    def test_does_not_short_circuit(self) -> None:
+        """check_transition_constraints must aggregate all transition violations."""
+        checker = _make_checker()
+        # p10→p11 with no consensus AND blockers: both violations should appear
+        state = _make_state(phase=PhaseId.P10_CODE_REVIEW, blocker_count=3)
+        # no votes recorded
+        violations = checker.check_transition_constraints(state, PhaseId.P11_IMPL_UAT)
+        ids = {v.constraint_id for v in violations}
+        assert "C-review-consensus" in ids
+        assert "C-worker-gates" in ids
+
+    def test_returns_list(self) -> None:
+        checker = _make_checker()
+        state = _make_state(phase=PhaseId.P1_REQUEST)
+        result = checker.check_transition_constraints(state, PhaseId.P2_ELICIT)
+        assert isinstance(result, list)
+
+
+# ─── check_transition (backwards-compat alias) ────────────────────────────────
 
 
 class TestCheckTransition:
-    """check_transition validates constraints for proposed phase transitions."""
+    """check_transition is a backwards-compat alias for check_transition_constraints."""
 
     def test_p4_to_p5_without_consensus_returns_violation(self) -> None:
         checker = _make_checker()
@@ -304,6 +396,13 @@ class TestCheckTransition:
         violations = checker.check_transition(state, PhaseId.P6_RATIFY)
         ids = {v.constraint_id for v in violations}
         assert "C-handoff-skill-invocation" not in ids
+
+    def test_delegates_to_check_transition_constraints(self) -> None:
+        """check_transition must produce the same result as check_transition_constraints."""
+        checker = _make_checker()
+        state = _make_state_at_p4_with_votes(A=VoteType.ACCEPT)
+        assert checker.check_transition(state, PhaseId.P5_UAT) == \
+            checker.check_transition_constraints(state, PhaseId.P5_UAT)
 
 
 # ─── C-review-consensus ───────────────────────────────────────────────────────
@@ -1262,27 +1361,27 @@ class TestCheckVerticalSlices:
 
 
 class TestCrossConstraintIntegration:
-    """Integration tests verifying that check_all aggregates multiple constraint violations."""
+    """Integration tests verifying that check_state_constraints aggregates multiple constraint violations."""
 
-    def test_p4_with_no_votes_check_all_is_non_empty(self) -> None:
+    def test_p4_with_no_votes_check_state_constraints_is_non_empty(self) -> None:
         checker = _make_checker()
         state = _make_state(phase=PhaseId.P4_REVIEW)
-        violations = checker.check_all(state)
+        violations = checker.check_state_constraints(state)
         # AC5: should NOT silently pass
-        assert violations, "check_all should return violations for p4 without consensus"
+        assert violations, "check_state_constraints should return violations for p4 without consensus"
 
-    def test_p10_with_blockers_and_no_consensus_check_all_is_non_empty(self) -> None:
+    def test_p10_with_blockers_and_no_consensus_check_state_constraints_is_non_empty(self) -> None:
         checker = _make_checker()
         state = _make_state(phase=PhaseId.P10_CODE_REVIEW, blocker_count=2)
-        violations = checker.check_all(state)
-        assert violations, "check_all should return violations for p10 with blockers"
+        violations = checker.check_state_constraints(state)
+        assert violations, "check_state_constraints should return violations for p10 with blockers"
 
     def test_all_violations_have_constraint_id_in_specs(self) -> None:
         """Every constraint_id in a violation must be a known C-* constraint."""
         checker = _make_checker()
         # Create a state with multiple potential violations
         state = _make_state(phase=PhaseId.P10_CODE_REVIEW, blocker_count=1)
-        violations = checker.check_all(state)
+        violations = checker.check_state_constraints(state)
         for v in violations:
             assert v.constraint_id in CONSTRAINT_SPECS, (
                 f"Violation has unknown constraint_id: {v.constraint_id!r}. "
@@ -1293,15 +1392,15 @@ class TestCrossConstraintIntegration:
         """A fresh p1 state should not produce any violations."""
         checker = _make_checker()
         state = _make_state(phase=PhaseId.P1_REQUEST)
-        violations = checker.check_all(state)
+        violations = checker.check_state_constraints(state)
         assert violations == [], f"Unexpected violations for clean p1 state: {violations}"
 
-    def test_check_all_aggregates_not_short_circuits(self) -> None:
-        """check_all must return violations from multiple checks, not just the first."""
+    def test_check_state_constraints_aggregates_not_short_circuits(self) -> None:
+        """check_state_constraints must return violations from multiple checks, not just the first."""
         checker = _make_checker()
         state = _make_state(phase=PhaseId.P10_CODE_REVIEW, blocker_count=5)
         # p10 has both C-review-consensus (no votes) and C-worker-gates (blockers)
-        violations = checker.check_all(state)
+        violations = checker.check_state_constraints(state)
         constraint_ids = {v.constraint_id for v in violations}
         # At least both must appear
         assert len(constraint_ids) >= 2, (

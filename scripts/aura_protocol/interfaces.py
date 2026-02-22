@@ -17,8 +17,10 @@ Ratified plan: aura-plugins-gmv (AC9, AC10)
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Protocol, runtime_checkable
+from typing import Protocol, runtime_checkable
 
+from aura_protocol.constraints import ConstraintViolation
+from aura_protocol.state_machine import EpochState
 from aura_protocol.types import (
     AuditEvent,
     ConstraintCheckEvent,
@@ -29,13 +31,6 @@ from aura_protocol.types import (
     RoleId,
     ToolPermissionRequest,
 )
-
-if TYPE_CHECKING:
-    # These modules are not yet implemented; use TYPE_CHECKING to avoid
-    # circular runtime imports. The Protocol method signatures remain fully
-    # type-checked while runtime import cost is zero.
-    from aura_protocol.constraints import ConstraintViolation  # noqa: F401
-    from aura_protocol.state_machine import EpochState  # noqa: F401
 
 
 # ─── Protocol Interfaces ──────────────────────────────────────────────────────
