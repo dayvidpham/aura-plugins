@@ -593,6 +593,22 @@ class TestValidateAdvance:
         assert "COMPLETE" in violations[0]
 
 
+# ─── last_error Field ─────────────────────────────────────────────────────────
+
+
+class TestLastError:
+    """EpochState.last_error tracks errors and clears on successful advance."""
+
+    def test_last_error_starts_as_none(self) -> None:
+        sm = _make_sm()
+        assert sm.state.last_error is None
+
+    def test_last_error_is_none_after_successful_advance(self) -> None:
+        sm = _make_sm()
+        sm.advance(PhaseId.P2_ELICIT, triggered_by="test", condition_met="ok")
+        assert sm.state.last_error is None
+
+
 # ─── Dependency Injection ─────────────────────────────────────────────────────
 
 

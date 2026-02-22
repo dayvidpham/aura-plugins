@@ -42,6 +42,7 @@ from aura_protocol.constraints import ConstraintViolation, RuntimeConstraintChec
 from aura_protocol.state_machine import (
     EpochState,
     EpochStateMachine,
+    TransitionError,
     TransitionRecord,
 )
 from aura_protocol.types import PhaseId, Transition, VoteType, PHASE_DOMAIN
@@ -266,9 +267,10 @@ class EpochWorkflow:
                     triggered_by=advance_signal.triggered_by,
                     condition_met=advance_signal.condition_met,
                 )
-            except Exception:
-                # TransitionError from invalid advance — skip, stay in current phase.
-                # The violation is already counted from the constraint check.
+            except TransitionError as e:
+                # Invalid advance — stay in current phase and record the error
+                # for query observability via current_state().last_error.
+                self._sm.state.last_error = str(e)
                 continue
 
             # Override the record timestamp to use workflow deterministic time.

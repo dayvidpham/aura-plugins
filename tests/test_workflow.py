@@ -612,6 +612,65 @@ class TestAC7QueryCurrentState:
         assert SA_PHASE.name == "AuraPhase"
 
 
+# ─── last_error: Workflow Error Observability ─────────────────────────────────
+
+
+class TestLastErrorObservability:
+    """Workflow error handling: last_error stored in EpochState for query observability.
+
+    The workflow narrows 'except Exception' to 'except TransitionError' and stores
+    the error message in state.last_error. Callers can query current_state().last_error
+    to inspect the last failure without needing to catch exceptions.
+    """
+
+    def test_invalid_signal_stores_last_error(self) -> None:
+        """After an invalid advance (TransitionError), last_error is not None.
+
+        Simulates the workflow's catch block: sm.advance() raises TransitionError,
+        which is caught and stored in state.last_error.
+        """
+        from aura_protocol.state_machine import TransitionError
+
+        sm = _make_sm("last-error-epoch-1")
+        # Attempt an invalid advance (P1 cannot go to P9).
+        try:
+            sm.advance(PhaseId.P9_SLICE, triggered_by="architect", condition_met="invalid")
+        except TransitionError as e:
+            sm.state.last_error = str(e)
+
+        # Query current_state().last_error — should reflect the failure.
+        state = sm.state
+        assert state.last_error is not None
+        assert len(state.last_error) > 0
+
+    def test_valid_signal_after_invalid_clears_last_error(self) -> None:
+        """After a valid advance following a failed one, last_error is cleared.
+
+        EpochStateMachine.advance() clears last_error on success. This verifies
+        the full error → recovery → clear cycle.
+        """
+        from aura_protocol.state_machine import TransitionError
+
+        sm = _make_sm("last-error-epoch-2")
+        # First: invalid advance sets last_error.
+        try:
+            sm.advance(PhaseId.P9_SLICE, triggered_by="architect", condition_met="invalid")
+        except TransitionError as e:
+            sm.state.last_error = str(e)
+
+        assert sm.state.last_error is not None
+
+        # Then: valid advance clears last_error.
+        sm.advance(PhaseId.P2_ELICIT, triggered_by="architect", condition_met="confirmed")
+        assert sm.state.last_error is None
+
+    def test_last_error_starts_none_before_any_signals(self) -> None:
+        """Before any signals are processed, last_error is None."""
+        sm = _make_sm("last-error-epoch-3")
+        state = sm.state
+        assert state.last_error is None
+
+
 # ─── Full Lifecycle Integration ────────────────────────────────────────────────
 
 

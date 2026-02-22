@@ -251,6 +251,13 @@ All plans and code changes are reviewed against three axes:
 - Do not under-engineer (cutting corners on security or correctness is not simplicity)
 - Complexity should be proportional to the innate complexity of the problem domain
 
+### 4. Actionable errors and messages
+
+- All errors, exceptions, and user-facing messages must be actionable
+- Each error must describe: (1) what went wrong, (2) why it happened, (3) where it failed (file location, module, or function), (4) when it failed (step, operation, or timestamp), (5) what it means for the caller, and (6) how to fix it
+- Never raise generic or opaque errors (e.g., "invalid input", "operation failed") without guidance toward resolution
+- Error messages are part of the public API — treat them with the same care as function signatures
+
 ## Landing the Plane (Session Completion)
 
 **When ending a work session**, you MUST complete ALL steps below. Work is NOT complete until `git push` succeeds.

@@ -46,6 +46,7 @@ class EpochState:
     blocker_count: int = 0
     current_role: str = "epoch"
     transition_history: list[TransitionRecord] = field(default_factory=list)
+    last_error: str | None = None
 
 
 @dataclass(frozen=True)
@@ -234,6 +235,9 @@ class EpochStateMachine:
         # Votes are scoped to the phase in which they were cast.
         # Clear after any phase change so they don't bleed across review rounds.
         self._state.review_votes.clear()
+
+        # Clear any previous error now that a valid advance has succeeded.
+        self._state.last_error = None
 
         return record
 

@@ -18,6 +18,8 @@ Common constraints referenced by all agent and skill files.
 
 **Given** status/type fields **when** defining **then** use strongly-typed enums **should never** use bare strings at API boundaries
 
+**Given** an error, exception, or user-facing message **when** creating or raising **then** make it actionable: describe (1) what went wrong, (2) why it happened, (3) where it failed (file location, module, or function), (4) when it failed (step, operation, or timestamp), (5) what it means for the caller, and (6) how to fix it **should never** raise generic or opaque error messages (e.g., "invalid input", "operation failed") that don't guide the user toward resolution
+
 **Given** code changes **when** committing **then** type checking and tests must pass **should never** allow optional CI
 
 **Given** task is implemented **when** you are about to commit **then** you **should** use `git agent-commit -m ...`, **should never** use `git commit -m ...`

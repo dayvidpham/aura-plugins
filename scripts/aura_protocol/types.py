@@ -592,6 +592,21 @@ CONSTRAINT_SPECS: dict[str, ConstraintSpec] = {
         then="run quality gates (typecheck + tests) AND verify production code path (no TODOs, real deps)",
         should_not="close with only 'tests pass' as completion gate",
     ),
+    "C-actionable-errors": ConstraintSpec(
+        id="C-actionable-errors",
+        given="an error, exception, or user-facing message",
+        when="creating or raising",
+        then=(
+            "make it actionable: describe (1) what went wrong, (2) why it happened, "
+            "(3) where it failed (file location, module, or function), "
+            "(4) when it failed (step, operation, or timestamp), "
+            "(5) what it means for the caller, and (6) how to fix it"
+        ),
+        should_not=(
+            "raise generic or opaque error messages (e.g. 'invalid input', 'operation failed') "
+            "that don't guide the user toward resolution"
+        ),
+    ),
 }
 
 

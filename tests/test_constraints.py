@@ -45,6 +45,7 @@ from aura_protocol.state_machine import EpochState, EpochStateMachine, Transitio
 from aura_protocol.types import (
     CONSTRAINT_SPECS,
     PhaseId,
+    RoleId,
     VoteType,
 )
 from datetime import datetime, timezone
@@ -733,13 +734,13 @@ class TestCheckRoleOwnership:
 
     def test_valid_worker_role_returns_empty(self) -> None:
         checker = _make_checker()
-        state = _make_state(phase=PhaseId.P9_SLICE, current_role="worker")
+        state = _make_state(phase=PhaseId.P9_SLICE, current_role=RoleId.WORKER)
         violations = checker.check_role_ownership(state)
         assert violations == []
 
     def test_valid_supervisor_role_returns_empty(self) -> None:
         checker = _make_checker()
-        state = _make_state(phase=PhaseId.P8_IMPL_PLAN, current_role="supervisor")
+        state = _make_state(phase=PhaseId.P8_IMPL_PLAN, current_role=RoleId.SUPERVISOR)
         violations = checker.check_role_ownership(state)
         assert violations == []
 
@@ -753,7 +754,7 @@ class TestCheckRoleOwnership:
 
     def test_all_valid_roles_return_empty(self) -> None:
         checker = _make_checker()
-        for role in ("epoch", "architect", "reviewer", "supervisor", "worker"):
+        for role in RoleId:
             state = _make_state(current_role=role)
             violations = checker.check_role_ownership(state)
             assert violations == [], f"Unexpected violation for role {role!r}"
@@ -767,11 +768,11 @@ class TestCheckReviewBinary:
 
     def test_accept_vote_returns_empty(self) -> None:
         checker = _make_checker()
-        assert checker.check_review_binary("ACCEPT") == []
+        assert checker.check_review_binary(VoteType.ACCEPT) == []
 
     def test_revise_vote_returns_empty(self) -> None:
         checker = _make_checker()
-        assert checker.check_review_binary("REVISE") == []
+        assert checker.check_review_binary(VoteType.REVISE) == []
 
     def test_approve_vote_returns_violation(self) -> None:
         checker = _make_checker()
