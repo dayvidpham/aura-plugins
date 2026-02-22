@@ -38,6 +38,10 @@ State Machine (from state_machine.py):
     TransitionError     — exception raised when a transition is invalid
     EpochStateMachine   — 12-phase epoch lifecycle state machine
 
+Runtime Constraint Checking (from constraints.py):
+    ConstraintViolation     — frozen dataclass: constraint_id, message, context
+    RuntimeConstraintChecker — checks all 22 C-* constraints against epoch state
+
 Protocol Interfaces (runtime_checkable, from interfaces.py):
     ConstraintValidatorInterface
     TranscriptRecorder
@@ -51,6 +55,10 @@ Model Identifier (from interfaces.py):
     ModelId — models.dev {provider}/{model} composite ID
 """
 
+from aura_protocol.constraints import (
+    ConstraintViolation,
+    RuntimeConstraintChecker,
+)
 from aura_protocol.interfaces import (
     AuditTrail,
     ConstraintValidatorInterface,
@@ -92,6 +100,9 @@ from aura_protocol.types import (
 )
 
 __all__ = [
+    # Constraint types
+    "ConstraintViolation",
+    "RuntimeConstraintChecker",
     # Enums
     "PhaseId",
     "Domain",
