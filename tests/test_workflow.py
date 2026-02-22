@@ -34,6 +34,7 @@ Note on Temporal sandbox testing:
 from __future__ import annotations
 
 import asyncio
+import functools
 import inspect
 from dataclasses import fields
 from datetime import timedelta
@@ -137,11 +138,13 @@ class TestSignalQueryTypes:
             epoch_id="ep-1",
             final_phase=PhaseId.COMPLETE,
             transition_count=12,
+            successful_transition_count=12,
             constraint_violations_total=0,
         )
         assert result.epoch_id == "ep-1"
         assert result.final_phase == PhaseId.COMPLETE
         assert result.transition_count == 12
+        assert result.successful_transition_count == 12
         assert result.constraint_violations_total == 0
         with pytest.raises((AttributeError, TypeError)):
             result.transition_count = 0  # type: ignore[misc]
@@ -638,6 +641,127 @@ class TestLastErrorObservability:
         assert state.last_error is None
 
 
+# ─── Failed Transition Audit Trail (No Sandbox) ───────────────────────────────
+
+
+class TestFailedTransitionAuditTrailUnit:
+    """Unit tests for the failed transition audit trail pattern (no Temporal sandbox).
+
+    The workflow records failed transition attempts in transition_history with
+    condition_met="FAILED: {error}" convention. These tests verify that pattern
+    directly on EpochStateMachine without requiring the Temporal test server.
+
+    The sandbox tests (TestWorkflowEnvironmentSandbox) cover the same behavior
+    end-to-end; these unit tests ensure the pattern is testable in isolation.
+    """
+
+    def test_failed_attempt_appended_to_transition_history(self) -> None:
+        """A failed transition attempt is recorded in transition_history with FAILED: prefix.
+
+        Simulates the workflow's catch block:
+            except TransitionError as e:
+                failed_record = TransitionRecord(...)
+                self._sm.state.transition_history.append(failed_record)
+        """
+        from datetime import datetime, timezone
+
+        sm = _make_sm("audit-trail-epoch-1")
+        assert sm.state.current_phase == PhaseId.P1_REQUEST
+
+        # Attempt an invalid transition (P1 cannot go to P9).
+        try:
+            sm.advance(PhaseId.P9_SLICE, triggered_by="architect", condition_met="invalid")
+        except TransitionError as e:
+            # Simulate the workflow's catch block.
+            failed_record = TransitionRecord(
+                from_phase=sm.state.current_phase,
+                to_phase=PhaseId.P9_SLICE,
+                timestamp=datetime.now(tz=timezone.utc),
+                triggered_by="architect",
+                condition_met=f"FAILED: {e}",
+            )
+            sm.state.transition_history.append(failed_record)
+            sm.state.last_error = str(e)
+
+        # The failed attempt must appear in transition_history.
+        assert len(sm.state.transition_history) == 1
+        failed = sm.state.transition_history[0]
+        assert failed.from_phase == PhaseId.P1_REQUEST
+        assert failed.to_phase == PhaseId.P9_SLICE
+        assert failed.condition_met.startswith("FAILED:")
+        assert failed.triggered_by == "architect"
+
+        # The workflow phase must remain at P1 (transition was rejected).
+        assert sm.state.current_phase == PhaseId.P1_REQUEST
+
+    def test_failed_attempt_does_not_count_as_successful_transition(self) -> None:
+        """Failed records are included in total history but excluded from successful count.
+
+        Verifies the semantics of transition_count vs successful_transition_count:
+        a FAILED record increments transition_count but not successful_transition_count.
+        """
+        from datetime import datetime, timezone
+
+        sm = _make_sm("audit-trail-epoch-2")
+
+        # Attempt an invalid transition.
+        try:
+            sm.advance(PhaseId.P9_SLICE, triggered_by="architect", condition_met="invalid")
+        except TransitionError as e:
+            failed_record = TransitionRecord(
+                from_phase=sm.state.current_phase,
+                to_phase=PhaseId.P9_SLICE,
+                timestamp=datetime.now(tz=timezone.utc),
+                triggered_by="architect",
+                condition_met=f"FAILED: {e}",
+            )
+            sm.state.transition_history.append(failed_record)
+
+        # Then a successful transition.
+        sm.advance(PhaseId.P2_ELICIT, triggered_by="architect", condition_met="confirmed")
+
+        history = sm.state.transition_history
+        total_count = len(history)
+        successful_count = sum(
+            1 for r in history if not r.condition_met.startswith("FAILED:")
+        )
+
+        # Total = 2 (1 failed + 1 successful); successful = 1.
+        assert total_count == 2
+        assert successful_count == 1
+
+    def test_multiple_failed_attempts_all_recorded(self) -> None:
+        """Multiple failed attempts are each appended to transition_history.
+
+        Verifies the audit trail captures every failed attempt, not just the first.
+        """
+        from datetime import datetime, timezone
+
+        sm = _make_sm("audit-trail-epoch-3")
+        invalid_targets = [PhaseId.P9_SLICE, PhaseId.P12_LANDING, PhaseId.COMPLETE]
+
+        for target in invalid_targets:
+            try:
+                sm.advance(target, triggered_by="architect", condition_met="invalid")
+            except TransitionError as e:
+                failed_record = TransitionRecord(
+                    from_phase=sm.state.current_phase,
+                    to_phase=target,
+                    timestamp=datetime.now(tz=timezone.utc),
+                    triggered_by="architect",
+                    condition_met=f"FAILED: {e}",
+                )
+                sm.state.transition_history.append(failed_record)
+
+        # All 3 failed attempts are recorded.
+        assert len(sm.state.transition_history) == 3
+        for record in sm.state.transition_history:
+            assert record.condition_met.startswith("FAILED:")
+
+        # Workflow still at P1 (all transitions were rejected).
+        assert sm.state.current_phase == PhaseId.P1_REQUEST
+
+
 # ─── Full Lifecycle Integration ────────────────────────────────────────────────
 
 
@@ -652,29 +776,99 @@ class TestFullLifecycleIntegration:
         assert len(sm.state.transition_history) == 12
 
     def test_transition_count_matches_history_length(self) -> None:
-        """EpochResult.transition_count matches the actual transition_history length."""
+        """EpochResult.transition_count matches the actual transition_history length.
+
+        transition_count is the raw total including failed attempts.
+        successful_transition_count excludes records with condition_met starting
+        with "FAILED:".
+        """
         sm = _make_sm("transition-count-epoch")
         _advance_to(sm, PhaseId.P6_RATIFY)
 
-        transition_count = len(sm.state.transition_history)
+        history = sm.state.transition_history
+        transition_count = len(history)
+        successful_count = sum(
+            1 for r in history if not r.condition_met.startswith("FAILED:")
+        )
         # Verify this is what EpochResult would capture.
         result = EpochResult(
             epoch_id=sm.state.epoch_id,
             final_phase=sm.state.current_phase,
             transition_count=transition_count,
+            successful_transition_count=successful_count,
             constraint_violations_total=0,
         )
         assert result.transition_count == len(sm.state.transition_history)
+        # No failed attempts in a clean forward path — counts are equal.
+        assert result.successful_transition_count == result.transition_count
 
 
 # ─── WorkflowEnvironment Sandbox Tests ────────────────────────────────────────
 # End-to-end tests using Temporal's time-skipping WorkflowEnvironment.
 # These require the Temporal test server binary (lazily downloaded on first run).
-# All tests in this class are skip-safe: if the server cannot be started (network
-# restriction, CI sandbox, etc.) the test is skipped rather than failed.
 #
-# Pattern: try to start the environment; on any exception, skip via pytest.skip().
-# This ensures the 494+ tests that do not need the server are never blocked.
+# The availability check is LAZY — it does NOT run at module import time and
+# does NOT run during `pytest --collect-only`. It is cached via functools.cache
+# so it executes at most once per process, only when a sandbox test is selected.
+
+
+@functools.cache
+def _temporal_sandbox_works() -> bool:
+    """Probe whether the full Temporal sandbox pipeline works end-to-end.
+
+    Tests start_time_skipping() AND that a workflow using custom search
+    attributes can run. Returns False if:
+    - The test server binary can't be downloaded/started
+    - Custom search attributes (AuraPhase, etc.) aren't registered
+    - Any other environment issue prevents workflow execution
+
+    Result is cached — only runs once per process. Does NOT execute at module
+    import time; it is called lazily from the sandbox class's skip check so
+    that `pytest --collect-only` and normal imports are not affected.
+    """
+    try:
+        from temporalio.testing import WorkflowEnvironment
+        from temporalio.worker import Worker
+
+        async def _probe() -> bool:
+            async with await WorkflowEnvironment.start_time_skipping() as env:
+                async with Worker(
+                    env.client,
+                    task_queue="probe-q",
+                    workflows=[EpochWorkflow],
+                    activities=[check_constraints, record_transition],
+                ):
+                    handle = await env.client.start_workflow(
+                        EpochWorkflow.run,
+                        EpochInput(epoch_id="probe", request_description="probe"),
+                        id="probe-wf",
+                        task_queue="probe-q",
+                    )
+                    # If we can query, the full pipeline works.
+                    await handle.query(EpochWorkflow.current_state)
+                    await handle.terminate("probe done")
+                    return True
+
+        return asyncio.run(_probe())
+    except (
+        ImportError,           # temporalio not installed
+        OSError,               # test server binary not found / not executable
+        RuntimeError,          # miscellaneous runtime failures
+        asyncio.TimeoutError,  # probe timed out waiting for the server
+    ):
+        return False
+    except Exception:  # noqa: BLE001
+        # Broad safety net for Temporal-specific errors that are not subclasses
+        # of the above (e.g. temporalio.service.RPCError when custom search
+        # attributes such as AuraPhase are not registered in the test server
+        # namespace). The probe must never raise — any failure means unavailable.
+        return False
+
+
+_SKIP_REASON = (
+    "Temporal sandbox unavailable (test server binary missing, "
+    "or custom search attributes not registered)"
+)
 
 
 class TestWorkflowEnvironmentSandbox:
@@ -684,247 +878,239 @@ class TestWorkflowEnvironmentSandbox:
     verifying that EpochWorkflow correctly handles signals and exposes
     consistent state through queries.
 
-    All tests in this class are skip-safe: if the Temporal test server binary
-    cannot be downloaded or started, the test is skipped with an informative
-    message rather than failing.
+    Skipped entirely when the Temporal test server binary is not available.
+    The probe runs lazily (cached) — it does NOT execute at module import time
+    or during `pytest --collect-only`; it runs only when a test in this class
+    is actually selected for execution.
     """
+
+    @pytest.fixture(autouse=True)
+    def _require_temporal_sandbox(self) -> None:
+        """Skip this test if the Temporal sandbox is unavailable.
+
+        Calls _temporal_sandbox_works() which is cached via functools.cache —
+        the probe runs at most once per process and only when a sandbox test
+        is actually selected (not at collection time).
+        """
+        if not _temporal_sandbox_works():
+            pytest.skip(_SKIP_REASON)
 
     @pytest.mark.asyncio
     async def test_advance_phase_signal_delivery_e2e(self) -> None:
         """advance_phase signal drives P1→P2 transition end-to-end.
 
-        AC5: WorkflowEnvironment sandbox test — advance_phase signal delivery.
+        AC7: WorkflowEnvironment sandbox test — advance_phase signal delivery.
         Sends a PhaseAdvanceSignal to the running EpochWorkflow and verifies
         that the current_state query returns the updated phase.
         """
-        try:
-            from temporalio.worker import Worker
-            from temporalio.testing import WorkflowEnvironment
+        from temporalio.worker import Worker
+        from temporalio.testing import WorkflowEnvironment
 
-            async with await WorkflowEnvironment.start_time_skipping() as env:
-                async with Worker(
-                    env.client,
+        async with await WorkflowEnvironment.start_time_skipping() as env:
+            async with Worker(
+                env.client,
+                task_queue="test-advance-q",
+                workflows=[EpochWorkflow],
+                activities=[check_constraints, record_transition],
+            ):
+                handle = await env.client.start_workflow(
+                    EpochWorkflow.run,
+                    EpochInput(epoch_id="e2e-advance-1", request_description="test"),
+                    id="e2e-advance-1",
                     task_queue="test-advance-q",
-                    workflows=[EpochWorkflow],
-                    activities=[check_constraints, record_transition],
-                ):
-                    handle = await env.client.start_workflow(
-                        EpochWorkflow.run,
-                        EpochInput(epoch_id="e2e-advance-1", request_description="test"),
-                        id="e2e-advance-1",
-                        task_queue="test-advance-q",
-                    )
+                )
 
-                    # Verify initial state via query.
-                    initial_state = await handle.query(EpochWorkflow.current_state)
-                    assert initial_state.current_phase == PhaseId.P1_REQUEST
+                # Verify initial state via query.
+                initial_state = await handle.query(EpochWorkflow.current_state)
+                assert initial_state.current_phase == PhaseId.P1_REQUEST
 
-                    # Send advance signal: P1 → P2.
-                    await handle.signal(
-                        EpochWorkflow.advance_phase,
-                        PhaseAdvanceSignal(
-                            to_phase=PhaseId.P2_ELICIT,
-                            triggered_by="test-agent",
-                            condition_met="classification confirmed",
-                        ),
-                    )
+                # Send advance signal: P1 → P2.
+                await handle.signal(
+                    EpochWorkflow.advance_phase,
+                    PhaseAdvanceSignal(
+                        to_phase=PhaseId.P2_ELICIT,
+                        triggered_by="test-agent",
+                        condition_met="classification confirmed",
+                    ),
+                )
 
-                    # Query current state — must reflect the transition.
-                    state = await handle.query(EpochWorkflow.current_state)
-                    assert state.current_phase == PhaseId.P2_ELICIT
-                    assert PhaseId.P1_REQUEST in state.completed_phases
-                    assert len(state.transition_history) == 1
-                    assert state.transition_history[0].from_phase == PhaseId.P1_REQUEST
-                    assert state.transition_history[0].to_phase == PhaseId.P2_ELICIT
+                # Query current state — must reflect the transition.
+                state = await handle.query(EpochWorkflow.current_state)
+                assert state.current_phase == PhaseId.P2_ELICIT
+                assert PhaseId.P1_REQUEST in state.completed_phases
+                assert len(state.transition_history) == 1
+                assert state.transition_history[0].from_phase == PhaseId.P1_REQUEST
+                assert state.transition_history[0].to_phase == PhaseId.P2_ELICIT
 
-                    # Terminate workflow to clean up.
-                    await handle.terminate("test complete")
-        except Exception as exc:
-            pytest.skip(
-                f"WorkflowEnvironment.start_time_skipping() unavailable: {exc}"
-            )
+                # Terminate workflow to clean up.
+                await handle.terminate("test complete")
 
     @pytest.mark.asyncio
     async def test_submit_vote_signal_delivery_e2e(self) -> None:
         """submit_vote signals are recorded end-to-end.
 
-        AC5: WorkflowEnvironment sandbox test — submit_vote signal delivery.
+        AC7: WorkflowEnvironment sandbox test — submit_vote signal delivery.
         Advances workflow to P4 (review), submits vote signals, verifies they
         appear in the current_state query.
         """
-        try:
-            from temporalio.worker import Worker
-            from temporalio.testing import WorkflowEnvironment
+        from temporalio.worker import Worker
+        from temporalio.testing import WorkflowEnvironment
 
-            async with await WorkflowEnvironment.start_time_skipping() as env:
-                async with Worker(
-                    env.client,
+        async with await WorkflowEnvironment.start_time_skipping() as env:
+            async with Worker(
+                env.client,
+                task_queue="test-vote-q",
+                workflows=[EpochWorkflow],
+                activities=[check_constraints, record_transition],
+            ):
+                handle = await env.client.start_workflow(
+                    EpochWorkflow.run,
+                    EpochInput(epoch_id="e2e-vote-1", request_description="test"),
+                    id="e2e-vote-1",
                     task_queue="test-vote-q",
-                    workflows=[EpochWorkflow],
-                    activities=[check_constraints, record_transition],
-                ):
-                    handle = await env.client.start_workflow(
-                        EpochWorkflow.run,
-                        EpochInput(epoch_id="e2e-vote-1", request_description="test"),
-                        id="e2e-vote-1",
-                        task_queue="test-vote-q",
+                )
+
+                # Advance to P4 (review phase) via signals.
+                for to_phase, condition in [
+                    (PhaseId.P2_ELICIT, "classification confirmed"),
+                    (PhaseId.P3_PROPOSE, "URD created"),
+                    (PhaseId.P4_REVIEW, "proposal created"),
+                ]:
+                    await handle.signal(
+                        EpochWorkflow.advance_phase,
+                        PhaseAdvanceSignal(
+                            to_phase=to_phase,
+                            triggered_by="test-agent",
+                            condition_met=condition,
+                        ),
                     )
 
-                    # Advance to P4 (review phase) via signals.
-                    for to_phase, condition in [
-                        (PhaseId.P2_ELICIT, "classification confirmed"),
-                        (PhaseId.P3_PROPOSE, "URD created"),
-                        (PhaseId.P4_REVIEW, "proposal created"),
-                    ]:
-                        await handle.signal(
-                            EpochWorkflow.advance_phase,
-                            PhaseAdvanceSignal(
-                                to_phase=to_phase,
-                                triggered_by="test-agent",
-                                condition_met=condition,
-                            ),
-                        )
+                # Submit vote signals.
+                for axis, vote in [("A", VoteType.ACCEPT), ("B", VoteType.REVISE)]:
+                    await handle.signal(
+                        EpochWorkflow.submit_vote,
+                        ReviewVoteSignal(
+                            axis=axis,
+                            vote=vote,
+                            reviewer_id=f"reviewer-{axis}",
+                        ),
+                    )
 
-                    # Submit vote signals.
-                    for axis, vote in [("A", VoteType.ACCEPT), ("B", VoteType.REVISE)]:
-                        await handle.signal(
-                            EpochWorkflow.submit_vote,
-                            ReviewVoteSignal(
-                                axis=axis,
-                                vote=vote,
-                                reviewer_id=f"reviewer-{axis}",
-                            ),
-                        )
+                # Verify votes appear in state after a small wait.
+                await env.sleep(timedelta(seconds=1))
+                state = await handle.query(EpochWorkflow.current_state)
+                assert state.current_phase == PhaseId.P4_REVIEW
+                assert state.review_votes.get("A") == VoteType.ACCEPT
+                assert state.review_votes.get("B") == VoteType.REVISE
 
-                    # Verify votes appear in state after a small wait.
-                    await env.sleep(timedelta(seconds=1))
-                    state = await handle.query(EpochWorkflow.current_state)
-                    assert state.current_phase == PhaseId.P4_REVIEW
-                    assert state.review_votes.get("A") == VoteType.ACCEPT
-                    assert state.review_votes.get("B") == VoteType.REVISE
-
-                    await handle.terminate("test complete")
-        except Exception as exc:
-            pytest.skip(
-                f"WorkflowEnvironment.start_time_skipping() unavailable: {exc}"
-            )
+                await handle.terminate("test complete")
 
     @pytest.mark.asyncio
     async def test_current_state_query_returns_correct_phase_after_signal(self) -> None:
         """current_state query returns updated phase after advance_phase signal.
 
-        AC5: WorkflowEnvironment sandbox test — query returns correct phase.
+        AC7: WorkflowEnvironment sandbox test — query returns correct phase.
         Verifies that the Temporal query handler reflects the state machine's
         current phase immediately after a signal-driven transition.
         """
-        try:
-            from temporalio.worker import Worker
-            from temporalio.testing import WorkflowEnvironment
+        from temporalio.worker import Worker
+        from temporalio.testing import WorkflowEnvironment
 
-            async with await WorkflowEnvironment.start_time_skipping() as env:
-                async with Worker(
-                    env.client,
+        async with await WorkflowEnvironment.start_time_skipping() as env:
+            async with Worker(
+                env.client,
+                task_queue="test-query-q",
+                workflows=[EpochWorkflow],
+                activities=[check_constraints, record_transition],
+            ):
+                handle = await env.client.start_workflow(
+                    EpochWorkflow.run,
+                    EpochInput(epoch_id="e2e-query-1", request_description="test"),
+                    id="e2e-query-1",
                     task_queue="test-query-q",
-                    workflows=[EpochWorkflow],
-                    activities=[check_constraints, record_transition],
-                ):
-                    handle = await env.client.start_workflow(
-                        EpochWorkflow.run,
-                        EpochInput(epoch_id="e2e-query-1", request_description="test"),
-                        id="e2e-query-1",
-                        task_queue="test-query-q",
-                    )
+                )
 
-                    # Advance through P2 → P3.
-                    await handle.signal(
-                        EpochWorkflow.advance_phase,
-                        PhaseAdvanceSignal(
-                            to_phase=PhaseId.P2_ELICIT,
-                            triggered_by="test",
-                            condition_met="ok",
-                        ),
-                    )
-                    await handle.signal(
-                        EpochWorkflow.advance_phase,
-                        PhaseAdvanceSignal(
-                            to_phase=PhaseId.P3_PROPOSE,
-                            triggered_by="test",
-                            condition_met="URD created",
-                        ),
-                    )
+                # Advance through P2 → P3.
+                await handle.signal(
+                    EpochWorkflow.advance_phase,
+                    PhaseAdvanceSignal(
+                        to_phase=PhaseId.P2_ELICIT,
+                        triggered_by="test",
+                        condition_met="ok",
+                    ),
+                )
+                await handle.signal(
+                    EpochWorkflow.advance_phase,
+                    PhaseAdvanceSignal(
+                        to_phase=PhaseId.P3_PROPOSE,
+                        triggered_by="test",
+                        condition_met="URD created",
+                    ),
+                )
 
-                    state = await handle.query(EpochWorkflow.current_state)
-                    assert state.current_phase == PhaseId.P3_PROPOSE
-                    assert state.current_phase.value == "p3"
-                    # Transition history should have 2 successful transitions.
-                    successful = [
-                        r for r in state.transition_history
-                        if not r.condition_met.startswith("FAILED:")
-                    ]
-                    assert len(successful) == 2
+                state = await handle.query(EpochWorkflow.current_state)
+                assert state.current_phase == PhaseId.P3_PROPOSE
+                assert state.current_phase.value == "p3"
+                # Transition history should have 2 successful transitions.
+                successful = [
+                    r for r in state.transition_history
+                    if not r.condition_met.startswith("FAILED:")
+                ]
+                assert len(successful) == 2
 
-                    await handle.terminate("test complete")
-        except Exception as exc:
-            pytest.skip(
-                f"WorkflowEnvironment.start_time_skipping() unavailable: {exc}"
-            )
+                await handle.terminate("test complete")
 
     @pytest.mark.asyncio
     async def test_failed_transition_recorded_in_history_e2e(self) -> None:
         """Failed transitions are recorded in transition_history with FAILED: prefix.
 
-        AC5 + AC6: WorkflowEnvironment sandbox test — failed transition audit trail.
+        AC7 + AC6: WorkflowEnvironment sandbox test — failed transition audit trail.
         Sends an invalid advance signal (P1→P9, which is not a valid transition)
         and verifies that the failed attempt appears in transition_history with
         condition_met="FAILED: ..." and that the workflow remains at P1.
         """
-        try:
-            from temporalio.worker import Worker
-            from temporalio.testing import WorkflowEnvironment
+        from temporalio.worker import Worker
+        from temporalio.testing import WorkflowEnvironment
 
-            async with await WorkflowEnvironment.start_time_skipping() as env:
-                async with Worker(
-                    env.client,
+        async with await WorkflowEnvironment.start_time_skipping() as env:
+            async with Worker(
+                env.client,
+                task_queue="test-failed-q",
+                workflows=[EpochWorkflow],
+                activities=[check_constraints, record_transition],
+            ):
+                handle = await env.client.start_workflow(
+                    EpochWorkflow.run,
+                    EpochInput(epoch_id="e2e-failed-1", request_description="test"),
+                    id="e2e-failed-1",
                     task_queue="test-failed-q",
-                    workflows=[EpochWorkflow],
-                    activities=[check_constraints, record_transition],
-                ):
-                    handle = await env.client.start_workflow(
-                        EpochWorkflow.run,
-                        EpochInput(epoch_id="e2e-failed-1", request_description="test"),
-                        id="e2e-failed-1",
-                        task_queue="test-failed-q",
-                    )
+                )
 
-                    # Send an invalid advance (P1 cannot go directly to P9).
-                    await handle.signal(
-                        EpochWorkflow.advance_phase,
-                        PhaseAdvanceSignal(
-                            to_phase=PhaseId.P9_SLICE,
-                            triggered_by="test-agent",
-                            condition_met="invalid attempt",
-                        ),
-                    )
+                # Send an invalid advance (P1 cannot go directly to P9).
+                await handle.signal(
+                    EpochWorkflow.advance_phase,
+                    PhaseAdvanceSignal(
+                        to_phase=PhaseId.P9_SLICE,
+                        triggered_by="test-agent",
+                        condition_met="invalid attempt",
+                    ),
+                )
 
-                    # Workflow should remain at P1 — the invalid advance was rejected.
-                    state = await handle.query(EpochWorkflow.current_state)
-                    assert state.current_phase == PhaseId.P1_REQUEST
+                # Workflow should remain at P1 — the invalid advance was rejected.
+                state = await handle.query(EpochWorkflow.current_state)
+                assert state.current_phase == PhaseId.P1_REQUEST
 
-                    # The failed attempt must appear in transition_history.
-                    failed = [
-                        r for r in state.transition_history
-                        if r.condition_met.startswith("FAILED:")
-                    ]
-                    assert len(failed) == 1
-                    assert failed[0].from_phase == PhaseId.P1_REQUEST
-                    assert failed[0].to_phase == PhaseId.P9_SLICE
-                    assert "FAILED:" in failed[0].condition_met
+                # The failed attempt must appear in transition_history.
+                failed = [
+                    r for r in state.transition_history
+                    if r.condition_met.startswith("FAILED:")
+                ]
+                assert len(failed) == 1
+                assert failed[0].from_phase == PhaseId.P1_REQUEST
+                assert failed[0].to_phase == PhaseId.P9_SLICE
+                assert "FAILED:" in failed[0].condition_met
 
-                    # last_error must also be set.
-                    assert state.last_error is not None
+                # last_error must also be set.
+                assert state.last_error is not None
 
-                    await handle.terminate("test complete")
-        except Exception as exc:
-            pytest.skip(
-                f"WorkflowEnvironment.start_time_skipping() unavailable: {exc}"
-            )
+                await handle.terminate("test complete")
