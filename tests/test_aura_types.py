@@ -13,6 +13,7 @@ Tests:
 
 from __future__ import annotations
 
+import dataclasses
 import json
 
 import pytest
@@ -133,22 +134,22 @@ class TestSpecFreezing:
 
     def test_transition_is_frozen(self) -> None:
         t = Transition(to_phase=PhaseId.P2_ELICIT, condition="test")
-        with pytest.raises(Exception):
+        with pytest.raises((dataclasses.FrozenInstanceError, AttributeError)):
             t.condition = "mutate"  # type: ignore[misc]
 
     def test_phase_spec_is_frozen(self) -> None:
         spec = PHASE_SPECS[PhaseId.P1_REQUEST]
-        with pytest.raises(Exception):
+        with pytest.raises((dataclasses.FrozenInstanceError, AttributeError)):
             spec.name = "mutate"  # type: ignore[misc]
 
     def test_constraint_spec_is_frozen(self) -> None:
         spec = next(iter(CONSTRAINT_SPECS.values()))
-        with pytest.raises(Exception):
+        with pytest.raises((dataclasses.FrozenInstanceError, AttributeError)):
             spec.given = "mutate"  # type: ignore[misc]
 
     def test_handoff_spec_is_frozen(self) -> None:
         spec = HANDOFF_SPECS["h1"]
-        with pytest.raises(Exception):
+        with pytest.raises((dataclasses.FrozenInstanceError, AttributeError)):
             spec.content_level = "mutate"  # type: ignore[misc]
 
     def test_phase_transition_event_is_frozen(self) -> None:
@@ -159,12 +160,12 @@ class TestSpecFreezing:
             triggered_by="architect",
             condition_met="classification confirmed",
         )
-        with pytest.raises(Exception):
+        with pytest.raises((dataclasses.FrozenInstanceError, AttributeError)):
             event.epoch_id = "mutate"  # type: ignore[misc]
 
     def test_permission_decision_is_frozen(self) -> None:
         decision = PermissionDecision(allowed=True, reason="test")
-        with pytest.raises(Exception):
+        with pytest.raises((dataclasses.FrozenInstanceError, AttributeError)):
             decision.allowed = False  # type: ignore[misc]
 
 

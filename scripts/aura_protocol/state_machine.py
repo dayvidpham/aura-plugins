@@ -21,6 +21,8 @@ from aura_protocol.types import (
     PHASE_SPECS,
     PhaseId,
     PhaseSpec,
+    RoleId,
+    SeverityLevel,
     Transition,
     VoteType,
 )
@@ -44,7 +46,8 @@ class EpochState:
     completed_phases: set[PhaseId] = field(default_factory=set)
     review_votes: dict[str, VoteType] = field(default_factory=dict)
     blocker_count: int = 0
-    current_role: str = "epoch"
+    current_role: RoleId = RoleId.EPOCH
+    severity_groups: dict[SeverityLevel, set[str]] = field(default_factory=dict)
     transition_history: list[TransitionRecord] = field(default_factory=list)
     last_error: str | None = None
 
@@ -85,8 +88,12 @@ _REVIEW_AXES: frozenset[str] = frozenset({"A", "B", "C"})
 
 # Transitions that require consensus (all 3 axes ACCEPT) to proceed.
 # Derived from schema.xml: p4→p5 condition "all 3 reviewers vote ACCEPT".
+# Also applies to p10→p11: both review phases enforce consensus before proceeding.
 _CONSENSUS_GATED: frozenset[tuple[PhaseId, PhaseId]] = frozenset(
-    {(PhaseId.P4_REVIEW, PhaseId.P5_UAT)}
+    {
+        (PhaseId.P4_REVIEW, PhaseId.P5_UAT),
+        (PhaseId.P10_CODE_REVIEW, PhaseId.P11_IMPL_UAT),
+    }
 )
 
 # Transitions that are blocked while blocker_count > 0.
@@ -197,6 +204,7 @@ class EpochStateMachine:
         *,
         triggered_by: str,
         condition_met: str,
+        timestamp: datetime | None = None,
     ) -> TransitionRecord:
         """Advance the epoch to the requested phase.
 
@@ -208,6 +216,10 @@ class EpochStateMachine:
             to_phase: The target phase to transition to.
             triggered_by: Who or what triggered this transition (role or signal name).
             condition_met: The condition string that was satisfied.
+            timestamp: Optional explicit timestamp for the transition record.
+                If None (default), datetime.now(UTC) is used. Pass an explicit
+                timestamp (e.g. from workflow.now()) to avoid post-hoc mutation
+                of the audit trail by the workflow layer.
 
         Returns:
             A TransitionRecord for the completed transition.
@@ -219,10 +231,12 @@ class EpochStateMachine:
         if violations:
             raise TransitionError(violations)
 
+        effective_timestamp = timestamp if timestamp is not None else datetime.now(tz=timezone.utc)
+
         record = TransitionRecord(
             from_phase=self._state.current_phase,
             to_phase=to_phase,
-            timestamp=datetime.now(tz=timezone.utc),
+            timestamp=effective_timestamp,
             triggered_by=triggered_by,
             condition_met=condition_met,
         )
@@ -231,6 +245,15 @@ class EpochStateMachine:
         self._state.completed_phases.add(self._state.current_phase)
         self._state.current_phase = to_phase
         self._state.transition_history.append(record)
+
+        # Auto-populate severity_groups with 3 empty SeverityLevel groups when
+        # entering P10 (code review). Groups are created eagerly per C-severity-eager.
+        if to_phase == PhaseId.P10_CODE_REVIEW and not self._state.severity_groups:
+            self._state.severity_groups = {
+                SeverityLevel.BLOCKER: set(),
+                SeverityLevel.IMPORTANT: set(),
+                SeverityLevel.MINOR: set(),
+            }
 
         # Votes are scoped to the phase in which they were cast.
         # Clear after any phase change so they don't bleed across review rounds.
@@ -250,7 +273,7 @@ class EpochStateMachine:
         Checks (in order):
         1. Current phase is not COMPLETE (no further transitions).
         2. to_phase is in the transition table for the current phase.
-        3. Consensus gate: p4→p5 requires has_consensus().
+        3. Consensus gate: p4→p5 and p10→p11 require has_consensus().
         4. BLOCKER gate: p10→p11 requires blocker_count == 0.
         """
         violations: list[str] = []
@@ -279,7 +302,7 @@ class EpochStateMachine:
             # No point checking gates for an invalid target.
             return violations
 
-        # Consensus gate: p4 → p5 requires all 3 axes to ACCEPT.
+        # Consensus gate: p4→p5 and p10→p11 require all 3 axes to ACCEPT.
         if (current, to_phase) in _CONSENSUS_GATED and not self.has_consensus():
             have = sorted(self._state.review_votes.keys())
             accepted = [

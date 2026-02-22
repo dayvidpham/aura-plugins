@@ -2,9 +2,12 @@
 
 BDD Acceptance Criteria:
     AC1: Given epoch in P1, advance(p2) transitions and records; advance(p8) raises TransitionError.
-    AC2: Given epoch in P4 with 2/3 ACCEPT, advance(p5) raises TransitionError (needs consensus).
-    AC3: Given epoch in P4 with REVISE, available_transitions returns only [p3].
-    AC4: Given epoch in P10 with blocker_count > 0, advance(p11) raises TransitionError.
+    AC2: Given advance(timestamp=custom_ts), TransitionRecord.timestamp == custom_ts.
+    AC3: Given epoch in P4 with 2/3 ACCEPT, advance(p5) raises TransitionError (needs consensus).
+         Given epoch in P10 without consensus, advance(p11) raises TransitionError (matching P4→P5).
+    AC4: Given epoch in P4 with REVISE, available_transitions returns only [p3].
+    AC5: Given epoch entering P10, severity_groups auto-populated with 3 SeverityLevel keys.
+    AC6: Given epoch in P10 with blocker_count > 0, advance(p11) raises TransitionError.
 
 Additional coverage:
     - Transition history recording
@@ -19,6 +22,8 @@ Additional coverage:
 
 from __future__ import annotations
 
+from datetime import datetime, timezone
+
 import pytest
 
 from aura_protocol.state_machine import (
@@ -27,7 +32,10 @@ from aura_protocol.state_machine import (
     TransitionError,
     TransitionRecord,
 )
-from aura_protocol.types import PhaseId, VoteType
+from aura_protocol.types import PhaseId, RoleId, SeverityLevel, VoteType
+
+# Import shared helpers from conftest (module-level, not fixtures).
+from conftest import _advance_to, _make_state
 
 
 # ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -36,53 +44,6 @@ from aura_protocol.types import PhaseId, VoteType
 def _make_sm(epoch_id: str = "test-epoch") -> EpochStateMachine:
     """Return a fresh EpochStateMachine starting at P1."""
     return EpochStateMachine(epoch_id)
-
-
-def _advance_to(sm: EpochStateMachine, target: PhaseId) -> None:
-    """Advance a state machine through all phases sequentially up to target.
-
-    Only uses the first (forward) transition at each step.
-    Populates required gates along the way:
-    - At p4 (plan review): records 3 ACCEPT votes before advancing to p5.
-    - At p10 (code review): records 3 ACCEPT votes before advancing to p11.
-    """
-    # Ordered sequence of forward phases (no branching — first transition only).
-    _FORWARD: list[PhaseId] = [
-        PhaseId.P1_REQUEST,
-        PhaseId.P2_ELICIT,
-        PhaseId.P3_PROPOSE,
-        PhaseId.P4_REVIEW,
-        PhaseId.P5_UAT,
-        PhaseId.P6_RATIFY,
-        PhaseId.P7_HANDOFF,
-        PhaseId.P8_IMPL_PLAN,
-        PhaseId.P9_SLICE,
-        PhaseId.P10_CODE_REVIEW,
-        PhaseId.P11_IMPL_UAT,
-        PhaseId.P12_LANDING,
-        PhaseId.COMPLETE,
-    ]
-
-    current_idx = _FORWARD.index(sm.state.current_phase)
-    target_idx = _FORWARD.index(target)
-
-    for i in range(current_idx, target_idx):
-        frm = _FORWARD[i]
-        nxt = _FORWARD[i + 1]
-
-        # Populate consensus gate before p4→p5.
-        if frm == PhaseId.P4_REVIEW and nxt == PhaseId.P5_UAT:
-            sm.record_vote("A", VoteType.ACCEPT)
-            sm.record_vote("B", VoteType.ACCEPT)
-            sm.record_vote("C", VoteType.ACCEPT)
-
-        # Populate consensus gate before p10→p11.
-        if frm == PhaseId.P10_CODE_REVIEW and nxt == PhaseId.P11_IMPL_UAT:
-            sm.record_vote("A", VoteType.ACCEPT)
-            sm.record_vote("B", VoteType.ACCEPT)
-            sm.record_vote("C", VoteType.ACCEPT)
-
-        sm.advance(nxt, triggered_by="test", condition_met="test-condition")
 
 
 # ─── AC1: State Machine Transitions ───────────────────────────────────────────
@@ -616,14 +577,14 @@ class TestDependencyInjection:
     """Custom specs can be injected for testing minimal state machines."""
 
     def test_custom_specs_used(self) -> None:
-        from aura_protocol.types import PhaseSpec, RoleId, Transition
+        from aura_protocol.types import Domain, PhaseSpec, Transition
 
         # Minimal 2-phase spec: p1 → p2 → complete
         custom_specs = {
             PhaseId.P1_REQUEST: PhaseSpec(
                 id=PhaseId.P1_REQUEST,
                 number=1,
-                domain=__import__("aura_protocol.types", fromlist=["Domain"]).Domain.USER,
+                domain=Domain.USER,
                 name="Test Request",
                 owner_roles=frozenset({RoleId.EPOCH}),
                 transitions=(
@@ -636,7 +597,7 @@ class TestDependencyInjection:
             PhaseId.P2_ELICIT: PhaseSpec(
                 id=PhaseId.P2_ELICIT,
                 number=2,
-                domain=__import__("aura_protocol.types", fromlist=["Domain"]).Domain.USER,
+                domain=Domain.USER,
                 name="Test Elicit",
                 owner_roles=frozenset({RoleId.EPOCH}),
                 transitions=(
@@ -660,3 +621,197 @@ class TestDependencyInjection:
         assert PhaseId.P1_REQUEST in PHASE_SPECS
         violations = sm.validate_advance(PhaseId.P2_ELICIT)
         assert violations == []
+
+
+# ─── AC2 Extension: Custom Timestamp ──────────────────────────────────────────
+
+
+class TestAdvanceTimestamp:
+    """AC2 (extension): advance(timestamp=custom_ts) records exactly that timestamp."""
+
+    def test_custom_timestamp_used_in_record(self) -> None:
+        sm = _make_sm()
+        custom_ts = datetime(2025, 6, 1, 12, 0, 0, tzinfo=timezone.utc)
+        record = sm.advance(
+            PhaseId.P2_ELICIT,
+            triggered_by="test",
+            condition_met="done",
+            timestamp=custom_ts,
+        )
+        assert record.timestamp == custom_ts
+
+    def test_no_timestamp_defaults_to_now(self) -> None:
+        """Without explicit timestamp, advance() uses datetime.now(UTC)."""
+        sm = _make_sm()
+        before = datetime.now(tz=timezone.utc)
+        record = sm.advance(
+            PhaseId.P2_ELICIT,
+            triggered_by="test",
+            condition_met="done",
+        )
+        after = datetime.now(tz=timezone.utc)
+        assert before <= record.timestamp <= after
+
+    def test_timestamp_none_defaults_to_now(self) -> None:
+        """Passing timestamp=None explicitly also falls back to datetime.now(UTC)."""
+        sm = _make_sm()
+        before = datetime.now(tz=timezone.utc)
+        record = sm.advance(
+            PhaseId.P2_ELICIT,
+            triggered_by="test",
+            condition_met="done",
+            timestamp=None,
+        )
+        after = datetime.now(tz=timezone.utc)
+        assert before <= record.timestamp <= after
+
+    def test_custom_timestamp_two_sequential_advances(self) -> None:
+        """Each advance can carry an independent deterministic timestamp."""
+        sm = _make_sm()
+        ts1 = datetime(2025, 1, 1, 0, 0, 0, tzinfo=timezone.utc)
+        ts2 = datetime(2025, 1, 2, 0, 0, 0, tzinfo=timezone.utc)
+
+        sm.advance(PhaseId.P2_ELICIT, triggered_by="a", condition_met="ok", timestamp=ts1)
+        sm.advance(PhaseId.P3_PROPOSE, triggered_by="a", condition_met="ok", timestamp=ts2)
+
+        assert sm.state.transition_history[0].timestamp == ts1
+        assert sm.state.transition_history[1].timestamp == ts2
+
+
+# ─── AC3 Extension: P10→P11 Consensus Gate ────────────────────────────────────
+
+
+class TestP10ConsensusGate:
+    """AC3 (extension): P10→P11 without consensus raises TransitionError (same as P4→P5)."""
+
+    def _sm_at_p10(self) -> EpochStateMachine:
+        sm = _make_sm()
+        _advance_to(sm, PhaseId.P10_CODE_REVIEW)
+        return sm
+
+    def test_advance_p10_to_p11_without_votes_raises(self) -> None:
+        sm = self._sm_at_p10()
+        with pytest.raises(TransitionError) as exc_info:
+            sm.advance(
+                PhaseId.P11_IMPL_UAT,
+                triggered_by="test",
+                condition_met="premature",
+            )
+        assert exc_info.value.violations
+        assert "consensus" in exc_info.value.violations[0].lower()
+
+    def test_advance_p10_to_p11_with_2_of_3_accept_raises(self) -> None:
+        sm = self._sm_at_p10()
+        sm.record_vote("A", VoteType.ACCEPT)
+        sm.record_vote("B", VoteType.ACCEPT)
+        # C axis not voted
+        with pytest.raises(TransitionError) as exc_info:
+            sm.advance(
+                PhaseId.P11_IMPL_UAT,
+                triggered_by="test",
+                condition_met="2/3 ACCEPT",
+            )
+        assert exc_info.value.violations
+        assert "consensus" in exc_info.value.violations[0].lower()
+
+    def test_advance_p10_to_p11_with_all_3_accept_and_no_blockers_succeeds(self) -> None:
+        sm = self._sm_at_p10()
+        sm.record_vote("A", VoteType.ACCEPT)
+        sm.record_vote("B", VoteType.ACCEPT)
+        sm.record_vote("C", VoteType.ACCEPT)
+        record = sm.advance(
+            PhaseId.P11_IMPL_UAT,
+            triggered_by="supervisor",
+            condition_met="all 3 ACCEPT, no blockers",
+        )
+        assert record.to_phase == PhaseId.P11_IMPL_UAT
+
+    def test_validate_advance_returns_consensus_violation_at_p10(self) -> None:
+        sm = self._sm_at_p10()
+        sm.record_vote("A", VoteType.ACCEPT)
+        sm.record_vote("B", VoteType.ACCEPT)
+
+        violations = sm.validate_advance(PhaseId.P11_IMPL_UAT)
+        assert any("consensus" in v.lower() for v in violations)
+
+    def test_validate_advance_no_violation_when_consensus_met_at_p10(self) -> None:
+        sm = self._sm_at_p10()
+        sm.record_vote("A", VoteType.ACCEPT)
+        sm.record_vote("B", VoteType.ACCEPT)
+        sm.record_vote("C", VoteType.ACCEPT)
+
+        violations = sm.validate_advance(PhaseId.P11_IMPL_UAT)
+        assert violations == []
+
+
+# ─── AC5: severity_groups Auto-Population ─────────────────────────────────────
+
+
+class TestSeverityGroupsAutoPopulation:
+    """AC5: When advance() transitions TO P10, severity_groups is populated with 3 SeverityLevel keys."""
+
+    def test_severity_groups_empty_before_p10(self) -> None:
+        sm = _make_sm()
+        _advance_to(sm, PhaseId.P9_SLICE)
+        assert sm.state.severity_groups == {}
+
+    def test_severity_groups_populated_on_entry_to_p10(self) -> None:
+        sm = _make_sm()
+        _advance_to(sm, PhaseId.P10_CODE_REVIEW)
+        groups = sm.state.severity_groups
+        assert len(groups) == 3
+        assert SeverityLevel.BLOCKER in groups
+        assert SeverityLevel.IMPORTANT in groups
+        assert SeverityLevel.MINOR in groups
+
+    def test_severity_groups_values_are_empty_sets_on_entry(self) -> None:
+        sm = _make_sm()
+        _advance_to(sm, PhaseId.P10_CODE_REVIEW)
+        for level in SeverityLevel:
+            assert isinstance(sm.state.severity_groups[level], set)
+            assert len(sm.state.severity_groups[level]) == 0
+
+    def test_severity_groups_not_populated_on_p4_entry(self) -> None:
+        """P4 (plan review) must NOT trigger severity group creation (C-severity-not-plan)."""
+        sm = _make_sm()
+        _advance_to(sm, PhaseId.P4_REVIEW)
+        assert sm.state.severity_groups == {}
+
+    def test_severity_groups_preserved_if_already_populated(self) -> None:
+        """If severity_groups is already non-empty when re-entering P10, it is NOT overwritten."""
+        sm = _make_sm()
+        _advance_to(sm, PhaseId.P10_CODE_REVIEW)
+        # Manually add an entry to simulate a finding already recorded.
+        sm.state.severity_groups[SeverityLevel.BLOCKER].add("finding-abc")
+
+        # Simulate revision loop: p10 → p9 → p10.
+        sm.record_vote("A", VoteType.REVISE)
+        sm.advance(PhaseId.P9_SLICE, triggered_by="test", condition_met="revise")
+        sm.advance(PhaseId.P10_CODE_REVIEW, triggered_by="test", condition_met="re-review")
+
+        # Pre-existing data must not be wiped.
+        assert "finding-abc" in sm.state.severity_groups[SeverityLevel.BLOCKER]
+
+
+# ─── EpochState Type Safety ───────────────────────────────────────────────────
+
+
+class TestEpochStateTypeSafety:
+    """AC1 (type safety): EpochState.current_role is RoleId, not plain str."""
+
+    def test_current_role_default_is_role_id_epoch(self) -> None:
+        sm = _make_sm()
+        assert sm.state.current_role is RoleId.EPOCH
+
+    def test_current_role_is_role_id_instance(self) -> None:
+        sm = _make_sm()
+        assert isinstance(sm.state.current_role, RoleId)
+
+    def test_current_role_value_matches_epoch_string(self) -> None:
+        sm = _make_sm()
+        # RoleId is a str enum, so equality with "epoch" still holds.
+        assert sm.state.current_role == "epoch"
+
+    def test_make_state_accepts_role_id_current_role(self) -> None:
+        state = _make_state(phase=PhaseId.P1_REQUEST, current_role=RoleId.SUPERVISOR)
+        assert state.current_role is RoleId.SUPERVISOR
