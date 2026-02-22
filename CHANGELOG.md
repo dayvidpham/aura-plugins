@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.3.2] - 2026-02-22
+
+### Fixed
+- fix(scripts): resolve skills via script-relative path instead of ~/skills symlinks
+
+### Other
+- Merge branch 'main' into bug-skill-location
+- chore: ignores worktree/ folder for worktree workflows
+
 ## [0.3.1] - 2026-02-21
 
 ### Added
