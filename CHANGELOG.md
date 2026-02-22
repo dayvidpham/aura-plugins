@@ -1,5 +1,23 @@
 # Changelog
 
+## [0.4.3] - 2026-02-22
+
+### Added
+- feat(aura_protocol): UAT refinements — success field, TEMPORAL_REQUIRED, frozen severity keys
+- feat(constraints): SLICE-2 — categorized group methods + severity positive case
+- feat(FOLLOWUP_SLICE-4): failed transition audit + temporal sandbox tests
+
+### Fixed
+- fix(tests): replace brittle startswith("FAILED:") with r.success in tests
+- fix(workflow): code review fixes — transition_count semantics, lazy sandbox probe, AC7 docstrings
+- fix(constraints): apply Round 2 code review fixes for SLICE-2
+
+### Documentation
+- docs(conftest): document _FORWARD_PHASES manual ordering rationale
+
+### Other
+- Merge branch 'develop'
+
 ## [0.4.2] - 2026-02-22
 
 ### Added
