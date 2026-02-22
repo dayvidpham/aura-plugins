@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.4.2] - 2026-02-22
+
+### Added
+- feat(FOLLOWUP_SLICE-1): type safety, timestamp decoupling, shared fixtures
+- feat(interfaces): FOLLOWUP_SLICE-3 — type precision + Protocol documentation
+
+### Fixed
+- fix: add pymysql dev dep and JSONL-to-Dolt import script
+- fix: broken Beads jsonl/sqlite migration to dolt
+
 ## [0.4.1] - 2026-02-22
 
 ### Fixed
