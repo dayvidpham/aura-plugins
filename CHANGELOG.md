@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.4.1] - 2026-02-22
+
+### Fixed
+- fix(aura_protocol): UAT revisions — workflow error handling, test quality, C-actionable-errors constraint
+- fix(constraints): split check_all into check_state_constraints + check_transition_constraints; use runtime imports in interfaces.py
+
+### Other
+- chore: beads sync
+
 ## [0.4.0] - 2026-02-22
 
 ### Added
