@@ -31,7 +31,12 @@ from aura_protocol.types import PhaseId, VoteType
 # in sync automatically.
 
 
-# Ordered forward phase sequence (no branching — first transition only).
+# Manually ordered forward phase sequence — NOT derived from PHASE_SPECS because
+# PHASE_SPECS transitions include revision loops (e.g. P4→P3, P10→P9) and
+# COMPLETE is not in PHASE_SPECS at all. This list represents the single happy
+# path with no revisions, used by _advance_to() to drive the state machine
+# forward. Do not reorder or derive from dict iteration (dict order is insertion
+# order but PHASE_SPECS is keyed by enum, not by phase number).
 _FORWARD_PHASES: list[PhaseId] = [
     PhaseId.P1_REQUEST,
     PhaseId.P2_ELICIT,
