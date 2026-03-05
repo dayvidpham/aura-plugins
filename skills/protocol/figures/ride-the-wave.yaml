@@ -3,6 +3,7 @@ title: "Ride the Wave — Coordinated Phase 8-10 Execution"
 type: ascii-diagram
 role_ref: supervisor
 section_ref: workflows
+workflow_refs: ['ride-the-wave']
 content: |
   Phase 8: PLAN
     ├─ Read RATIFIED_PLAN + URD

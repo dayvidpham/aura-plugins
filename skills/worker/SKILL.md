@@ -197,6 +197,36 @@ Exit conditions:
 - **success**: All tests pass; no TODO placeholders; real deps wired; production code path verified via code inspection
 - **escalate**: Blocker encountered — use /aura:worker-blocked with details
 
+
+##### Layer Cake — TDD Parallelism Within Vertical Slices
+
+```text
+Layer 0: Shared infrastructure (common types, enums — optional, parallel)
+   │
+Vertical Slices (parallel, each worker owns one slice):
+   │
+   ├─ Layer 1: Types for this slice
+   │
+   ├─ Layer 2: Tests importing production code (will FAIL — expected!)
+   │
+   └─ Layer 3: Implementation + wiring (makes tests PASS)
+   │
+IMPLEMENTATION COMPLETE
+
+Each layer completes before the next begins.
+Within a layer, all tasks run in parallel.
+
+Key TDD principle:
+  Layer 2 tests will fail initially — this is expected.
+  Layer 3 workers implement code to make those tests pass.
+
+L2 Test File Requirements:
+  1. Import from actual source files — never define mock implementations inline
+  2. Fail until L3 implementation exists — if tests pass immediately, something is wrong
+  3. Test behavior via DI mocks — mock dependencies, not the code under test
+  4. Define expected API contracts — tests specify what the implementation should do
+
+```
 <!-- END GENERATED FROM aura schema -->
 
 **-> [Full workflow in PROCESS.md](../protocol/PROCESS.md#phase-9-worker-slices)** <- Phase 9

@@ -39,6 +39,7 @@ from aura_protocol.types import (
     COMMAND_SPECS,
     CONSTRAINT_SPECS,
     COORDINATION_COMMANDS,
+    FIGURE_SPECS,
     HANDOFF_SPECS,
     LABEL_SPECS,
     PHASE_SPECS,
@@ -1508,6 +1509,21 @@ def _build_workflows(root: ET.Element) -> None:
                               condition=ec.condition)
 
 
+def _build_figures(root: ET.Element) -> None:
+    """Append <figures> section to root, derived from FIGURE_SPECS."""
+    figures_el = ET.SubElement(root, "figures")
+    for fig in FIGURE_SPECS.values():
+        fig_el = ET.SubElement(figures_el, "figure",
+                               id=fig.id.value,
+                               title=fig.title,
+                               type=fig.type.value,
+                               **{"section-ref": fig.section_ref.value})
+        for role_ref in sorted(fig.role_refs, key=lambda r: r.value):
+            ET.SubElement(fig_el, "role-ref", ref=role_ref.value)
+        for wf_ref in sorted(fig.workflow_refs):
+            ET.SubElement(fig_el, "workflow-ref", ref=wf_ref)
+
+
 # ─── Section comment helper ────────────────────────────────────────────────────
 
 
@@ -1716,6 +1732,13 @@ def generate_schema(output: Path, diff: bool = True) -> str:
         "     Architect State Flow (architect)."
     ))
     _build_workflows(root)
+
+    root.append(_section_comment(
+        "FIGURES\n\n"
+        "     ASCII diagram figures associated with roles and workflows.\n"
+        "     Content stored in YAML files, not in schema.xml."
+    ))
+    _build_figures(root)
 
     # Serialize
     content = _serialize_tree(root)

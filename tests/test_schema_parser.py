@@ -13,7 +13,15 @@ from pathlib import Path
 import pytest
 
 from aura_protocol.schema_parser import SchemaParseError, SchemaSpec, parse_schema
-from aura_protocol.types import ContentLevel, ExecutionMode, PhaseId, ReviewAxis, RoleId
+from aura_protocol.types import (
+    FIGURE_SPECS,
+    ContentLevel,
+    ExecutionMode,
+    FigureId,
+    PhaseId,
+    ReviewAxis,
+    RoleId,
+)
 
 # ─── Schema path ──────────────────────────────────────────────────────────────
 
@@ -589,6 +597,47 @@ class TestSchemaParserWorkflows:
         """Layer Cake workflow has 3 stages."""
         wf = parsed_spec.workflows["layer-cake"]
         assert len(wf.stages) == 3
+
+
+# ─── Structural tests for figures ──────────────────────────────────────────
+
+
+class TestSchemaParserFigures:
+    """Structural tests for figure entities parsed from schema.xml."""
+
+    def test_figures_section_parsed(self, parsed_spec: SchemaSpec) -> None:
+        """SchemaSpec.figures has exactly 3 entries matching FIGURE_SPECS keys."""
+        assert len(parsed_spec.figures) == len(FIGURE_SPECS), (
+            f"Expected {len(FIGURE_SPECS)} figures, got {len(parsed_spec.figures)}: "
+            f"{list(parsed_spec.figures.keys())}"
+        )
+        assert set(parsed_spec.figures.keys()) == set(FIGURE_SPECS.keys()), (
+            f"Figure keys mismatch: parsed={set(parsed_spec.figures.keys())}, "
+            f"expected={set(FIGURE_SPECS.keys())}"
+        )
+
+    def test_figure_attributes_match(self, parsed_spec: SchemaSpec) -> None:
+        """Each parsed Figure has correct id, title, type, role_refs, section_ref, workflow_refs."""
+        for fid, expected in FIGURE_SPECS.items():
+            actual = parsed_spec.figures[fid]
+            assert actual.id == expected.id, (
+                f"Figure {fid}: id mismatch: {actual.id} != {expected.id}"
+            )
+            assert actual.title == expected.title, (
+                f"Figure {fid}: title mismatch: {actual.title!r} != {expected.title!r}"
+            )
+            assert actual.type == expected.type, (
+                f"Figure {fid}: type mismatch: {actual.type} != {expected.type}"
+            )
+            assert actual.role_refs == expected.role_refs, (
+                f"Figure {fid}: role_refs mismatch: {actual.role_refs} != {expected.role_refs}"
+            )
+            assert actual.section_ref == expected.section_ref, (
+                f"Figure {fid}: section_ref mismatch: {actual.section_ref} != {expected.section_ref}"
+            )
+            assert actual.workflow_refs == expected.workflow_refs, (
+                f"Figure {fid}: workflow_refs mismatch: {actual.workflow_refs} != {expected.workflow_refs}"
+            )
 
 
 # ─── Error tests for new malformed elements ───────────────────────────────────

@@ -151,6 +151,16 @@ Exit conditions:
 {% endif %}
 
 {% endfor %}
+{% if wf.id in figures_by_workflow %}
+{% for fig in figures_by_workflow[wf.id] %}
+
+##### {{ fig.title }}
+
+```text
+{{ fig.content }}
+```
+{% endfor %}
+{% endif %}
 {% endfor %}
 {% endif %}
 {% if review_axes %}

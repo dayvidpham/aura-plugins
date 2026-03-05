@@ -199,6 +199,36 @@ class ExitConditionType(StrEnum):
     PROCEED = "proceed"
 
 
+class FigureId(StrEnum):
+    """Unique identifier for each figure.
+
+    Values match schema.xml <figure id='...'> attributes.
+    Keyed in FIGURE_SPECS.
+    """
+
+    LAYER_CAKE = "layer-cake"
+    RIDE_THE_WAVE = "ride-the-wave"
+    ARCHITECT_STATE_FLOW = "architect-state-flow"
+
+
+class FigureType(StrEnum):
+    """Type of figure content.
+
+    Values match schema.xml <figure type='...'> attributes.
+    """
+
+    ASCII_DIAGRAM = "ascii-diagram"
+
+
+class SectionRef(StrEnum):
+    """Section in which a figure can be placed.
+
+    Values match schema.xml <figure section-ref='...'> attributes.
+    """
+
+    WORKFLOWS = "workflows"
+
+
 # ─── Step Slug + Skill Ref Namespaces ─────────────────────────────────────────
 
 
@@ -733,6 +763,24 @@ class Workflow:
     role_ref: RoleId
     description: str
     stages: tuple[WorkflowStage, ...]
+
+
+@dataclass(frozen=True)
+class Figure:
+    """A figure specification (ASCII diagram or other visual).
+
+    Derived from YAML files in skills/protocol/figures/.
+    Keyed in FIGURE_SPECS by FigureId.
+    M:N relationship with roles (role_refs) and workflows (workflow_refs).
+    """
+
+    id: FigureId
+    title: str
+    type: FigureType
+    role_refs: frozenset[RoleId]
+    section_ref: SectionRef
+    workflow_refs: frozenset[str]
+    content: str = ""
 
 
 # ─── Phase-Domain Mapping ─────────────────────────────────────────────────────
@@ -3058,5 +3106,37 @@ WORKFLOW_SPECS: dict[str, Workflow] = {
                 ),
             ),
         ),
+    ),
+}
+
+
+# ─── Figure Specs ─────────────────────────────────────────────────────────────
+# Keyed by FigureId. Content is loaded from YAML files at generation time;
+# these specs carry structural metadata only (content defaults to '').
+
+FIGURE_SPECS: dict[FigureId, Figure] = {
+    FigureId.LAYER_CAKE: Figure(
+        id=FigureId.LAYER_CAKE,
+        title="Layer Cake — TDD Parallelism Within Vertical Slices",
+        type=FigureType.ASCII_DIAGRAM,
+        role_refs=frozenset({RoleId.WORKER}),
+        section_ref=SectionRef.WORKFLOWS,
+        workflow_refs=frozenset({"layer-cake"}),
+    ),
+    FigureId.RIDE_THE_WAVE: Figure(
+        id=FigureId.RIDE_THE_WAVE,
+        title="Ride the Wave — Coordinated Phase 8-10 Execution",
+        type=FigureType.ASCII_DIAGRAM,
+        role_refs=frozenset({RoleId.SUPERVISOR}),
+        section_ref=SectionRef.WORKFLOWS,
+        workflow_refs=frozenset({"ride-the-wave"}),
+    ),
+    FigureId.ARCHITECT_STATE_FLOW: Figure(
+        id=FigureId.ARCHITECT_STATE_FLOW,
+        title="Architect State Flow — Sequential Planning Phases 1-7",
+        type=FigureType.ASCII_DIAGRAM,
+        role_refs=frozenset({RoleId.ARCHITECT}),
+        section_ref=SectionRef.WORKFLOWS,
+        workflow_refs=frozenset({"architect-state-flow"}),
     ),
 }

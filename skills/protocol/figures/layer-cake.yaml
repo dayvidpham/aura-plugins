@@ -3,6 +3,7 @@ title: "Layer Cake — TDD Parallelism Within Vertical Slices"
 type: ascii-diagram
 role_ref: worker
 section_ref: workflows
+workflow_refs: ['layer-cake']
 content: |
   Layer 0: Shared infrastructure (common types, enums — optional, parallel)
      │

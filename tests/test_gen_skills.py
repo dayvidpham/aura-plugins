@@ -1458,3 +1458,87 @@ class TestConstraintCodeExamplesSection:
         assert "```" in result, (
             "Code fence must appear when a constraint has examples."
         )
+
+
+# ─── SLICE-3: Figure Positional Rendering Tests ─────────────────────────────
+
+
+class TestFigurePositionalRendering:
+    """Verify figures render after their associated workflow sections."""
+
+    def test_supervisor_figure_after_workflow(
+        self,
+        tmp_path: pathlib.Path,
+    ) -> None:
+        """Ride the Wave figure appears after the ride-the-wave workflow section."""
+        content = _minimal_with_markers()
+        skill_path = _make_skill_file(tmp_path, content)
+
+        result = generate_skill(
+            RoleId.SUPERVISOR,
+            skill_path,
+            template_dir=TEMPLATE_DIR,
+            diff=False,
+            write=False,
+        )
+
+        # The figure title must appear in the output
+        assert "Ride the Wave" in result, (
+            "Supervisor output must contain 'Ride the Wave' figure title."
+        )
+        # Figure must appear after the workflow heading
+        wf_heading_pos = result.index("#### Ride the Wave")
+        figure_title_pos = result.index("##### Ride the Wave", wf_heading_pos + 1)
+        assert figure_title_pos > wf_heading_pos, (
+            "Ride the Wave figure (h5) must appear after its workflow heading (h4)."
+        )
+
+    def test_worker_figure_after_workflow(
+        self,
+        tmp_path: pathlib.Path,
+    ) -> None:
+        """Layer Cake figure appears after the layer-cake workflow section."""
+        content = _minimal_with_markers()
+        skill_path = _make_skill_file(tmp_path, content)
+
+        result = generate_skill(
+            RoleId.WORKER,
+            skill_path,
+            template_dir=TEMPLATE_DIR,
+            diff=False,
+            write=False,
+        )
+
+        assert "Layer Cake" in result, (
+            "Worker output must contain 'Layer Cake' figure title."
+        )
+        wf_heading_pos = result.index("#### Layer Cake")
+        figure_title_pos = result.index("##### Layer Cake", wf_heading_pos + 1)
+        assert figure_title_pos > wf_heading_pos, (
+            "Layer Cake figure (h5) must appear after its workflow heading (h4)."
+        )
+
+    def test_architect_figure_after_workflow(
+        self,
+        tmp_path: pathlib.Path,
+    ) -> None:
+        """Architect State Flow figure appears after the architect-state-flow workflow section."""
+        content = _minimal_with_markers()
+        skill_path = _make_skill_file(tmp_path, content)
+
+        result = generate_skill(
+            RoleId.ARCHITECT,
+            skill_path,
+            template_dir=TEMPLATE_DIR,
+            diff=False,
+            write=False,
+        )
+
+        assert "Architect State Flow" in result, (
+            "Architect output must contain 'Architect State Flow' figure title."
+        )
+        wf_heading_pos = result.index("#### Architect State Flow")
+        figure_title_pos = result.index("##### Architect State Flow", wf_heading_pos + 1)
+        assert figure_title_pos > wf_heading_pos, (
+            "Architect State Flow figure (h5) must appear after its workflow heading (h4)."
+        )

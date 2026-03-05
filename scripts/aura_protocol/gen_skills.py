@@ -47,6 +47,7 @@ from aura_protocol.types import (
     ROLE_SPECS,
     CommandSpec,
     ConstraintSpec,
+    Figure,
     HandoffSpec,
     PhaseId,
     PhaseSpec,
@@ -247,6 +248,18 @@ def _find_marker_positions(
     return begin_idx, end_idx
 
 
+# ─── Figure grouping ─────────────────────────────────────────────────────────
+
+
+def _figures_by_workflow(figures: tuple[Figure, ...]) -> dict[str, list[Figure]]:
+    """Group figures by workflow ref for template rendering."""
+    result: dict[str, list[Figure]] = {}
+    for fig in figures:
+        for wf_ref in fig.workflow_refs:
+            result.setdefault(wf_ref, []).append(fig)
+    return result
+
+
 # ─── Template rendering ───────────────────────────────────────────────────────
 
 
@@ -305,6 +318,7 @@ def _render_header(
         "checklists": list(role_ctx.checklists),
         "coordination_commands": list(role_ctx.coordination_commands),
         "workflows": list(role_ctx.workflows),
+        "figures_by_workflow": _figures_by_workflow(role_ctx.figures),
         "review_axes": list(role_ctx.review_axes),
     }
 

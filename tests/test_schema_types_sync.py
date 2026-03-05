@@ -39,10 +39,13 @@ from aura_protocol import (
 from aura_protocol.types import (
     CHECKLIST_SPECS,
     COORDINATION_COMMANDS,
+    FIGURE_SPECS,
     WORKFLOW_SPECS,
     ExampleLabel,
     ExampleLang,
     ExitConditionType,
+    FigureId,
+    FigureType,
     GateType,
     WorkflowExecution,
 )
@@ -1088,3 +1091,58 @@ class TestRoleSpecNewFieldsSync:
                 f"Role {rid_str} behaviors count mismatch: "
                 f"Python={python_count}, schema={schema_count}"
             )
+
+
+# ─── Figure Sync ─────────────────────────────────────────────────────────────
+
+
+class TestFigureSpecsSync:
+    """FIGURE_SPECS must stay in sync with FigureId enum and schema.xml."""
+
+    def test_all_figure_workflow_refs_valid(self) -> None:
+        """Every workflow_ref in FIGURE_SPECS must exist as a key in WORKFLOW_SPECS."""
+        for fig_id, fig in FIGURE_SPECS.items():
+            for wref in fig.workflow_refs:
+                assert wref in WORKFLOW_SPECS, (
+                    f"Figure {fig_id.value} references workflow '{wref}' "
+                    f"which is not a key in WORKFLOW_SPECS"
+                )
+
+    def test_all_figure_role_refs_valid(self) -> None:
+        """Every role_ref in FIGURE_SPECS must be a valid RoleId member."""
+        for fig_id, fig in FIGURE_SPECS.items():
+            for rref in fig.role_refs:
+                assert isinstance(rref, RoleId), (
+                    f"Figure {fig_id.value} has role_ref {rref!r} "
+                    f"which is not a RoleId member"
+                )
+
+    def test_figure_type_values_in_schema(self, schema_root: ET.Element) -> None:
+        """Each <figure type='...'> value in schema.xml must be a valid FigureType."""
+        for fig_el in schema_root.iter("figure"):
+            fig_type = fig_el.get("type")
+            if fig_type is None:
+                continue
+            assert fig_type in {ft.value for ft in FigureType}, (
+                f"schema.xml <figure> has type='{fig_type}' "
+                f"which is not a valid FigureType member"
+            )
+
+    def test_figure_count_matches_schema(self, schema_root: ET.Element) -> None:
+        """Count of <figure> elements in schema.xml must equal len(FIGURE_SPECS)."""
+        schema_count = len(list(schema_root.iter("figure")))
+        python_count = len(FIGURE_SPECS)
+        assert python_count == schema_count, (
+            f"Figure count mismatch: Python has {python_count}, "
+            f"schema.xml has {schema_count}"
+        )
+
+    def test_figure_id_enum_matches_specs(self) -> None:
+        """Set of FigureId members must equal set of FIGURE_SPECS keys."""
+        enum_members = set(FigureId)
+        spec_keys = set(FIGURE_SPECS.keys())
+        assert enum_members == spec_keys, (
+            f"FigureId enum members do not match FIGURE_SPECS keys.\n"
+            f"In enum only: {enum_members - spec_keys}\n"
+            f"In specs only: {spec_keys - enum_members}"
+        )

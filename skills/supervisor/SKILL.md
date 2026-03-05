@@ -280,6 +280,43 @@ Exit conditions:
 - **proceed**: 3 cycles exhausted, IMPORTANT remain — track in FOLLOWUP, proceed to Phase 11
 - **escalate**: 3 cycles exhausted, BLOCKERs remain — stop and escalate to user
 
+
+##### Ride the Wave — Coordinated Phase 8-10 Execution
+
+```text
+Phase 8: PLAN
+  ├─ Read RATIFIED_PLAN + URD
+  ├─ Spawn 3 Cartographers (TeamCreate, /aura:explore)
+  ├─ Query Cartographers to map codebase
+  ├─ Decompose into vertical slices + integration points
+  └─ Create leaf tasks for every slice
+
+Phase 9: BUILD
+  ├─ Spawn N Workers into same team (TeamCreate, /aura:worker)
+  ├─ Workers implement their slices in parallel
+  └─ Workers do NOT shut down when finished
+
+Phase 10: REVIEW + FIX CYCLES (max 3)
+  ├─ Cycle 1:
+  │   ├─ Cartographers switch to /aura:reviewer-review-code
+  │   ├─ Cartographers review ALL slices (severity tree: BLOCKER/IMPORTANT/MINOR)
+  │   ├─ Create FOLLOWUP epic if ANY IMPORTANT/MINOR findings
+  │   ├─ Workers fix BLOCKERs + IMPORTANTs
+  │   └─ Cartographers re-review
+  ├─ Cycle 2 (if needed): same pattern
+  ├─ Cycle 3 (if needed): same pattern
+  └─ After 3 cycles: remaining IMPORTANT → FOLLOWUP, proceed to UAT
+
+DONE → Phase 11 (UAT)
+  └─ Shut down Cartographers + Workers
+
+Cycle Exit Conditions:
+  All reviewers ACCEPT, no open BLOCKERs    → Proceed to Phase 11 (UAT)
+  BLOCKERs or IMPORTANT remain, cycles < 3  → Workers fix, Cartographers re-review
+  3 cycles exhausted, IMPORTANT remain      → Track in FOLLOWUP, proceed to Phase 11
+  3 cycles exhausted, BLOCKERs remain       → STOP — escalate to user, do NOT proceed
+
+```
 <!-- END GENERATED FROM aura schema -->
 
 **-> [Full workflow in PROCESS.md](../protocol/PROCESS.md#phase-8-implementation-plan)** <- Phases 7-12
