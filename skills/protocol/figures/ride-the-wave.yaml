@@ -4,6 +4,7 @@ type: ascii-diagram
 role_ref: supervisor
 section_ref: workflows
 workflow_refs: ['ride-the-wave']
+command_refs: ['cmd-sup-spawn']
 content: |
   Phase 8: PLAN
     ├─ Read RATIFIED_PLAN + URD
