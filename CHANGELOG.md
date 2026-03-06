@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.9.4] - 2026-03-06
+
+### Added
+- feat(schema): figures pipeline + CommandId StrEnum + sub-skill rendering
+
+### Other
+- Merge commit 'followup-schema-extensions'
+- chore: beads backup
+- chore: beads update
+
 ## [0.9.3] - 2026-03-03
 
 ### Fixed
