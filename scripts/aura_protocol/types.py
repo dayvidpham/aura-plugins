@@ -229,6 +229,51 @@ class SectionRef(StrEnum):
     WORKFLOWS = "workflows"
 
 
+class CommandId(StrEnum):
+    """Unique identifier for each protocol command (skill).
+
+    Values match schema.xml <command id='...'> attributes.
+    Keyed in COMMAND_SPECS.
+    Member names are UPPER_SNAKE_CASE of the id with 'cmd-' prefix stripped.
+    """
+
+    EPOCH = "cmd-epoch"
+    PLAN = "cmd-plan"
+    STATUS = "cmd-status"
+    USER_REQUEST = "cmd-user-request"
+    USER_ELICIT = "cmd-user-elicit"
+    USER_UAT = "cmd-user-uat"
+    ARCHITECT = "cmd-architect"
+    ARCH_PROPOSE = "cmd-arch-propose"
+    ARCH_REVIEW = "cmd-arch-review"
+    ARCH_RATIFY = "cmd-arch-ratify"
+    ARCH_HANDOFF = "cmd-arch-handoff"
+    SUPERVISOR = "cmd-supervisor"
+    SUP_PLAN = "cmd-sup-plan"
+    SUP_SPAWN = "cmd-sup-spawn"
+    SUP_TRACK = "cmd-sup-track"
+    SUP_COMMIT = "cmd-sup-commit"
+    WORKER = "cmd-worker"
+    WORK_IMPL = "cmd-work-impl"
+    WORK_COMPLETE = "cmd-work-complete"
+    WORK_BLOCKED = "cmd-work-blocked"
+    REVIEWER = "cmd-reviewer"
+    REV_PLAN = "cmd-rev-plan"
+    REV_CODE = "cmd-rev-code"
+    REV_COMMENT = "cmd-rev-comment"
+    REV_VOTE = "cmd-rev-vote"
+    IMPL_SLICE = "cmd-impl-slice"
+    IMPL_REVIEW = "cmd-impl-review"
+    MSG_SEND = "cmd-msg-send"
+    MSG_RECEIVE = "cmd-msg-receive"
+    MSG_BROADCAST = "cmd-msg-broadcast"
+    MSG_ACK = "cmd-msg-ack"
+    EXPLORE = "cmd-explore"
+    RESEARCH = "cmd-research"
+    TEST = "cmd-test"
+    FEEDBACK = "cmd-feedback"
+
+
 # ─── Step Slug + Skill Ref Namespaces ─────────────────────────────────────────
 
 
@@ -467,7 +512,7 @@ class CommandSpec:
     phases uses tuple for ordering; creates_labels uses tuple for ordering.
     """
 
-    id: str
+    id: CommandId
     name: str
     description: str
     role_ref: RoleId | None
@@ -771,7 +816,8 @@ class Figure:
 
     Derived from YAML files in skills/protocol/figures/.
     Keyed in FIGURE_SPECS by FigureId.
-    M:N relationship with roles (role_refs) and workflows (workflow_refs).
+    M:N relationship with roles (role_refs), workflows (workflow_refs),
+    and commands (command_refs).
     """
 
     id: FigureId
@@ -780,6 +826,7 @@ class Figure:
     role_refs: frozenset[RoleId]
     section_ref: SectionRef
     workflow_refs: frozenset[str]
+    command_refs: frozenset[CommandId] = frozenset()
     content: str = ""
 
 
@@ -1669,9 +1716,9 @@ ROLE_SPECS: dict[RoleId, RoleSpec] = {
 }
 
 
-COMMAND_SPECS: dict[str, CommandSpec] = {
-    "cmd-epoch": CommandSpec(
-        id="cmd-epoch",
+COMMAND_SPECS: dict[CommandId, CommandSpec] = {
+    CommandId.EPOCH: CommandSpec(
+        id=CommandId.EPOCH,
         name="aura:epoch",
         description="Master orchestrator for full 12-phase workflow",
         role_ref=RoleId.EPOCH,
@@ -1679,8 +1726,8 @@ COMMAND_SPECS: dict[str, CommandSpec] = {
         file="skills/epoch/SKILL.md",
         creates_labels=(),
     ),
-    "cmd-plan": CommandSpec(
-        id="cmd-plan",
+    CommandId.PLAN: CommandSpec(
+        id=CommandId.PLAN,
         name="aura:plan",
         description="Plan coordination across phases 1-6",
         role_ref=RoleId.ARCHITECT,
@@ -1688,8 +1735,8 @@ COMMAND_SPECS: dict[str, CommandSpec] = {
         file="skills/plan/SKILL.md",
         creates_labels=(),
     ),
-    "cmd-status": CommandSpec(
-        id="cmd-status",
+    CommandId.STATUS: CommandSpec(
+        id=CommandId.STATUS,
         name="aura:status",
         description="Project status and monitoring via Beads queries",
         role_ref=None,
@@ -1697,8 +1744,8 @@ COMMAND_SPECS: dict[str, CommandSpec] = {
         file="skills/status/SKILL.md",
         creates_labels=(),
     ),
-    "cmd-user-request": CommandSpec(
-        id="cmd-user-request",
+    CommandId.USER_REQUEST: CommandSpec(
+        id=CommandId.USER_REQUEST,
         name="aura:user:request",
         description="Capture user feature request verbatim (Phase 1)",
         role_ref=RoleId.ARCHITECT,
@@ -1706,8 +1753,8 @@ COMMAND_SPECS: dict[str, CommandSpec] = {
         file="skills/user-request/SKILL.md",
         creates_labels=("L-p1s1_1",),
     ),
-    "cmd-user-elicit": CommandSpec(
-        id="cmd-user-elicit",
+    CommandId.USER_ELICIT: CommandSpec(
+        id=CommandId.USER_ELICIT,
         name="aura:user:elicit",
         description="User Requirements Elicitation survey (Phase 2)",
         role_ref=RoleId.ARCHITECT,
@@ -1715,8 +1762,8 @@ COMMAND_SPECS: dict[str, CommandSpec] = {
         file="skills/user-elicit/SKILL.md",
         creates_labels=("L-p2s2_1", "L-p2s2_2", "L-urd"),
     ),
-    "cmd-user-uat": CommandSpec(
-        id="cmd-user-uat",
+    CommandId.USER_UAT: CommandSpec(
+        id=CommandId.USER_UAT,
         name="aura:user:uat",
         description="User Acceptance Testing with demonstrative examples",
         role_ref=None,
@@ -1724,8 +1771,8 @@ COMMAND_SPECS: dict[str, CommandSpec] = {
         file="skills/user-uat/SKILL.md",
         creates_labels=("L-p5s5", "L-p11s11"),
     ),
-    "cmd-architect": CommandSpec(
-        id="cmd-architect",
+    CommandId.ARCHITECT: CommandSpec(
+        id=CommandId.ARCHITECT,
         name="aura:architect",
         description="Specification writer and implementation designer",
         role_ref=RoleId.ARCHITECT,
@@ -1733,8 +1780,8 @@ COMMAND_SPECS: dict[str, CommandSpec] = {
         file="skills/architect/SKILL.md",
         creates_labels=(),
     ),
-    "cmd-arch-propose": CommandSpec(
-        id="cmd-arch-propose",
+    CommandId.ARCH_PROPOSE: CommandSpec(
+        id=CommandId.ARCH_PROPOSE,
         name="aura:architect:propose-plan",
         description="Create PROPOSAL-N task with full technical plan",
         role_ref=RoleId.ARCHITECT,
@@ -1742,8 +1789,8 @@ COMMAND_SPECS: dict[str, CommandSpec] = {
         file="skills/architect-propose-plan/SKILL.md",
         creates_labels=("L-p3s3",),
     ),
-    "cmd-arch-review": CommandSpec(
-        id="cmd-arch-review",
+    CommandId.ARCH_REVIEW: CommandSpec(
+        id=CommandId.ARCH_REVIEW,
         name="aura:architect:request-review",
         description="Spawn 3 axis-specific reviewers (A/B/C)",
         role_ref=RoleId.ARCHITECT,
@@ -1751,8 +1798,8 @@ COMMAND_SPECS: dict[str, CommandSpec] = {
         file="skills/architect-request-review/SKILL.md",
         creates_labels=("L-p4s4",),
     ),
-    "cmd-arch-ratify": CommandSpec(
-        id="cmd-arch-ratify",
+    CommandId.ARCH_RATIFY: CommandSpec(
+        id=CommandId.ARCH_RATIFY,
         name="aura:architect:ratify",
         description="Ratify proposal, mark old proposals aura:superseded",
         role_ref=RoleId.ARCHITECT,
@@ -1760,8 +1807,8 @@ COMMAND_SPECS: dict[str, CommandSpec] = {
         file="skills/architect-ratify/SKILL.md",
         creates_labels=("L-p6s6", "L-superseded"),
     ),
-    "cmd-arch-handoff": CommandSpec(
-        id="cmd-arch-handoff",
+    CommandId.ARCH_HANDOFF: CommandSpec(
+        id=CommandId.ARCH_HANDOFF,
         name="aura:architect:handoff",
         description="Create handoff document and transfer to supervisor",
         role_ref=RoleId.ARCHITECT,
@@ -1769,8 +1816,8 @@ COMMAND_SPECS: dict[str, CommandSpec] = {
         file="skills/architect-handoff/SKILL.md",
         creates_labels=("L-p7s7",),
     ),
-    "cmd-supervisor": CommandSpec(
-        id="cmd-supervisor",
+    CommandId.SUPERVISOR: CommandSpec(
+        id=CommandId.SUPERVISOR,
         name="aura:supervisor",
         description="Task coordinator, spawns workers, manages parallel execution",
         role_ref=RoleId.SUPERVISOR,
@@ -1778,8 +1825,8 @@ COMMAND_SPECS: dict[str, CommandSpec] = {
         file="skills/supervisor/SKILL.md",
         creates_labels=(),
     ),
-    "cmd-sup-plan": CommandSpec(
-        id="cmd-sup-plan",
+    CommandId.SUP_PLAN: CommandSpec(
+        id=CommandId.SUP_PLAN,
         name="aura:supervisor:plan-tasks",
         description="Decompose ratified plan into vertical slices (SLICE-N)",
         role_ref=RoleId.SUPERVISOR,
@@ -1787,8 +1834,8 @@ COMMAND_SPECS: dict[str, CommandSpec] = {
         file="skills/supervisor-plan-tasks/SKILL.md",
         creates_labels=("L-p8s8", "L-p9s9"),
     ),
-    "cmd-sup-spawn": CommandSpec(
-        id="cmd-sup-spawn",
+    CommandId.SUP_SPAWN: CommandSpec(
+        id=CommandId.SUP_SPAWN,
         name="aura:supervisor:spawn-worker",
         description="Launch a worker agent for an assigned slice",
         role_ref=RoleId.SUPERVISOR,
@@ -1796,8 +1843,8 @@ COMMAND_SPECS: dict[str, CommandSpec] = {
         file="skills/supervisor-spawn-worker/SKILL.md",
         creates_labels=("L-p9s9",),
     ),
-    "cmd-sup-track": CommandSpec(
-        id="cmd-sup-track",
+    CommandId.SUP_TRACK: CommandSpec(
+        id=CommandId.SUP_TRACK,
         name="aura:supervisor:track-progress",
         description="Monitor worker status via Beads",
         role_ref=RoleId.SUPERVISOR,
@@ -1805,8 +1852,8 @@ COMMAND_SPECS: dict[str, CommandSpec] = {
         file="skills/supervisor-track-progress/SKILL.md",
         creates_labels=(),
     ),
-    "cmd-sup-commit": CommandSpec(
-        id="cmd-sup-commit",
+    CommandId.SUP_COMMIT: CommandSpec(
+        id=CommandId.SUP_COMMIT,
         name="aura:supervisor:commit",
         description="Atomic commit per completed layer/slice",
         role_ref=RoleId.SUPERVISOR,
@@ -1814,8 +1861,8 @@ COMMAND_SPECS: dict[str, CommandSpec] = {
         file="skills/supervisor-commit/SKILL.md",
         creates_labels=("L-p12s12",),
     ),
-    "cmd-worker": CommandSpec(
-        id="cmd-worker",
+    CommandId.WORKER: CommandSpec(
+        id=CommandId.WORKER,
         name="aura:worker",
         description="Vertical slice implementer (full production code path)",
         role_ref=RoleId.WORKER,
@@ -1823,8 +1870,8 @@ COMMAND_SPECS: dict[str, CommandSpec] = {
         file="skills/worker/SKILL.md",
         creates_labels=(),
     ),
-    "cmd-work-impl": CommandSpec(
-        id="cmd-work-impl",
+    CommandId.WORK_IMPL: CommandSpec(
+        id=CommandId.WORK_IMPL,
         name="aura:worker:implement",
         description="Implement assigned vertical slice following TDD layers",
         role_ref=RoleId.WORKER,
@@ -1832,8 +1879,8 @@ COMMAND_SPECS: dict[str, CommandSpec] = {
         file="skills/worker-implement/SKILL.md",
         creates_labels=("L-p9s9",),
     ),
-    "cmd-work-complete": CommandSpec(
-        id="cmd-work-complete",
+    CommandId.WORK_COMPLETE: CommandSpec(
+        id=CommandId.WORK_COMPLETE,
         name="aura:worker:complete",
         description="Signal slice completion after quality gates pass",
         role_ref=RoleId.WORKER,
@@ -1841,8 +1888,8 @@ COMMAND_SPECS: dict[str, CommandSpec] = {
         file="skills/worker-complete/SKILL.md",
         creates_labels=(),
     ),
-    "cmd-work-blocked": CommandSpec(
-        id="cmd-work-blocked",
+    CommandId.WORK_BLOCKED: CommandSpec(
+        id=CommandId.WORK_BLOCKED,
         name="aura:worker:blocked",
         description="Report a blocker to supervisor via Beads",
         role_ref=RoleId.WORKER,
@@ -1850,8 +1897,8 @@ COMMAND_SPECS: dict[str, CommandSpec] = {
         file="skills/worker-blocked/SKILL.md",
         creates_labels=(),
     ),
-    "cmd-reviewer": CommandSpec(
-        id="cmd-reviewer",
+    CommandId.REVIEWER: CommandSpec(
+        id=CommandId.REVIEWER,
         name="aura:reviewer",
         description="End-user alignment reviewer for plans and code",
         role_ref=RoleId.REVIEWER,
@@ -1859,8 +1906,8 @@ COMMAND_SPECS: dict[str, CommandSpec] = {
         file="skills/reviewer/SKILL.md",
         creates_labels=(),
     ),
-    "cmd-rev-plan": CommandSpec(
-        id="cmd-rev-plan",
+    CommandId.REV_PLAN: CommandSpec(
+        id=CommandId.REV_PLAN,
         name="aura:reviewer:review-plan",
         description="Evaluate proposal against one axis (binary ACCEPT/REVISE)",
         role_ref=RoleId.REVIEWER,
@@ -1868,8 +1915,8 @@ COMMAND_SPECS: dict[str, CommandSpec] = {
         file="skills/reviewer-review-plan/SKILL.md",
         creates_labels=("L-p4s4",),
     ),
-    "cmd-rev-code": CommandSpec(
-        id="cmd-rev-code",
+    CommandId.REV_CODE: CommandSpec(
+        id=CommandId.REV_CODE,
         name="aura:reviewer:review-code",
         description="Review implementation slices with EAGER severity tree",
         role_ref=RoleId.REVIEWER,
@@ -1877,8 +1924,8 @@ COMMAND_SPECS: dict[str, CommandSpec] = {
         file="skills/reviewer-review-code/SKILL.md",
         creates_labels=("L-p10s10", "L-sev-blocker", "L-sev-import", "L-sev-minor"),
     ),
-    "cmd-rev-comment": CommandSpec(
-        id="cmd-rev-comment",
+    CommandId.REV_COMMENT: CommandSpec(
+        id=CommandId.REV_COMMENT,
         name="aura:reviewer:comment",
         description="Leave structured review comment via Beads",
         role_ref=RoleId.REVIEWER,
@@ -1886,8 +1933,8 @@ COMMAND_SPECS: dict[str, CommandSpec] = {
         file="skills/reviewer-comment/SKILL.md",
         creates_labels=(),
     ),
-    "cmd-rev-vote": CommandSpec(
-        id="cmd-rev-vote",
+    CommandId.REV_VOTE: CommandSpec(
+        id=CommandId.REV_VOTE,
         name="aura:reviewer:vote",
         description="Cast ACCEPT or REVISE vote (binary only)",
         role_ref=RoleId.REVIEWER,
@@ -1895,8 +1942,8 @@ COMMAND_SPECS: dict[str, CommandSpec] = {
         file="skills/reviewer-vote/SKILL.md",
         creates_labels=(),
     ),
-    "cmd-impl-slice": CommandSpec(
-        id="cmd-impl-slice",
+    CommandId.IMPL_SLICE: CommandSpec(
+        id=CommandId.IMPL_SLICE,
         name="aura:impl:slice",
         description="Vertical slice assignment and tracking",
         role_ref=RoleId.SUPERVISOR,
@@ -1904,8 +1951,8 @@ COMMAND_SPECS: dict[str, CommandSpec] = {
         file="skills/impl-slice/SKILL.md",
         creates_labels=("L-p9s9",),
     ),
-    "cmd-impl-review": CommandSpec(
-        id="cmd-impl-review",
+    CommandId.IMPL_REVIEW: CommandSpec(
+        id=CommandId.IMPL_REVIEW,
         name="aura:impl:review",
         description="Code review coordination across all slices (Phase 10)",
         role_ref=RoleId.SUPERVISOR,
@@ -1913,8 +1960,8 @@ COMMAND_SPECS: dict[str, CommandSpec] = {
         file="skills/impl-review/SKILL.md",
         creates_labels=("L-p10s10", "L-sev-blocker", "L-sev-import", "L-sev-minor"),
     ),
-    "cmd-msg-send": CommandSpec(
-        id="cmd-msg-send",
+    CommandId.MSG_SEND: CommandSpec(
+        id=CommandId.MSG_SEND,
         name="aura:msg:send",
         description="Send a message to another agent via Beads comment",
         role_ref=None,
@@ -1922,8 +1969,8 @@ COMMAND_SPECS: dict[str, CommandSpec] = {
         file="skills/msg-send/SKILL.md",
         creates_labels=(),
     ),
-    "cmd-msg-receive": CommandSpec(
-        id="cmd-msg-receive",
+    CommandId.MSG_RECEIVE: CommandSpec(
+        id=CommandId.MSG_RECEIVE,
         name="aura:msg:receive",
         description="Check inbox for messages from other agents",
         role_ref=None,
@@ -1931,8 +1978,8 @@ COMMAND_SPECS: dict[str, CommandSpec] = {
         file="skills/msg-receive/SKILL.md",
         creates_labels=(),
     ),
-    "cmd-msg-broadcast": CommandSpec(
-        id="cmd-msg-broadcast",
+    CommandId.MSG_BROADCAST: CommandSpec(
+        id=CommandId.MSG_BROADCAST,
         name="aura:msg:broadcast",
         description="Broadcast a message to multiple agents",
         role_ref=None,
@@ -1940,8 +1987,8 @@ COMMAND_SPECS: dict[str, CommandSpec] = {
         file="skills/msg-broadcast/SKILL.md",
         creates_labels=(),
     ),
-    "cmd-msg-ack": CommandSpec(
-        id="cmd-msg-ack",
+    CommandId.MSG_ACK: CommandSpec(
+        id=CommandId.MSG_ACK,
         name="aura:msg:ack",
         description="Acknowledge received messages",
         role_ref=None,
@@ -1949,8 +1996,8 @@ COMMAND_SPECS: dict[str, CommandSpec] = {
         file="skills/msg-ack/SKILL.md",
         creates_labels=(),
     ),
-    "cmd-explore": CommandSpec(
-        id="cmd-explore",
+    CommandId.EXPLORE: CommandSpec(
+        id=CommandId.EXPLORE,
         name="aura:explore",
         description=(
             "Codebase exploration — find integration points, existing patterns, and related code"
@@ -1960,8 +2007,8 @@ COMMAND_SPECS: dict[str, CommandSpec] = {
         file="skills/explore/SKILL.md",
         creates_labels=("L-p1s1_3",),
     ),
-    "cmd-research": CommandSpec(
-        id="cmd-research",
+    CommandId.RESEARCH: CommandSpec(
+        id=CommandId.RESEARCH,
         name="aura:research",
         description="Domain research — find standards, prior art, and competing approaches",
         role_ref=None,
@@ -1969,8 +2016,8 @@ COMMAND_SPECS: dict[str, CommandSpec] = {
         file="skills/research/SKILL.md",
         creates_labels=("L-p1s1_2",),
     ),
-    "cmd-test": CommandSpec(
-        id="cmd-test",
+    CommandId.TEST: CommandSpec(
+        id=CommandId.TEST,
         name="aura:test",
         description="Run tests using BDD patterns",
         role_ref=None,
@@ -1978,8 +2025,8 @@ COMMAND_SPECS: dict[str, CommandSpec] = {
         file="skills/test/SKILL.md",
         creates_labels=(),
     ),
-    "cmd-feedback": CommandSpec(
-        id="cmd-feedback",
+    CommandId.FEEDBACK: CommandSpec(
+        id=CommandId.FEEDBACK,
         name="aura:feedback",
         description="Leave structured feedback on any Beads task",
         role_ref=None,
@@ -3122,6 +3169,7 @@ FIGURE_SPECS: dict[FigureId, Figure] = {
         role_refs=frozenset({RoleId.WORKER}),
         section_ref=SectionRef.WORKFLOWS,
         workflow_refs=frozenset({"layer-cake"}),
+        command_refs=frozenset({CommandId.SUP_PLAN}),
     ),
     FigureId.RIDE_THE_WAVE: Figure(
         id=FigureId.RIDE_THE_WAVE,
@@ -3130,6 +3178,7 @@ FIGURE_SPECS: dict[FigureId, Figure] = {
         role_refs=frozenset({RoleId.SUPERVISOR}),
         section_ref=SectionRef.WORKFLOWS,
         workflow_refs=frozenset({"ride-the-wave"}),
+        command_refs=frozenset({CommandId.SUP_SPAWN}),
     ),
     FigureId.ARCHITECT_STATE_FLOW: Figure(
         id=FigureId.ARCHITECT_STATE_FLOW,

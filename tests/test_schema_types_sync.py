@@ -27,6 +27,7 @@ from aura_protocol import (
     REVIEW_AXIS_SPECS,
     ROLE_SPECS,
     TITLE_CONVENTIONS,
+    CommandId,
     Domain,
     HandoffSpec,
     PhaseId,
@@ -1145,4 +1146,46 @@ class TestFigureSpecsSync:
             f"FigureId enum members do not match FIGURE_SPECS keys.\n"
             f"In enum only: {enum_members - spec_keys}\n"
             f"In specs only: {spec_keys - enum_members}"
+        )
+
+    def test_all_figure_command_refs_valid(self) -> None:
+        """Every command_ref in FIGURE_SPECS must be a valid CommandId member."""
+        for fig_id, fig in FIGURE_SPECS.items():
+            for cref in fig.command_refs:
+                assert isinstance(cref, CommandId), (
+                    f"Figure {fig_id.value} has command_ref {cref!r} "
+                    f"which is not a CommandId member"
+                )
+
+
+# ─── CommandId + COMMAND_SPECS Sync ──────────────────────────────────────────
+
+
+class TestCommandIdSync:
+    """CommandId enum must stay in sync with COMMAND_SPECS keys."""
+
+    def test_command_id_values_match_command_specs_keys(self) -> None:
+        """Set of CommandId values must equal set of COMMAND_SPECS keys."""
+        enum_values = {c.value for c in CommandId}
+        spec_keys = set(COMMAND_SPECS.keys())
+        assert enum_values == spec_keys, (
+            f"CommandId values do not match COMMAND_SPECS keys.\n"
+            f"In enum only: {enum_values - spec_keys}\n"
+            f"In specs only: {spec_keys - enum_values}"
+        )
+
+    def test_command_specs_keys_are_command_id_instances(self) -> None:
+        """Every key in COMMAND_SPECS must be a CommandId instance (not bare str)."""
+        for key in COMMAND_SPECS:
+            assert isinstance(key, CommandId), (
+                f"COMMAND_SPECS key {key!r} is {type(key).__name__}, "
+                f"expected CommandId instance"
+            )
+
+    def test_command_id_count_matches_specs(self) -> None:
+        """Number of CommandId members must equal number of COMMAND_SPECS entries."""
+        enum_count = len(CommandId)
+        spec_count = len(COMMAND_SPECS)
+        assert enum_count == spec_count, (
+            f"CommandId has {enum_count} members but COMMAND_SPECS has {spec_count} entries"
         )
