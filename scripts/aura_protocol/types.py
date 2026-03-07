@@ -655,6 +655,53 @@ class AuditEvent:
 
 
 @dataclass(frozen=True)
+class SliceExecutionConfig:
+    """Configuration for executing a worker slice (SLICE-6).
+
+    mode:               Execution mode — "tmux" (run in tmux window),
+                        "subprocess" (run in subprocess), or "mock" (test mode).
+    command:            Shell command to run for this slice.
+    timeout_seconds:    Max wall-clock time before the slice is killed.
+    heartbeat_interval: Seconds between heartbeat checks (0 = no heartbeats).
+    """
+
+    mode: str  # "tmux" | "subprocess" | "mock"
+    command: str
+    timeout_seconds: int = 300
+    heartbeat_interval: int = 30
+
+
+@dataclass
+class SliceStartSignal:
+    """Signal sent to start slice execution (SLICE-6).
+
+    slice_id:  Unique slice identifier (e.g. "slice-1").
+    epoch_id:  Parent epoch workflow ID.
+    config:    Execution configuration for this slice.
+    """
+
+    slice_id: str
+    epoch_id: str
+    config: SliceExecutionConfig
+
+
+@dataclass
+class SliceCompleteSignal:
+    """Signal sent on slice completion (SLICE-6).
+
+    slice_id:  Slice that completed (must match SliceStartSignal.slice_id).
+    success:   True if slice finished without error.
+    output:    Completion output message (empty if success is False).
+    error:     Error message (empty if success is True).
+    """
+
+    slice_id: str
+    success: bool
+    output: str = ""
+    error: str = ""
+
+
+@dataclass(frozen=True)
 class ToolPermissionRequest:
     """Request for tool permission check (for agentfilter integration)."""
 

@@ -186,11 +186,13 @@ class SliceResult:
 
     slice_id: the slice that completed or failed
     success: True if the slice completed without error
+    output: completion output message (empty string if not provided or on failure)
     error: error message if success is False, None otherwise
     """
 
     slice_id: str
     success: bool
+    output: str = ""
     error: str | None = None
 
 
@@ -516,6 +518,34 @@ class EpochWorkflow:
         return self._sm.available_transitions
 
     @workflow.query
+    def full_state(self) -> "QueryStateResult":
+        """Query: return a flattened QueryStateResult DTO for CLI output (SLICE-3).
+
+        Combines EpochState fields into a serializable DTO suitable for
+        aura-msg query state. Uses state.review_votes per D20.
+        """
+        if self._sm is None:
+            return QueryStateResult(
+                current_phase="",
+                current_role="",
+                transition_history=[],
+                votes={},
+                last_error=None,
+                available_transitions=[],
+                active_session_count=0,
+            )
+        state = self._sm.state
+        return QueryStateResult(
+            current_phase=state.current_phase.value,
+            current_role=state.current_role.value,
+            transition_history=list(state.transition_history),
+            votes={k.value: v.value for k, v in state.review_votes.items()},
+            last_error=state.last_error,
+            available_transitions=list(self._sm.available_transitions),
+            active_session_count=0,  # updated by session_register in SLICE-7
+        )
+
+    @workflow.query
     def slice_progress_state(self) -> list[SliceProgressSignal]:
         """Query: return all accumulated slice progress signals so far.
 
@@ -526,26 +556,6 @@ class EpochWorkflow:
         R12 stub: log is in-memory; empty until SliceWorkflow children signal.
         """
         return list(self._slice_progress_log)
-
-    @workflow.query
-    def full_state(self) -> QueryStateResult:
-        """Query: return a serialization-safe snapshot of epoch state.
-
-        Returns a frozen QueryStateResult DTO with all fields needed by
-        aura-msg query state. Uses state.review_votes (D20) for the votes field.
-        """
-        if self._sm is None:
-            raise RuntimeError("Workflow not yet initialized — run() has not started.")
-        state = self._sm.state
-        return QueryStateResult(
-            current_phase=state.current_phase,
-            current_role=state.current_role,
-            transition_history=list(state.transition_history),
-            votes=dict(state.review_votes),
-            last_error=state.last_error,
-            available_transitions=self._sm.available_transitions,
-            active_session_count=0,
-        )
 
     # ── P9 Slice Execution ────────────────────────────────────────────────────
 

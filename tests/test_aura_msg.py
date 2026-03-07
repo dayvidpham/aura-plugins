@@ -40,22 +40,51 @@ import pytest
 # ─── Constants ─────────────────────────────────────────────────────────────────
 
 AURA_MSG_PATH = Path(__file__).parent.parent / "bin" / "aura-msg"
+SCRIPTS_DIR = Path(__file__).parent.parent / "scripts"
 PYTHON = sys.executable
 
-SUBCOMMAND_GROUPS = ["query", "epoch", "signal", "phase", "session"]
+# All subcommand cases: (group, subcommand, required_args)
+SUBCOMMAND_CASES = [
+    ("query", "state", ["--epoch-id", "E1"]),
+    ("epoch", "start", ["--epoch-id", "E1", "--description", "test"]),
+    ("signal", "vote", ["--epoch-id", "E1", "--axis", "correctness", "--vote", "accept", "--reviewer-id", "R1"]),
+    ("signal", "complete", ["--epoch-id", "E1", "--slice-id", "S1"]),
+    ("phase", "advance", ["--epoch-id", "E1", "--to-phase", "p10", "--triggered-by", "w1", "--condition", "done"]),
+    ("session", "register", ["--epoch-id", "E1", "--session-id", "sess-1", "--role", "worker"]),
+]
+
+# Subcommands not yet implemented (exit 1 with "not implemented" message).
+# query state is implemented (exits 2/3); exclude it.
+UNIMPLEMENTED_SUBCOMMAND_CASES = [
+    c for c in SUBCOMMAND_CASES if c[:2] != ("query", "state")
+]
+
+GROUPS = ["query", "epoch", "signal", "phase", "session"]
 
 # ─── Module loader ────────────────────────────────────────────────────────────
 
 
 def _load_aura_msg() -> ModuleType:
-    """Load bin/aura-msg as a Python module via importlib."""
-    loader = importlib.machinery.SourceFileLoader("aura_msg", str(AURA_MSG_PATH))
-    spec = importlib.util.spec_from_file_location("aura_msg", AURA_MSG_PATH, loader=loader)
-    assert spec is not None, f"Could not create module spec for {AURA_MSG_PATH}"
-    assert spec.loader is not None, "Module spec has no loader"
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)  # type: ignore[union-attr]
-    return module
+    """Load bin/aura-msg as a Python module via importlib.
+
+    Uses SourceFileLoader because the file has no .py extension.
+    Adds scripts/ to sys.path so aura_protocol imports resolve.
+    """
+    scripts_str = str(SCRIPTS_DIR)
+    inserted = False
+    if scripts_str not in sys.path:
+        sys.path.insert(0, scripts_str)
+        inserted = True
+    try:
+        loader = importlib.machinery.SourceFileLoader("aura_msg", str(AURA_MSG_PATH))
+        spec = importlib.util.spec_from_loader("aura_msg", loader, origin=str(AURA_MSG_PATH))
+        assert spec is not None, f"Could not create module spec for {AURA_MSG_PATH}"
+        module = importlib.util.module_from_spec(spec)
+        loader.exec_module(module)
+        return module
+    finally:
+        if inserted and scripts_str in sys.path:
+            sys.path.remove(scripts_str)
 
 
 @pytest.fixture(scope="module")
@@ -89,7 +118,7 @@ class TestBuildParser:
         parser = aura_msg.build_parser()
         assert parser.prog == "aura-msg"
 
-    @pytest.mark.parametrize("group", SUBCOMMAND_GROUPS)
+    @pytest.mark.parametrize("group", GROUPS)
     def test_each_group_registered(
         self, aura_msg: ModuleType, group: str
     ) -> None:
@@ -97,6 +126,36 @@ class TestBuildParser:
         parser = aura_msg.build_parser()
         args = parser.parse_args([group])
         assert args.group == group
+
+    @pytest.mark.parametrize("group,subcommand,extra_args", SUBCOMMAND_CASES)
+    def test_each_subcommand_registered(
+        self, aura_msg: ModuleType, group: str, subcommand: str, extra_args: list[str]
+    ) -> None:
+        """Each subcommand must parse without error."""
+        parser = aura_msg.build_parser()
+        args = parser.parse_args([group, subcommand] + extra_args)
+        assert args.group == group
+        assert args.subcommand == subcommand
+
+
+class TestBuildParserGroups:
+    """Additional parser structural checks."""
+
+    def test_query_state_has_format(self, aura_msg: ModuleType) -> None:
+        parser = aura_msg.build_parser()
+        args = parser.parse_args(["query", "state", "--epoch-id", "E1", "--format", "text"])
+        assert args.format == "text"
+
+    def test_query_state_default_format_json(self, aura_msg: ModuleType) -> None:
+        parser = aura_msg.build_parser()
+        args = parser.parse_args(["query", "state", "--epoch-id", "E1"])
+        assert args.format == "json"
+
+    def test_signal_complete_mutually_exclusive(self, aura_msg: ModuleType) -> None:
+        parser = aura_msg.build_parser()
+        args = parser.parse_args(["signal", "complete", "--epoch-id", "E1", "--slice-id", "S1", "--output", "done"])
+        assert args.output == "done"
+        assert args.error is None
 
 
 class TestParseArgs:
@@ -147,6 +206,15 @@ class TestParseArgs:
         )
         assert args.namespace == "custom-ns"
 
+    @pytest.mark.parametrize("group,subcommand,extra_args", SUBCOMMAND_CASES)
+    def test_group_and_subcommand_parsed_correctly(
+        self, aura_msg: ModuleType, group: str, subcommand: str, extra_args: list[str]
+    ) -> None:
+        """AC-M6: group+subcommand parsed correctly."""
+        args = aura_msg.parse_args([group, subcommand] + extra_args)
+        assert args.group == group
+        assert args.subcommand == subcommand
+
 
 # ─── Integration tests (subprocess against production code path) ───────────────
 
@@ -154,13 +222,17 @@ class TestParseArgs:
 class TestAuraMsgSubprocess:
     """Integration tests using the actual aura-msg script."""
 
-    def test_no_args_exits_zero(self) -> None:
-        """AC-M2: no subcommand → print help and exit 0."""
-        result = subprocess.run(
-            [PYTHON, str(AURA_MSG_PATH)],
+    def _run(self, *args: str) -> subprocess.CompletedProcess:
+        return subprocess.run(
+            [PYTHON, str(AURA_MSG_PATH)] + list(args),
             capture_output=True,
             text=True,
+            env={"PYTHONPATH": str(SCRIPTS_DIR), "PATH": "/usr/bin:/bin"},
         )
+
+    def test_no_args_exits_zero(self) -> None:
+        """AC-M2: no group → print help and exit 0."""
+        result = self._run()
         assert result.returncode == 0, (
             f"Expected exit 0 with no args, got {result.returncode}.\n"
             f"stdout: {result.stdout!r}\nstderr: {result.stderr!r}"
@@ -168,51 +240,42 @@ class TestAuraMsgSubprocess:
 
     def test_help_exits_zero(self) -> None:
         """AC-M3 (exit code): --help must exit 0."""
-        result = subprocess.run(
-            [PYTHON, str(AURA_MSG_PATH), "--help"],
-            capture_output=True,
-            text=True,
+        result = self._run("--help")
+        assert result.returncode == 0, (
+            f"--help exited {result.returncode}.\nstdout: {result.stdout!r}"
         )
-        assert result.returncode == 0
 
-    @pytest.mark.parametrize("group", SUBCOMMAND_GROUPS)
+    @pytest.mark.parametrize("group", GROUPS)
     def test_help_contains_group(self, group: str) -> None:
         """AC-M3: --help output must mention each subcommand group."""
-        result = subprocess.run(
-            [PYTHON, str(AURA_MSG_PATH), "--help"],
-            capture_output=True,
-            text=True,
-        )
+        result = self._run("--help")
         output = result.stdout + result.stderr
         assert group in output, (
             f"'{group}' not found in --help output.\n"
             f"stdout: {result.stdout!r}\nstderr: {result.stderr!r}"
         )
 
-    @pytest.mark.parametrize(
-        "group,subcommand",
-        [
-            ("epoch", "start"),
-            ("signal", "vote"),
-            ("signal", "complete"),
-            ("phase", "advance"),
-            ("session", "register"),
-        ],
-    )
+    @pytest.mark.parametrize("group,subcommand,extra_args", UNIMPLEMENTED_SUBCOMMAND_CASES)
     def test_unimplemented_subcommand_exits_one(
-        self, group: str, subcommand: str
+        self, group: str, subcommand: str, extra_args: list[str]
     ) -> None:
         """AC-P2: unimplemented subcommands exit 1 with 'not implemented'."""
-        result = subprocess.run(
-            [PYTHON, str(AURA_MSG_PATH), group, subcommand],
-            capture_output=True,
-            text=True,
-        )
+        result = self._run(group, subcommand, *extra_args)
         assert result.returncode == 1, (
             f"'{group} {subcommand}' exited {result.returncode}, expected 1.\n"
             f"stdout: {result.stdout!r}\nstderr: {result.stderr!r}"
         )
         assert "not implemented" in result.stderr.lower(), (
             f"'{group} {subcommand}': expected 'not implemented' in stderr.\n"
+            f"stderr: {result.stderr!r}"
+        )
+
+    @pytest.mark.parametrize("group,subcommand,extra_args", UNIMPLEMENTED_SUBCOMMAND_CASES)
+    def test_subcommand_stderr_mentions_subcommand(self, group: str, subcommand: str, extra_args: list[str]) -> None:
+        """Unimplemented subcommand prints group+subcommand name to stderr."""
+        result = self._run(group, subcommand, *extra_args)
+        combined = (result.stdout + result.stderr).lower()
+        assert subcommand in combined or "not" in combined, (
+            f"'{group} {subcommand}': expected subcommand or 'not' in output.\n"
             f"stderr: {result.stderr!r}"
         )

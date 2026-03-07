@@ -35,17 +35,16 @@ import os
 from temporalio.client import Client
 from temporalio.worker import Worker
 
+from pathlib import Path
+
+from aura_protocol.config import default_config_path, load_yaml_section, resolve_connection
 from aura_protocol.audit_activities import (
     InMemoryAuditTrail,
     init_audit_trail,
     query_audit_events,
     record_audit_event,
 )
-from aura_protocol.config import (
-    default_config_path,
-    load_yaml_section,
-    resolve_connection,
-)
+from aura_protocol.sqlite_audit import SqliteAuditTrail, _ensure_schema
 from aura_protocol.workflow import (
     EpochWorkflow,
     ReviewPhaseWorkflow,
@@ -110,6 +109,17 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         metavar="ADDR",
         help="Temporal server address (env: TEMPORAL_ADDRESS, default: 'localhost:7233')",
     )
+    parser.add_argument(
+        "--audit-trail",
+        choices=["memory", "sqlite"],
+        default=os.environ.get("AURAD_AUDIT_TRAIL", "memory"),
+        metavar="BACKEND",
+        help=(
+            "Audit trail backend: 'memory' (default, in-process) or 'sqlite' "
+            "(durable, XDG path ~/.local/share/aura/plugin/audit.db). "
+            "Env: AURAD_AUDIT_TRAIL."
+        ),
+    )
     args = parser.parse_args(argv)
 
     # Build cli_args from only explicitly-provided CLI flags (non-None).
@@ -172,16 +182,37 @@ async def main() -> None:
     """Parse args, initialize audit trail, and start the worker."""
     args = parse_args()
 
+    # Resolve connection config using shared config module.
+    # parse_args() already handles CLI > env via argparse defaults;
+    # passing its results as cli_args ensures they take priority over YAML.
+    config_path = default_config_path()
+    yaml_section = load_yaml_section(config_path, "aurad")
+    conn = resolve_connection(
+        cli_args={
+            "namespace": args.namespace,
+            "task_queue": args.task_queue,
+            "server_address": args.server_address,
+        },
+        yaml_section=yaml_section,
+    )
+
     # Initialize the audit trail before the worker starts.
-    # InMemoryAuditTrail is used for development; swap for a Temporal-backed
-    # or Beads-backed implementation for production deployments.
-    init_audit_trail(InMemoryAuditTrail())
-    logger.info("Audit trail initialized (InMemoryAuditTrail).")
+    # --audit-trail memory (default): in-process, lost on restart
+    # --audit-trail sqlite: durable, persisted to XDG data dir
+    if args.audit_trail == "sqlite":
+        db_path = Path.home() / ".local" / "share" / "aura" / "plugin" / "audit.db"
+        _ensure_schema(db_path)
+        trail = SqliteAuditTrail(db_path=db_path)
+        init_audit_trail(trail)
+        logger.info("Audit trail initialized (SqliteAuditTrail at %s).", db_path)
+    else:
+        init_audit_trail(InMemoryAuditTrail())
+        logger.info("Audit trail initialized (InMemoryAuditTrail).")
 
     await run_worker(
-        namespace=args.namespace,
-        task_queue=args.task_queue,
-        server_address=args.server_address,
+        namespace=conn.namespace,
+        task_queue=conn.task_queue,
+        server_address=conn.server_address,
     )
 
 
