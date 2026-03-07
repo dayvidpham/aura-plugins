@@ -188,10 +188,6 @@ def _run_aura_msg(*args: str, timeout: int = 10) -> subprocess.CompletedProcess:
 class TestAuraMsgQueryStateExitCodes:
     """AC-F4: connection error → exit 2; AC-F5: not found → exit 3."""
 
-    @pytest.mark.xfail(
-        reason="Not implemented until SLICE-3-L3 implements full_state query",
-        strict=False,
-    )
     def test_bogus_server_exits_2(self) -> None:
         """AC-F4: aura-msg query state with unreachable server → exit 2."""
         result = _run_aura_msg(
@@ -205,7 +201,7 @@ class TestAuraMsgQueryStateExitCodes:
         )
 
     @pytest.mark.xfail(
-        reason="Not implemented until SLICE-3-L3 implements full_state query",
+        reason="Requires a running Temporal server with no matching workflow",
         strict=False,
     )
     def test_nonexistent_epoch_exits_3(self) -> None:

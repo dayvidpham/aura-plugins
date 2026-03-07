@@ -47,7 +47,7 @@ AURA_MSG_PATH = Path(__file__).parent.parent / "bin" / "aura-msg"
 SCRIPTS_DIR = Path(__file__).parent.parent / "scripts"
 PYTHON = sys.executable
 
-# New group structure: (group, subcommand, required_args)
+# All subcommand cases: (group, subcommand, required_args)
 SUBCOMMAND_CASES = [
     ("query", "state", ["--epoch-id", "E1"]),
     ("epoch", "start", ["--epoch-id", "E1", "--description", "test"]),
@@ -55,6 +55,12 @@ SUBCOMMAND_CASES = [
     ("signal", "complete", ["--epoch-id", "E1", "--slice-id", "S1"]),
     ("phase", "advance", ["--epoch-id", "E1", "--to-phase", "p10", "--triggered-by", "w1", "--condition", "done"]),
     ("session", "register", ["--epoch-id", "E1", "--session-id", "sess-1", "--role", "worker"]),
+]
+
+# Subcommands not yet implemented (exit 1 with "not implemented" message).
+# query state is implemented (exits 2/3); exclude it.
+UNIMPLEMENTED_SUBCOMMAND_CASES = [
+    c for c in SUBCOMMAND_CASES if c[:2] != ("query", "state")
 ]
 
 GROUPS = ["query", "epoch", "signal", "phase", "session"]
@@ -212,7 +218,7 @@ class TestAuraMsgSubprocess:
             f"stdout: {result.stdout!r}\nstderr: {result.stderr!r}"
         )
 
-    @pytest.mark.parametrize("group,subcommand,extra_args", SUBCOMMAND_CASES)
+    @pytest.mark.parametrize("group,subcommand,extra_args", UNIMPLEMENTED_SUBCOMMAND_CASES)
     def test_subcommand_exits_one(self, group: str, subcommand: str, extra_args: list[str]) -> None:
         """Unimplemented subcommand exits with code 1."""
         result = self._run(group, subcommand, *extra_args)
@@ -221,7 +227,7 @@ class TestAuraMsgSubprocess:
             f"stdout: {result.stdout!r}\nstderr: {result.stderr!r}"
         )
 
-    @pytest.mark.parametrize("group,subcommand,extra_args", SUBCOMMAND_CASES)
+    @pytest.mark.parametrize("group,subcommand,extra_args", UNIMPLEMENTED_SUBCOMMAND_CASES)
     def test_subcommand_stderr_mentions_subcommand(self, group: str, subcommand: str, extra_args: list[str]) -> None:
         """Unimplemented subcommand prints group+subcommand name to stderr."""
         result = self._run(group, subcommand, *extra_args)
