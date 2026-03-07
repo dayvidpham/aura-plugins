@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.9.6] - 2026-03-07
+
+### Fixed
+- fix(hooks): adds hook.json in plugin to utilize CLAUDE_PLUGIN_ROOT env vars
+
+### Other
+- Merge branch 'fix--hooks--bd-prime'
+
 ## [0.9.5] - 2026-03-07
 
 ### Added
