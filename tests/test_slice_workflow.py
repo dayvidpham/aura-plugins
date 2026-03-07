@@ -26,6 +26,7 @@ from aura_protocol.types import (
     RoleId,
     SliceCompleteSignal,
     SliceExecutionConfig,
+    SliceMode,
     SliceStartSignal,
 )
 from aura_protocol.workflow import SliceInput, SliceResult
@@ -39,14 +40,14 @@ class TestCheckTmux:
 
     def test_nonexistent_path_returns_false(self) -> None:
         """AC-SW1: search_path that doesn't exist → False."""
-        from aura_protocol.workflow import _check_tmux  # noqa: PLC0415
+        from aura_protocol.audit_activities import _check_tmux  # noqa: PLC0415
 
         result = _check_tmux(search_path="/nonexistent/path/to/nowhere")
         assert result is False
 
     def test_path_without_tmux_returns_false(self, tmp_path: Path) -> None:
         """AC-SW1: directory exists but has no tmux binary → False."""
-        from aura_protocol.workflow import _check_tmux  # noqa: PLC0415
+        from aura_protocol.audit_activities import _check_tmux  # noqa: PLC0415
 
         # Create a directory without tmux
         result = _check_tmux(search_path=str(tmp_path))
@@ -54,7 +55,7 @@ class TestCheckTmux:
 
     def test_path_with_tmux_returns_true(self, tmp_path: Path) -> None:
         """AC-SW2: directory with executable 'tmux' → True."""
-        from aura_protocol.workflow import _check_tmux  # noqa: PLC0415
+        from aura_protocol.audit_activities import _check_tmux  # noqa: PLC0415
 
         fake_tmux = tmp_path / "tmux"
         fake_tmux.write_text("#!/bin/sh\necho fake-tmux")
@@ -65,7 +66,7 @@ class TestCheckTmux:
 
     def test_nonexecutable_tmux_returns_false(self, tmp_path: Path) -> None:
         """Non-executable 'tmux' file → False (must be executable)."""
-        from aura_protocol.workflow import _check_tmux  # noqa: PLC0415
+        from aura_protocol.audit_activities import _check_tmux  # noqa: PLC0415
 
         fake_tmux = tmp_path / "tmux"
         fake_tmux.write_text("#!/bin/sh")
@@ -92,7 +93,7 @@ class TestSliceWorkflowMockMode:
 
         async with await WorkflowEnvironment.start_time_skipping() as env:
             config = SliceExecutionConfig(
-                mode="mock",
+                mode=SliceMode.MOCK,
                 command="echo done",
                 timeout_seconds=5,
             )
@@ -155,7 +156,7 @@ class TestSliceWorkflowMockMode:
                     SliceStartSignal(
                         slice_id="s-test",
                         epoch_id="ep-test",
-                        config=SliceExecutionConfig(mode="mock", command="echo ok", timeout_seconds=5),
+                        config=SliceExecutionConfig(mode=SliceMode.MOCK, command="echo ok", timeout_seconds=5),
                     ),
                 )
                 # Send failure complete signal — overrides mock success
@@ -180,7 +181,7 @@ class TestSliceExecutionConfig:
 
     def test_timeout_seconds_field(self) -> None:
         config = SliceExecutionConfig(
-            mode="tmux",
+            mode=SliceMode.TMUX,
             command="./run.sh",
             timeout_seconds=600,
         )
@@ -188,13 +189,47 @@ class TestSliceExecutionConfig:
 
     def test_heartbeat_interval_field(self) -> None:
         config = SliceExecutionConfig(
-            mode="subprocess",
+            mode=SliceMode.SUBPROCESS,
             command="./run.sh",
             heartbeat_interval=10,
         )
         assert config.heartbeat_interval == 10
 
     def test_mode_values(self) -> None:
-        for mode in ("tmux", "subprocess", "mock"):
+        for mode in (SliceMode.TMUX, SliceMode.SUBPROCESS, SliceMode.MOCK):
             config = SliceExecutionConfig(mode=mode, command="cmd")
             assert config.mode == mode
+
+
+# ─── AC-SW5: timeout enforcement ────────────────────────────────────────────
+
+
+@pytest.mark.asyncio
+class TestSliceTimeoutEnforcement:
+    """AC-SW5: Verify timeout is enforced on execute_slice_command activity."""
+
+    async def test_activity_timeout_cancels_slow_command(self, tmp_path: Path) -> None:
+        """Given a command that hangs, asyncio.wait_for with short timeout raises TimeoutError.
+
+        This verifies that the timeout_seconds value from SliceExecutionConfig
+        can be used to bound execution time. Temporal enforces start_to_close_timeout
+        at the activity level; here we verify the underlying async operation is
+        cancellable via asyncio timeout.
+        """
+        import asyncio
+        import stat
+
+        from temporalio.testing import ActivityEnvironment
+
+        from aura_protocol.audit_activities import execute_slice_command
+
+        fake_tmux = tmp_path / "tmux"
+        fake_tmux.write_text("#!/bin/sh\necho fake-tmux")
+        fake_tmux.chmod(fake_tmux.stat().st_mode | stat.S_IEXEC)
+
+        env = ActivityEnvironment()
+        with pytest.raises(asyncio.TimeoutError):
+            await asyncio.wait_for(
+                env.run(execute_slice_command, "sleep 30", "s-timeout", "ep-t", str(tmp_path)),
+                timeout=0.5,
+            )

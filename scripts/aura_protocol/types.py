@@ -654,24 +654,35 @@ class AuditEvent:
     payload: dict[str, Any]  # Structured event details
 
 
+class SliceMode(StrEnum):
+    """Execution mode for a worker slice (SLICE-6).
+
+    Values match SliceExecutionConfig.mode field options.
+    """
+
+    TMUX = "tmux"
+    SUBPROCESS = "subprocess"
+    MOCK = "mock"
+
+
 @dataclass(frozen=True)
 class SliceExecutionConfig:
     """Configuration for executing a worker slice (SLICE-6).
 
-    mode:               Execution mode — "tmux" (run in tmux window),
-                        "subprocess" (run in subprocess), or "mock" (test mode).
+    mode:               Execution mode — SliceMode.TMUX (run in tmux window),
+                        SliceMode.SUBPROCESS (run in subprocess), or SliceMode.MOCK (test mode).
     command:            Shell command to run for this slice.
     timeout_seconds:    Max wall-clock time before the slice is killed.
     heartbeat_interval: Seconds between heartbeat checks (0 = no heartbeats).
     """
 
-    mode: str  # "tmux" | "subprocess" | "mock"
+    mode: SliceMode
     command: str
     timeout_seconds: int = 300
     heartbeat_interval: int = 30
 
 
-@dataclass
+@dataclass(frozen=True)
 class SliceStartSignal:
     """Signal sent to start slice execution (SLICE-6).
 
@@ -685,7 +696,7 @@ class SliceStartSignal:
     config: SliceExecutionConfig
 
 
-@dataclass
+@dataclass(frozen=True)
 class SliceCompleteSignal:
     """Signal sent on slice completion (SLICE-6).
 

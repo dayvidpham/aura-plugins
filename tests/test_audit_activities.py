@@ -21,6 +21,8 @@ Coverage:
 
 from __future__ import annotations
 
+from pathlib import Path
+
 import pytest
 import pytest_asyncio
 
@@ -30,6 +32,7 @@ from temporalio.testing import ActivityEnvironment
 import aura_protocol.audit_activities as audit_mod
 from aura_protocol.audit_activities import (
     InMemoryAuditTrail,
+    execute_slice_command,
     init_audit_trail,
     query_audit_events,
     record_audit_event,
@@ -402,3 +405,55 @@ class TestQueryAuditEventsActivity:
         assert event_match in result
         assert event_wrong_role not in result
         assert event_wrong_phase not in result
+
+
+# ─── execute_slice_command activity tests ────────────────────────────────────
+
+
+@pytest.mark.asyncio
+class TestExecuteSliceCommand:
+    """Activity-level tests for execute_slice_command (I-6B.2)."""
+
+    async def test_tmux_not_found_returns_failure(self) -> None:
+        """Given search_path="/nonexistent", tmux not found → SliceResult(success=False)."""
+        env = ActivityEnvironment()
+        result = await env.run(
+            execute_slice_command, "echo hello", "s1", "ep-1", "/nonexistent"
+        )
+        assert result.success is False
+        assert result.error == "tmux not found"
+        assert result.slice_id == "s1"
+
+    async def test_successful_command(self, tmp_path: Path) -> None:
+        """Given tmux available and command succeeds → SliceResult(success=True)."""
+        import os
+        import stat
+
+        fake_tmux = tmp_path / "tmux"
+        fake_tmux.write_text("#!/bin/sh\necho fake-tmux")
+        fake_tmux.chmod(fake_tmux.stat().st_mode | stat.S_IEXEC)
+
+        env = ActivityEnvironment()
+        result = await env.run(
+            execute_slice_command, "echo hello-world", "s2", "ep-2", str(tmp_path)
+        )
+        assert result.success is True
+        assert "hello-world" in result.output
+        assert result.slice_id == "s2"
+
+    async def test_failing_command(self, tmp_path: Path) -> None:
+        """Given tmux available and command fails (non-zero exit) → SliceResult(success=False)."""
+        import os
+        import stat
+
+        fake_tmux = tmp_path / "tmux"
+        fake_tmux.write_text("#!/bin/sh\necho fake-tmux")
+        fake_tmux.chmod(fake_tmux.stat().st_mode | stat.S_IEXEC)
+
+        env = ActivityEnvironment()
+        result = await env.run(
+            execute_slice_command, "exit 42", "s3", "ep-3", str(tmp_path)
+        )
+        assert result.success is False
+        assert "42" in result.error
+        assert result.slice_id == "s3"

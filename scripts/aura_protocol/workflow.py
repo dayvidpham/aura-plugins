@@ -62,6 +62,7 @@ from aura_protocol.types import (
     RoleId,
     SliceCompleteSignal,
     SliceExecutionConfig,
+    SliceMode,
     SliceStartSignal,
     Transition,
     VoteType,
@@ -70,20 +71,6 @@ from aura_protocol.types import (
 # ─── Search Attribute Keys ────────────────────────────────────────────────────
 # These keys are registered in the Temporal namespace and used for forensic
 # querying: "find all workflows where AuraPhase='p9'" etc.
-
-def _check_tmux(search_path: str | None = None) -> bool:
-    """Check if tmux is available via shutil.which DI.
-
-    Args:
-        search_path: Directory to search for tmux binary. None uses PATH.
-
-    Returns:
-        True if tmux executable found at search_path, False otherwise.
-    """
-    import shutil
-
-    return shutil.which("tmux", path=search_path) is not None
-
 
 SA_EPOCH_ID: SearchAttributeKey = SearchAttributeKey.for_text("AuraEpochId")
 SA_PHASE: SearchAttributeKey = SearchAttributeKey.for_keyword("AuraPhase")
@@ -758,11 +745,11 @@ class SliceWorkflow:
             SliceResult indicating success or failure.
         """
         config = self._start_signal.config if self._start_signal else None
-        mode = config.mode if config else "mock"
+        mode = config.mode if config else SliceMode.MOCK
 
-        if mode == "mock":
+        if mode == SliceMode.MOCK:
             result = SliceResult(slice_id=input.slice_id, success=True)
-        elif mode in ("tmux", "subprocess"):
+        elif mode in (SliceMode.TMUX, SliceMode.SUBPROCESS):
             timeout = config.timeout_seconds if config else 300
             result = await workflow.execute_activity(
                 "execute_slice_command",

@@ -36,7 +36,7 @@ from temporalio.exceptions import ApplicationError
 
 from aura_protocol.interfaces import AuditTrail
 from aura_protocol.types import AuditEvent, PhaseId, RoleId
-from aura_protocol.workflow import SliceResult, _check_tmux
+from aura_protocol.workflow import SliceResult
 
 
 # ─── Module-Level Singleton ───────────────────────────────────────────────────
@@ -178,6 +178,20 @@ class InMemoryAuditTrail:
 
 
 # ─── Slice Execution Activity ───────────────────────────────────────────────
+
+
+def _check_tmux(search_path: str | None = None) -> bool:
+    """Check if tmux is available via shutil.which DI.
+
+    Args:
+        search_path: Directory to search for tmux binary. None uses PATH.
+
+    Returns:
+        True if tmux executable found at search_path, False otherwise.
+    """
+    import shutil
+
+    return shutil.which("tmux", path=search_path) is not None
 
 
 @activity.defn
