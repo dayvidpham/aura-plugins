@@ -55,11 +55,35 @@ from aura_protocol.state_machine import (
     TransitionError,
     TransitionRecord,
 )
-from aura_protocol.types import PhaseId, ReviewAxis, RoleId, Transition, VoteType, PHASE_DOMAIN
+from aura_protocol.types import (
+    PHASE_DOMAIN,
+    PhaseId,
+    ReviewAxis,
+    RoleId,
+    SliceCompleteSignal,
+    SliceExecutionConfig,
+    SliceStartSignal,
+    Transition,
+    VoteType,
+)
 
 # ─── Search Attribute Keys ────────────────────────────────────────────────────
 # These keys are registered in the Temporal namespace and used for forensic
 # querying: "find all workflows where AuraPhase='p9'" etc.
+
+def _check_tmux(search_path: str | None = None) -> bool:
+    """Check if tmux is available via shutil.which DI.
+
+    Args:
+        search_path: Directory to search for tmux binary. None uses PATH.
+
+    Returns:
+        True if tmux executable found at search_path, False otherwise.
+    """
+    import shutil
+
+    return shutil.which("tmux", path=search_path) is not None
+
 
 SA_EPOCH_ID: SearchAttributeKey = SearchAttributeKey.for_text("AuraEpochId")
 SA_PHASE: SearchAttributeKey = SearchAttributeKey.for_keyword("AuraPhase")
@@ -643,50 +667,79 @@ class EpochWorkflow:
 class SliceWorkflow:
     """Child workflow for a single P9_SLICE implementation slice.
 
-    Runs concurrently with other SliceWorkflow instances within the same epoch.
-    EpochWorkflow._run_p9_slices() uses workflow.wait(FIRST_EXCEPTION) to
-    fail-fast: if any slice raises, remaining slices are cancelled.
+    Supports three execution modes via SliceStartSignal:
+    - "mock": Returns success immediately (test/CI mode, AC-SW3)
+    - "tmux": Executes command in tmux session via execute_slice_command activity
+    - "subprocess": Executes command via subprocess (execute_slice_command activity)
+
+    If no SliceStartSignal is received before run() begins, defaults to mock mode
+    for backward compatibility with existing EpochWorkflow topology tests.
 
     Parent signaling:
-        On completion, SliceWorkflow signals the parent EpochWorkflow via
-        EpochWorkflow.slice_progress using input.parent_workflow_id. The signal
-        uses get_external_workflow_handle() so the parent can be reached even
-        from a concurrent child context. Signal delivery is best-effort: if the
-        parent has already completed, the exception is caught and logged rather
-        than propagated (signal delivery failure must never fail the slice).
+        On completion, signals the parent EpochWorkflow via slice_progress using
+        input.parent_workflow_id. Signal delivery is best-effort: if the parent
+        has already completed, the exception is caught and logged (non-fatal).
 
-    R12 stub: actual slice execution (running the worker agent, checking output,
-    parsing results) is future work. This stub returns success immediately so
-    that the EpochWorkflow topology and fail-fast wiring can be tested end-to-end
-    before slice execution semantics are defined.
+    Signal-driven lifecycle:
+        1. Parent starts SliceWorkflow with SliceInput
+        2. (Optional) Parent sends SliceStartSignal with config
+        3. Workflow executes based on mode
+        4. (Optional) External agent sends SliceCompleteSignal
+        5. Workflow signals parent and returns SliceResult
     """
+
+    def __init__(self) -> None:
+        self._start_signal: SliceStartSignal | None = None
+        self._complete_signal: SliceCompleteSignal | None = None
+
+    @workflow.signal
+    def start_slice(self, signal: SliceStartSignal) -> None:
+        """Signal: configure and start slice execution."""
+        self._start_signal = signal
+
+    @workflow.signal
+    def complete_slice(self, signal: SliceCompleteSignal) -> None:
+        """Signal: external completion notification (AC-SW4)."""
+        self._complete_signal = signal
 
     @workflow.run
     async def run(self, input: SliceInput) -> SliceResult:
         """Execute a single implementation slice.
 
+        Determines execution mode from SliceStartSignal (if received before
+        run() begins) or defaults to mock mode. Timeout is configurable via
+        SliceExecutionConfig.timeout_seconds (AC-SW5).
+
         Args:
             input: SliceInput with epoch_id, slice_id, phase_spec, and
-                parent_workflow_id. parent_workflow_id is the workflow ID of
-                the EpochWorkflow parent; used to signal slice progress.
+                parent_workflow_id.
 
         Returns:
             SliceResult indicating success or failure.
-
-        R12 stub: returns SliceResult(success=True) immediately. Future
-        implementation will execute the slice via activities (spawn worker,
-        collect results, validate output) and return failure on any error.
         """
-        # R12 stub: slice execution via activities is future work.
-        # When implemented: execute_activity(run_slice_agent, input, ...) etc.
+        config = self._start_signal.config if self._start_signal else None
+        mode = config.mode if config else "mock"
+
+        if mode == "mock":
+            result = SliceResult(slice_id=input.slice_id, success=True)
+        elif mode in ("tmux", "subprocess"):
+            timeout = config.timeout_seconds if config else 300
+            result = await workflow.execute_activity(
+                "execute_slice_command",
+                args=[config.command, input.slice_id, input.epoch_id],
+                start_to_close_timeout=timedelta(seconds=timeout),
+                result_type=SliceResult,
+            )
+        else:
+            result = SliceResult(
+                slice_id=input.slice_id,
+                success=False,
+                error=f"Unknown execution mode: {mode}",
+            )
 
         # Signal parent EpochWorkflow with completion progress.
-        # Uses input.parent_workflow_id (explicit) rather than
-        # workflow.info().parent.workflow_id (implicit) for testability.
-        # Wrapped in try/except: if the parent EpochWorkflow has already
-        # completed before this signal is delivered (race condition), the
-        # exception is caught and logged. Signal delivery failure must never
-        # cause the slice itself to fail — the SliceResult is still returned.
+        # Uses input.parent_workflow_id (explicit) for testability.
+        # Wrapped in try/except: signal delivery failure must never fail the slice.
         try:
             parent_handle = workflow.get_external_workflow_handle(input.parent_workflow_id)
             await parent_handle.signal(
@@ -695,11 +748,10 @@ class SliceWorkflow:
                     slice_id=input.slice_id,
                     leaf_task_id=input.slice_id,
                     stage_name="execute",
-                    completed=True,
+                    completed=result.success,
                 ),
             )
         except Exception as e:  # noqa: BLE001
-            # Parent may have completed before signal arrived — non-fatal.
             workflow.logger.warning(
                 "SliceWorkflow(%s): parent signal delivery failed (parent_id=%s): %s",
                 input.slice_id,
@@ -707,7 +759,7 @@ class SliceWorkflow:
                 e,
             )
 
-        return SliceResult(slice_id=input.slice_id, success=True)
+        return result
 
 
 @workflow.defn

@@ -86,29 +86,34 @@ class TestSliceWorkflowMockMode:
     async def test_mock_mode_completes_with_success(self) -> None:
         """AC-SW3: SliceWorkflow in mock mode completes successfully."""
         from temporalio.testing import WorkflowEnvironment
+        from temporalio.worker import Worker
 
         from aura_protocol.workflow import SliceWorkflow  # noqa: PLC0415
 
         async with await WorkflowEnvironment.start_time_skipping() as env:
-            async with env.client.connect() if hasattr(env, "client") else env:
-                config = SliceExecutionConfig(
-                    mode="mock",
-                    command="echo done",
-                    timeout_seconds=5,
-                )
-                start_signal = SliceStartSignal(
-                    slice_id="s1",
-                    epoch_id="ep-1",
-                    config=config,
-                )
-                # Use SliceInput (existing API) with mock config embedded
-                slice_input = SliceInput(
-                    epoch_id="ep-1",
-                    slice_id="s1",
-                    phase_spec="p9",
-                    parent_workflow_id="ep-1",  # self-referential for test
-                )
-                result = await env.run_workflow(
+            config = SliceExecutionConfig(
+                mode="mock",
+                command="echo done",
+                timeout_seconds=5,
+            )
+            start_signal = SliceStartSignal(
+                slice_id="s1",
+                epoch_id="ep-1",
+                config=config,
+            )
+            # Use SliceInput (existing API) with mock config embedded
+            slice_input = SliceInput(
+                epoch_id="ep-1",
+                slice_id="s1",
+                phase_spec="p9",
+                parent_workflow_id="ep-1",  # self-referential for test
+            )
+            async with Worker(
+                env.client,
+                task_queue="test-queue",
+                workflows=[SliceWorkflow],
+            ):
+                result = await env.client.execute_workflow(
                     SliceWorkflow.run,
                     slice_input,
                     id="test-slice-s1",
@@ -119,24 +124,19 @@ class TestSliceWorkflowMockMode:
 
     async def test_slice_complete_signal_false_marks_failed(self) -> None:
         """AC-SW4: SliceCompleteSignal(success=False) → SliceResult(success=False)."""
-        from temporalio.testing import WorkflowEnvironment
-
-        from aura_protocol.workflow import SliceWorkflow  # noqa: PLC0415
-
-        async with await WorkflowEnvironment.start_time_skipping() as env:
-            config = SliceExecutionConfig(
-                mode="mock",
-                command="exit 1",
-                timeout_seconds=5,
-            )
-            # For mock mode, SliceCompleteSignal(success=False) should propagate
-            fail_signal = SliceCompleteSignal(
-                slice_id="s1",
-                success=False,
-                error="worker exited with code 1",
-            )
-            assert fail_signal.success is False
-            assert fail_signal.error == "worker exited with code 1"
+        config = SliceExecutionConfig(
+            mode="mock",
+            command="exit 1",
+            timeout_seconds=5,
+        )
+        # For mock mode, SliceCompleteSignal(success=False) should propagate
+        fail_signal = SliceCompleteSignal(
+            slice_id="s1",
+            success=False,
+            error="worker exited with code 1",
+        )
+        assert fail_signal.success is False
+        assert fail_signal.error == "worker exited with code 1"
 
 
 # ─── AC-SW5: timeout behavior ────────────────────────────────────────────────

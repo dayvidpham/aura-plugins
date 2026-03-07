@@ -28,11 +28,15 @@ Usage:
 
 from __future__ import annotations
 
-from aura_protocol.types import AuditEvent, PhaseId, RoleId
-from aura_protocol.interfaces import AuditTrail
+import asyncio
+import logging
 
 from temporalio import activity
 from temporalio.exceptions import ApplicationError
+
+from aura_protocol.interfaces import AuditTrail
+from aura_protocol.types import AuditEvent, PhaseId, RoleId
+from aura_protocol.workflow import SliceResult, _check_tmux
 
 
 # ─── Module-Level Singleton ───────────────────────────────────────────────────
@@ -171,3 +175,76 @@ class InMemoryAuditTrail:
         if role is not None:
             result = [e for e in result if e.role == role]
         return list(result)
+
+
+# ─── Slice Execution Activity ───────────────────────────────────────────────
+
+
+@activity.defn
+async def execute_slice_command(
+    command: str,
+    slice_id: str,
+    epoch_id: str,
+    search_path: str | None = None,
+) -> SliceResult:
+    """Execute a slice command via tmux shell launch.
+
+    Checks for tmux availability via _check_tmux(search_path).
+    If tmux not found, returns SliceResult(success=False, error="tmux not found").
+    If tmux found, launches command via subprocess.
+
+    Args:
+        command: Shell command to execute.
+        slice_id: Unique slice identifier for result tracking.
+        epoch_id: Parent epoch identifier for audit context.
+        search_path: Directory to search for tmux binary. None uses PATH.
+
+    Returns:
+        SliceResult with success/failure and output/error details.
+    """
+    logger = logging.getLogger(__name__)
+
+    if not _check_tmux(search_path):
+        return SliceResult(
+            slice_id=slice_id,
+            success=False,
+            error="tmux not found",
+        )
+
+    logger.info(
+        "execute_slice_command(slice=%s, epoch=%s): launching '%s'",
+        slice_id,
+        epoch_id,
+        command,
+    )
+
+    try:
+        proc = await asyncio.create_subprocess_shell(
+            command,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+        )
+        stdout, stderr = await proc.communicate()
+
+        if proc.returncode == 0:
+            return SliceResult(
+                slice_id=slice_id,
+                success=True,
+                output=stdout.decode() if stdout else "",
+            )
+        return SliceResult(
+            slice_id=slice_id,
+            success=False,
+            error=f"Command exited with code {proc.returncode}: "
+            f"{stderr.decode() if stderr else ''}",
+        )
+    except Exception as e:
+        logger.exception(
+            "execute_slice_command(slice=%s): failed to execute command",
+            slice_id,
+        )
+        return SliceResult(
+            slice_id=slice_id,
+            success=False,
+            error=f"Failed to execute command: {e}",
+        )
