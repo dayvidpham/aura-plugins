@@ -41,6 +41,11 @@ from aura_protocol.audit_activities import (
     query_audit_events,
     record_audit_event,
 )
+from aura_protocol.config import (
+    default_config_path,
+    load_yaml_section,
+    resolve_connection,
+)
 from aura_protocol.workflow import (
     EpochWorkflow,
     ReviewPhaseWorkflow,
@@ -57,12 +62,17 @@ logger = logging.getLogger(__name__)
 
 
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
-    """Parse CLI arguments with environment variable fallbacks.
+    """Parse CLI arguments and resolve connection config.
 
     Priority (highest → lowest):
         1. Explicit CLI flag (e.g. --namespace my-ns)
         2. Environment variable (e.g. TEMPORAL_NAMESPACE=my-ns)
-        3. Built-in default ("default", "aura", "localhost:7233")
+        3. YAML config file (~/.config/aura/plugins/aurad.config.yaml)
+        4. Built-in default ("default", "aura", "localhost:7233")
+
+    Uses resolve_connection() from the config module to implement the
+    priority chain. argparse defaults are None (sentinel); the config
+    module resolves final values.
 
     Args:
         argv: Argument list to parse. If None, reads from sys.argv[1:] (default
@@ -84,23 +94,45 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     )
     parser.add_argument(
         "--namespace",
-        default=os.environ.get("TEMPORAL_NAMESPACE", "default"),
+        default=None,
         metavar="NS",
         help="Temporal namespace (env: TEMPORAL_NAMESPACE, default: 'default')",
     )
     parser.add_argument(
         "--task-queue",
-        default=os.environ.get("TEMPORAL_TASK_QUEUE", "aura"),
+        default=None,
         metavar="QUEUE",
         help="Temporal task queue name (env: TEMPORAL_TASK_QUEUE, default: 'aura')",
     )
     parser.add_argument(
         "--server-address",
-        default=os.environ.get("TEMPORAL_ADDRESS", "localhost:7233"),
+        default=None,
         metavar="ADDR",
         help="Temporal server address (env: TEMPORAL_ADDRESS, default: 'localhost:7233')",
     )
-    return parser.parse_args(argv)
+    args = parser.parse_args(argv)
+
+    # Build cli_args from only explicitly-provided CLI flags (non-None).
+    cli_args: dict[str, str] = {}
+    if args.namespace is not None:
+        cli_args["namespace"] = args.namespace
+    if args.task_queue is not None:
+        cli_args["task_queue"] = args.task_queue
+    if args.server_address is not None:
+        cli_args["server_address"] = args.server_address
+
+    # Resolve: CLI > env > YAML > defaults.
+    yaml_section = load_yaml_section(default_config_path(), "aurad")
+    conn = resolve_connection(
+        cli_args=cli_args,
+        env_dict=dict(os.environ),
+        yaml_section=yaml_section,
+    )
+
+    args.namespace = conn.namespace
+    args.task_queue = conn.task_queue
+    args.server_address = conn.server_address
+    return args
 
 
 async def run_worker(namespace: str, task_queue: str, server_address: str) -> None:
