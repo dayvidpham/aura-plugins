@@ -777,6 +777,33 @@ class SliceWorkflow:
                 error=f"Unknown execution mode: {mode}",
             )
 
+        # Allow any pending complete_slice signals to be delivered.
+        # In mock mode there are no natural yield points (no await), so buffered
+        # signals can't be processed.  A brief wait_condition gives the runtime a
+        # chance to deliver them.  In time-skipping test environments this resolves
+        # instantly; in production tmux/subprocess mode the signal will already have
+        # arrived during the activity await, making this a no-op.
+        if self._complete_signal is None:
+            try:
+                await workflow.wait_condition(
+                    lambda: self._complete_signal is not None,
+                    timeout=timedelta(seconds=1),
+                )
+            except asyncio.TimeoutError:
+                pass  # No override signal received — use computed result
+
+        # If external agent sent a complete_slice signal, it overrides the activity result.
+        # This is the signal-driven completion path: the workflow defers to the external
+        # agent's reported outcome rather than the subprocess exit code.
+        if self._complete_signal is not None:
+            cs = self._complete_signal
+            result = SliceResult(
+                slice_id=input.slice_id,
+                success=cs.success,
+                output=cs.output,
+                error=cs.error or None,
+            )
+
         # Signal parent EpochWorkflow with completion progress.
         # Uses input.parent_workflow_id (explicit) for testability.
         # Wrapped in try/except: signal delivery failure must never fail the slice.

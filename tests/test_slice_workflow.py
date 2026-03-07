@@ -123,20 +123,53 @@ class TestSliceWorkflowMockMode:
                 assert result.success is True
 
     async def test_slice_complete_signal_false_marks_failed(self) -> None:
-        """AC-SW4: SliceCompleteSignal(success=False) → SliceResult(success=False)."""
-        config = SliceExecutionConfig(
-            mode="mock",
-            command="exit 1",
-            timeout_seconds=5,
-        )
-        # For mock mode, SliceCompleteSignal(success=False) should propagate
-        fail_signal = SliceCompleteSignal(
-            slice_id="s1",
-            success=False,
-            error="worker exited with code 1",
-        )
-        assert fail_signal.success is False
-        assert fail_signal.error == "worker exited with code 1"
+        """AC-SW4: complete_slice(success=False) overrides activity result → SliceResult(success=False)."""
+        from temporalio.testing import WorkflowEnvironment
+        from temporalio.worker import Worker
+
+        from aura_protocol.audit_activities import execute_slice_command
+        from aura_protocol.workflow import SliceWorkflow  # noqa: PLC0415
+
+        async with await WorkflowEnvironment.start_time_skipping() as env:
+            async with Worker(
+                env.client,
+                task_queue="test-slice-ac-sw4",
+                workflows=[SliceWorkflow],
+                activities=[execute_slice_command],
+            ):
+                slice_input = SliceInput(
+                    epoch_id="ep-test",
+                    slice_id="s-test",
+                    phase_spec="p9",
+                    parent_workflow_id="ep-test",
+                )
+                handle = await env.client.start_workflow(
+                    SliceWorkflow.run,
+                    slice_input,
+                    id="test-slice-ac-sw4",
+                    task_queue="test-slice-ac-sw4",
+                )
+                # Send start signal (mock mode — completes immediately)
+                await handle.signal(
+                    SliceWorkflow.start_slice,
+                    SliceStartSignal(
+                        slice_id="s-test",
+                        epoch_id="ep-test",
+                        config=SliceExecutionConfig(mode="mock", command="echo ok", timeout_seconds=5),
+                    ),
+                )
+                # Send failure complete signal — overrides mock success
+                await handle.signal(
+                    SliceWorkflow.complete_slice,
+                    SliceCompleteSignal(
+                        slice_id="s-test",
+                        success=False,
+                        error="worker exited with code 1",
+                    ),
+                )
+                result = await handle.result()
+                assert result.success is False
+                assert result.error == "worker exited with code 1"
 
 
 # ─── AC-SW5: timeout behavior ────────────────────────────────────────────────
