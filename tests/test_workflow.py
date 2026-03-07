@@ -1718,3 +1718,66 @@ class TestReviewPhaseWorkflowVotesType:
         assert len(vals) == 1
         assert isinstance(vals[0], VoteType)
         assert vals[0] == VoteType.REVISE
+
+
+# ─── Session Registration + full_state() Integration (I-7B.1) ────────────────
+
+
+class TestSessionFullStateIntegration:
+    """I-7B.1: register_session → full_state().active_session_count integration."""
+
+    def test_active_session_count_starts_zero(self) -> None:
+        """full_state().active_session_count is 0 before any sessions registered."""
+        from aura_protocol.workflow import SessionRegisterSignal
+
+        wf = EpochWorkflow()
+        wf._sm = _make_sm()
+        result = wf.full_state()
+        assert result.active_session_count == 0
+
+    def test_register_session_increments_active_session_count(self) -> None:
+        """register_session → full_state().active_session_count == 1."""
+        from aura_protocol.workflow import SessionRegisterSignal
+
+        wf = EpochWorkflow()
+        wf._sm = _make_sm()
+        wf.register_session(
+            SessionRegisterSignal(
+                epoch_id="test-epoch",
+                session_id="session-1",
+                role="worker",
+            )
+        )
+        result = wf.full_state()
+        assert result.active_session_count == 1
+
+    def test_duplicate_session_not_counted_twice(self) -> None:
+        """Idempotent: same session_id registered twice → count still 1."""
+        from aura_protocol.workflow import SessionRegisterSignal
+
+        wf = EpochWorkflow()
+        wf._sm = _make_sm()
+        sig = SessionRegisterSignal(
+            epoch_id="test-epoch",
+            session_id="session-dup",
+            role="supervisor",
+        )
+        wf.register_session(sig)
+        wf.register_session(sig)
+        result = wf.full_state()
+        assert result.active_session_count == 1
+
+    def test_multiple_distinct_sessions_counted(self) -> None:
+        """Two distinct sessions → active_session_count == 2."""
+        from aura_protocol.workflow import SessionRegisterSignal
+
+        wf = EpochWorkflow()
+        wf._sm = _make_sm()
+        wf.register_session(
+            SessionRegisterSignal(epoch_id="test-epoch", session_id="s-1", role="worker")
+        )
+        wf.register_session(
+            SessionRegisterSignal(epoch_id="test-epoch", session_id="s-2", role="reviewer")
+        )
+        result = wf.full_state()
+        assert result.active_session_count == 2

@@ -19,6 +19,7 @@ from __future__ import annotations
 
 import json
 import os
+import socket
 import subprocess
 import sys
 from datetime import datetime, timezone
@@ -28,7 +29,7 @@ import pytest
 
 from aura_protocol.state_machine import TransitionRecord
 from aura_protocol.types import PhaseId, ReviewAxis, RoleId, Transition, VoteType
-from aura_protocol.workflow import QueryStateResult
+from aura_protocol.workflow import EpochWorkflow, QueryStateResult
 from aura_protocol.formatters import (
     format_epoch_state,
     format_start_result,
@@ -40,6 +41,16 @@ from aura_protocol.formatters import (
 AURA_MSG_PATH = Path(__file__).parent.parent / "bin" / "aura-msg"
 SCRIPTS_DIR = Path(__file__).parent.parent / "scripts"
 PYTHON = sys.executable
+
+
+def _temporal_reachable() -> bool:
+    """Check if a Temporal server is reachable at localhost:7233."""
+    try:
+        s = socket.create_connection(("localhost", 7233), timeout=1)
+        s.close()
+        return True
+    except OSError:
+        return False
 
 
 # ─── Fixtures ──────────────────────────────────────────────────────────────────
@@ -217,6 +228,38 @@ class TestFormatSignalResult:
         assert "fail" in output.lower() or "error" in output.lower()
 
 
+# ─── full_state() Production Path (I-3.2) ─────────────────────────────────────
+
+
+class TestFullStateToQueryStateResult:
+    """I-3.2: Verify full_state() produces a QueryStateResult via production path."""
+
+    def test_full_state_returns_query_state_result(self) -> None:
+        """full_state() constructs QueryStateResult from EpochStateMachine state."""
+        from aura_protocol.state_machine import EpochStateMachine
+
+        wf = EpochWorkflow()
+        wf._sm = EpochStateMachine("test-epoch")
+        result = wf.full_state()
+        assert isinstance(result, QueryStateResult)
+        assert result.current_phase == PhaseId.P1_REQUEST
+        assert result.active_session_count == 0
+        assert result.transition_history == []
+        assert result.votes == {}
+        assert result.last_error is None
+        assert isinstance(result.available_transitions, list)
+
+    def test_full_state_reflects_review_votes(self) -> None:
+        """D20: full_state().votes sourced from state.review_votes, not state.votes."""
+        from aura_protocol.state_machine import EpochStateMachine
+
+        wf = EpochWorkflow()
+        wf._sm = EpochStateMachine("test-epoch")
+        wf._sm.state.review_votes[ReviewAxis.CORRECTNESS] = VoteType.ACCEPT
+        result = wf.full_state()
+        assert result.votes == {ReviewAxis.CORRECTNESS: VoteType.ACCEPT}
+
+
 # ─── Integration Tests: Exit Codes ────────────────────────────────────────────
 
 
@@ -247,6 +290,10 @@ class TestAuraMsgExitCodes:
         )
         assert "connection error" in result.stderr.lower()
 
+    @pytest.mark.skipif(
+        not _temporal_reachable(),
+        reason="requires live Temporal server at localhost:7233",
+    )
     def test_workflow_not_found_exits_3(self) -> None:
         """AC-E2: nonexistent epoch-id → exit 3 (requires Temporal server)."""
         result = subprocess.run(
