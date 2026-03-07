@@ -680,7 +680,7 @@ def cmd_start(args: argparse.Namespace) -> int:
         return 1
 
     swarm_mode: str = args.swarm_mode
-    tmux_dest: str = args.tmux_dest
+    tmux_dest_explicit: str | None = args.tmux_dest
     epic_id: str | None = args.epic
     role: str = args.role
     model: str = args.model
@@ -716,6 +716,29 @@ def cmd_start(args: argparse.Namespace) -> int:
         print(f"  Inheriting permission mode from parent: {parent_perm}")
         permission_mode = parent_perm
 
+    # ── Resolve tmux_dest default ──
+    # When intree mode is run inside an existing tmux session and the user
+    # did NOT explicitly pass --tmux-dest, default to WINDOW in the current
+    # session instead of creating a new detached session.
+    current_tmux_session: str | None = None
+    if tmux_dest_explicit is None and swarm_mode == SwarmMode.INTREE:
+        tmux_env = os.environ.get("TMUX")
+        if tmux_env:
+            result = run_command(
+                ["tmux", "display-message", "-p", "#{session_name}"],
+                capture=True,
+            )
+            if result.returncode == 0 and result.stdout.strip():
+                current_tmux_session = result.stdout.strip()
+                tmux_dest = TmuxDest.WINDOW
+                print(f"  Auto-detected tmux session: {current_tmux_session} (using window mode)")
+            else:
+                tmux_dest = TmuxDest.SESSION
+        else:
+            tmux_dest = TmuxDest.SESSION
+    else:
+        tmux_dest = tmux_dest_explicit if tmux_dest_explicit is not None else TmuxDest.SESSION
+
     # ── Mode-specific validation ──
 
     if swarm_mode == SwarmMode.WORKTREE:
@@ -750,6 +773,7 @@ def cmd_start(args: argparse.Namespace) -> int:
             args, git_root, registry, epic_id, role, model, skill,
             permission_mode, dry_run, njobs, tmux_dest, base_prompt,
             session_name_override, attach, working_dir,
+            current_tmux_session,
         )
 
 
@@ -918,6 +942,7 @@ def _start_intree(
     session_name_override: str | None,
     attach: bool,
     working_dir: Path,
+    current_tmux_session: str | None = None,
 ) -> int:
     """Intree mode: launch agents without worktree (replaces aura-parallel)."""
     epic_suffix = get_epic_suffix(epic_id) if epic_id else secrets.token_hex(4)
@@ -983,7 +1008,7 @@ def _start_intree(
         if session_name_override:
             session_name = session_name_override if njobs == 1 else f"{session_name_override}--{i + 1}"
         elif tmux_dest == TmuxDest.WINDOW:
-            session_name = f"swarm-{epic_suffix}"
+            session_name = current_tmux_session if current_tmux_session else f"swarm-{epic_suffix}"
         else:
             try:
                 session_name = generate_session_name(role, epic_suffix, i + 1, session_task_id)
@@ -1694,7 +1719,7 @@ def build_parser() -> argparse.ArgumentParser:
     start_p = subparsers.add_parser("start", parents=[shared], help="Launch Claude agent(s) in worktree or intree mode")
     start_p.add_argument("--epic", default=None, help="Epic beads ID (required for worktree mode, optional for intree)")
     start_p.add_argument("--swarm-mode", default=SwarmMode.WORKTREE, choices=[SwarmMode.WORKTREE, SwarmMode.INTREE], help="Operation mode (default: worktree)")
-    start_p.add_argument("--tmux-dest", default=TmuxDest.SESSION, choices=[TmuxDest.SESSION, TmuxDest.WINDOW], help="Tmux launch target (default: session)")
+    start_p.add_argument("--tmux-dest", default=None, choices=[TmuxDest.SESSION, TmuxDest.WINDOW], help="Tmux launch target (default: session; intree inside tmux defaults to window)")
     start_p.add_argument("-n", "--njobs", type=int, default=1, help="Number of parallel agents (default: 1)")
     start_p.add_argument("--role", default=DEFAULT_ROLE, choices=sorted(VALID_ROLES), help=f"Agent role (default: {DEFAULT_ROLE})")
     start_p.add_argument("--model", default=DEFAULT_MODEL, choices=sorted(VALID_MODELS), help=f"Model to use (default: {DEFAULT_MODEL})")
