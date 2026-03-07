@@ -186,11 +186,13 @@ class SliceResult:
 
     slice_id: the slice that completed or failed
     success: True if the slice completed without error
+    output: completion output message (empty string if not provided or on failure)
     error: error message if success is False, None otherwise
     """
 
     slice_id: str
     success: bool
+    output: str = ""
     error: str | None = None
 
 
