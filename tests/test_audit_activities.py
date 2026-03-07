@@ -24,7 +24,6 @@ from __future__ import annotations
 from pathlib import Path
 
 import pytest
-import pytest_asyncio
 
 from temporalio.exceptions import ApplicationError
 from temporalio.testing import ActivityEnvironment
