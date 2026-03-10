@@ -87,6 +87,15 @@ def build_parser() -> argparse.ArgumentParser:
     epoch_start.add_argument("--description", default="", help="Epoch description")
     _add_format_arg(epoch_start)
 
+    epoch_cancel = epoch_sub.add_parser("cancel", help="Cancel a running epoch workflow")
+    epoch_cancel.add_argument("--epoch-id", required=True, help="Epoch ID")
+    _add_format_arg(epoch_cancel)
+
+    epoch_terminate = epoch_sub.add_parser("terminate", help="Terminate a running epoch workflow")
+    epoch_terminate.add_argument("--epoch-id", required=True, help="Epoch ID")
+    epoch_terminate.add_argument("--reason", default="", help="Termination reason")
+    _add_format_arg(epoch_terminate)
+
     # ── signal group ─────────────────────────────────────────────────────
     signal_parser = groups.add_parser("signal", help="Send signals to workflows")
     signal_sub = signal_parser.add_subparsers(dest="subcommand", metavar="<subcommand>")
@@ -179,6 +188,8 @@ def main() -> None:
         (CmdGroup.Signal, SubCommand.Complete): _cmd_signal_complete,
         (CmdGroup.Phase, SubCommand.Advance): _cmd_phase_advance,
         (CmdGroup.Epoch, SubCommand.Start): _cmd_epoch_start,
+        (CmdGroup.Epoch, SubCommand.Cancel): _cmd_epoch_cancel,
+        (CmdGroup.Epoch, SubCommand.Terminate): _cmd_epoch_terminate,
         (CmdGroup.Session, SubCommand.Register): _cmd_session_register,
     }
     key = (CmdGroup(args.group), SubCommand(args.subcommand))
@@ -595,6 +606,114 @@ async def _cmd_session_register(
             what=f"signal failed for '{args.epoch_id}'",
             why=str(e),
             impact="session was not registered with the epoch",
+            fix="check Temporal server logs for details",
+        )
+        return 3
+
+    print(format_signal_result(True, fmt))
+    return 0
+
+
+async def _cmd_epoch_cancel(
+    args: argparse.Namespace, config: AuraMsgConfig, fmt: OutputFormat
+) -> int:
+    """Handle: aura-msg epoch cancel --epoch-id E
+
+    Requests graceful cancellation of the epoch workflow.
+    Returns exit code: 0=success, 2=connection error, 3=workflow error.
+    """
+    from temporalio.client import Client
+    from temporalio.service import RPCError
+
+    from aura_protocol.formatters import format_signal_result
+
+    conn = config.connection
+    try:
+        client = await Client.connect(
+            conn.server_address, namespace=conn.namespace
+        )
+    except Exception as e:
+        report_error(
+            ErrorCategory.Connection,
+            what=f"failed to connect to Temporal at {conn.server_address}",
+            why=str(e),
+            impact="command cannot reach the Temporal server",
+            fix="ensure aurad is running and Temporal is reachable",
+        )
+        return 2
+
+    try:
+        handle = client.get_workflow_handle(args.epoch_id)
+        await handle.cancel()
+    except RPCError as e:
+        report_error(
+            ErrorCategory.Workflow,
+            what=f"workflow '{args.epoch_id}' not found",
+            why=str(e),
+            impact="cancellation was not issued",
+            fix=f"verify epoch ID '{args.epoch_id}' exists and is running",
+        )
+        return 3
+    except Exception as e:
+        report_error(
+            ErrorCategory.Workflow,
+            what=f"cancel failed for '{args.epoch_id}'",
+            why=str(e),
+            impact="cancellation was not issued",
+            fix="check Temporal server logs for details",
+        )
+        return 3
+
+    print(format_signal_result(True, fmt))
+    return 0
+
+
+async def _cmd_epoch_terminate(
+    args: argparse.Namespace, config: AuraMsgConfig, fmt: OutputFormat
+) -> int:
+    """Handle: aura-msg epoch terminate --epoch-id E [--reason R]
+
+    Immediately terminates the epoch workflow (non-graceful).
+    Returns exit code: 0=success, 2=connection error, 3=workflow error.
+    """
+    from temporalio.client import Client
+    from temporalio.service import RPCError
+
+    from aura_protocol.formatters import format_signal_result
+
+    conn = config.connection
+    try:
+        client = await Client.connect(
+            conn.server_address, namespace=conn.namespace
+        )
+    except Exception as e:
+        report_error(
+            ErrorCategory.Connection,
+            what=f"failed to connect to Temporal at {conn.server_address}",
+            why=str(e),
+            impact="command cannot reach the Temporal server",
+            fix="ensure aurad is running and Temporal is reachable",
+        )
+        return 2
+
+    try:
+        handle = client.get_workflow_handle(args.epoch_id)
+        await handle.terminate(reason=args.reason or None)
+    except RPCError as e:
+        report_error(
+            ErrorCategory.Workflow,
+            what=f"workflow '{args.epoch_id}' not found",
+            why=str(e),
+            impact="termination was not issued",
+            fix=f"verify epoch ID '{args.epoch_id}' exists and is running",
+        )
+        return 3
+    except Exception as e:
+        report_error(
+            ErrorCategory.Workflow,
+            what=f"terminate failed for '{args.epoch_id}'",
+            why=str(e),
+            impact="termination was not issued",
             fix="check Temporal server logs for details",
         )
         return 3

@@ -701,6 +701,8 @@ class SubCommand(StrEnum):
     Complete = "complete"
     Advance = "advance"
     Register = "register"
+    Cancel = "cancel"
+    Terminate = "terminate"
 
 
 class SliceMode(StrEnum):
