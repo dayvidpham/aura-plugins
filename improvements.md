@@ -2037,3 +2037,373 @@ When we implement a fix, we need to have validation cases in mind that we check 
 
 Then during the implementation, and during interactive iterations with the user that try to improve the fix, we need to establish a set of validations that we will test against. Implementations of the fixes should be evaluating these valdiations to determine whether it was valid or not. Failing cases on real data can be stored and used as test fixture data.
 </validation-fixes>
+
+<verbatim>
+Failed to capture the user's input verbatim.
+
+example:
+
+❯ /aura:epoch I have an initially sketched out taxonomy of user-LLM coding agent communications at
+@llm/david/taxonomy/test-annotations.md . The core standards mentioned in the test-annotations.md file can be found
+ at @llm/david/taxonomy/standards/output/html . An example of an initial coding of the transcript (used to devise
+the taxonomy) can be found at @llm/david/taxonomy/initial-survey--david--8aa871ef-2f25-45c4-988b-c20b185c5d13.md .
+We also have another example session at
+@llm/david/taxonomy/initial-survey--patrick--c0de1aa9-6656-4532-a53b-41995bf92682.md . Let's try to improve the
+taxonomy here taking into account terms used from requirements engineering and the software development life cycle.
+ However, we still want to keep the taxonomy relatively simple. I am David, and my sesssion is already ingested, so
+ it can be queried and downloaded to @llm/david/taxonomy/transcripts/ . Patrick's raw coding transcript can be
+found in that folder. The taxonomy is focused on elements of user-agent communication that lead to semantic
+failures, misspecification, underspecification, and implementations that do not match user requirements; how users
+communicate their requests, and what they communicate.
+  ⎿  Read llm/david/taxonomy/test-annotations.md (113 lines)
+  ⎿  Listed directory llm/david/taxonomy/standards/output/html/
+  ⎿  Read llm/david/taxonomy/initial-survey--david--8aa871ef-2f25-45c4-988b-c20b185c5d13.md (151 lines)
+  ⎿  Read llm/david/taxonomy/initial-survey--patrick--c0de1aa9-6656-4532-a53b-41995bf92682.md (84 lines)
+  ⎿  Listed directory llm/david/taxonomy/transcripts/
+
+● Starting the Epoch workflow. Phase 1: Capture and classify your request.
+
+  Let me first check the current beads state and read the key materials more thoroughly.
+
+● Bash(bd list --status=open 2>&1 | head -30)
+  ⎿  ○ unified-schema-s950i [● P0] [bug] [aura:p10-impl:s10-review aura:severity:blocker wrt-marketplace] -
+     BLOCKER: Marketplace SQLC Column61 interface{} for license_type — no type safety (blocks:
+     unified-schema-nulpa)
+     ○ unified-schema-6d0zq [● P0] [bug] [aura:p10-impl:s10-review aura:severity:blocker wrt-marketplace] -
+     BLOCKER: Marketplace commercial grant scope default 'full' rejected by DB (blocks: unified-schema-nulpa)
+     ○ unified-schema-ww7nb [● P0] [bug] [aura:p10-impl:s10-review aura:severity:blocker wrt-marketplace] -
+     BLOCKER: Marketplace proposal type mismatch — handler vs DB CHECK constraint (blocks:
+     unified-schema-nulpa)
+     ○ unified-schema-tfblb [● P0] [bug] [aura:p10-impl:s10-review aura:severity:blocker wrt-policy] - BLOCKER:
+      Missing --license CLI flag and license resolution cascade (blocks: unified-schema-nulpa)
+     ○ unified-schema-4kgn5 [● P0] [bug] [aura:p10-impl:s10-review aura:severity:blocker wrt-policy] - BLOCKER:
+      Web frontend has zero license integration (blocks: unified-schema-nulpa)
+     ○ unified-schema-ncdlh [● P0] [bug] [aura:p10-impl:s10-review aura:severity:blocker wrt-policy] - BLOCKER:
+      Missing policy acceptance system (table, CLI commands, pipeline gate) (blocks: unified-schema-nulpa)
+     ○ unified-schema-kjpg0 [● P0] [bug] [aura:p10-impl:s10-review aura:severity:blocker wrt-policy] - BLOCKER:
+      Stringly-typed LicenseStore bypasses schema.LicenseType validation (blocks: unified-schema-nulpa)
+     ○ unified-schema-d7ww8 [● P1] [task] [aura:p8-impl:s8-plan] - IMPL_PLAN: Redactor v2 — 6 vertical slices
+     (blocked by: unified-schema-55z8f, unified-schema-6ng7u, unified-schema-f7v25, unified-schema-jqxaa,
+     unified-schema-knj8h, unified-schema-x56x9, blocks: unified-schema-t20r2)
+     ○ unified-schema-086qt [● P1] [task] [aura:p4-plan:s4-review] - REVIEW-C (Elegance): PROPOSAL-1 Redactor
+     v2 (blocks: unified-schema-t20r2)
+     ○ unified-schema-c478h [● P1] [task] [aura:p4-plan:s4-review] - REVIEW-B (Test Quality): PROPOSAL-1
+     Redactor v2 (blocks: unified-schema-t20r2)
+     ○ unified-schema-t20r2 [● P1] [task] [aura:p3-plan:s3-propose aura:p6-plan:s6-ratify] - PROPOSAL-1:
+     Redactor v2 — detection/redaction separation, project identity redaction, push privacy hardening (blocked
+     by: unified-schema-086qt, unified-schema-c478h, unified-schema-d7ww8, blocks: unified-schema-07191)
+     ○ unified-schema-07191 [● P1] [task] [aura:p2-user:s2_2-urd aura:urd] - URD: Redactor v2 —
+     detection/redaction separation, project identity redaction, push privacy hardening (blocked by:
+     unified-schema-t20r2, blocks: unified-schema-6wn9z)
+     ○ unified-schema-6wn9z [● P1] [task] [aura:p2-user:s2_1-elicit] - ELICIT: Redactor v2 requirements
+     (blocked by: unified-schema-07191, blocks: unified-schema-a6b0l)
+     ○ unified-schema-a6b0l [● P1] [feature] [aura:p1-user:s1_1-classify] - REQUEST: Redactor v2 —
+     detection/redaction separation, project identity redaction, push privacy hardening (blocked by:
+     unified-schema-6wn9z)
+     ○ unified-schema-99yxe [● P1] [feature] [infrastructure wrt-marketplace] - Collective license change:
+     multi-step confirmation + contributor notification + email service
+     ○ unified-schema-bma68 [● P1] [task] [research wrt-marketplace] - Research: adopt or reference open-source
+      license compatibility libraries (blocks: unified-schema-3z02c)
+     ○ unified-schema-3z02c [● P1] [feature] [architecture wrt-marketplace] - Single source-of-truth for
+     license compatibility matrix + codegen (blocked by: unified-schema-bma68)
+     ○ unified-schema-kr7gd [● P1] [bug] [aura:p10-impl:s10-review aura:severity:important wrt-marketplace] -
+     IMPORTANT: Marketplace triple duplication of compatibility matrix (Go/TS/stub) (blocks:
+     unified-schema-nulpa)
+     ○ unified-schema-2ez0s [● P1] [bug] [aura:p10-impl:s10-review aura:severity:important wrt-marketplace] -
+     IMPORTANT: Marketplace CommercialPolicy enum mismatch across Go/DB/frontend (blocks: unified-schema-nulpa)
+     ○ unified-schema-hjsdn [● P1] [bug] [aura:p10-impl:s10-review aura:severity:important wrt-policy] -
+     IMPORTANT: LicenseClient.PatchLicense unbounded response read + missing push_log.license (blocks:
+     unified-schema-nulpa)
+     ○ unified-schema-8moge [● P1] [bug] [aura:p10-impl:s10-review aura:severity:important wrt-policy] -
+     IMPORTANT: No tests for pkg/schema/license.go (blocks: unified-schema-nulpa)
+     ○ unified-schema-nulpa [● P1] [task] [aura:p10-impl:s10-review] - REVIEW: WRT_Policy branch — merge
+     readiness evaluation (blocked by: unified-schema-2ez0s, unified-schema-4kgn5, unified-schema-6d0zq,
+     unified-schema-8moge, unified-schema-hjsdn, unified-schema-kjpg0, unified-schema-kr7gd,
+     unified-schema-ncdlh, unified-schema-s950i, unified-schema-tfblb, unified-schema-ww7nb)
+     ○ unified-schema-1nm33 [● P1] [task] [aura:p2-user:s2_2-urd aura:urd] - URD: Phase B — DB as SOT + opaque
+     identifiers
+     ○ unified-schema-we91p [● P1] [task] [aura:p5-user:s5-uat] - UAT-1: Plan acceptance for slug path
+     redaction (blocks: unified-schema-geogs)
+     ○ unified-schema-5epo2 [● P1] [task] [aura:p11-user:s11-uat] - UAT-3: Kickstart FTUE UX issues — provider
+     selection, session tree, import pause
+     ○ unified-schema-wmbcc [● P1] [task] [aura:p2-user:s2_1-elicit] - ELICIT: Fix Schema prefix — scope and
+     approach confirmed (blocks: unified-schema-404pu)
+     ○ unified-schema-404pu [● P1] [task] @architect [aura:p1-user:s1_1-classify] - REQUEST: Fix Schema prefix
+     in OpenAPI component names (SchemaRole → Role) (blocked by: unified-schema-wmbcc)
+     ○ unified-schema-ulju [● P1] [task] [aura:p7-plan:s7-handoff] - HANDOFF: Architect → Supervisor for
+     WRT_ingestion_v3 merge (blocks: unified-schema-mrcmz)
+     ○ unified-schema-nz3p [● P1] [feature] [aura:p1-user:s1_1-classify] - REQUEST: Integrate WRT_ingestion_v3
+     worktree + aura-push marketplace integration (blocked by: unified-schema-akb0, unified-schema-fp6m)
+     ○ unified-schema-isbu [● P1] [task] [aura:p8-impl:s8-plan] - IMPL_PLAN: TreeSitterAnonymizer + v3
+     convergence (blocks: unified-schema-1zbn)
+
+● Bash(ls /home/minttea/dev/agent-data-leverage/feat--taxonomy--llm-judge/llm/david/taxonomy/standards/output/html/)
+  ⎿  iso-iec-ieee_12207:2017--systems-and-software-engineering--software-life-cycle-processes
+     iso-iec-ieee_15288:2023--systems-and-software-engineering--system-life-cycle-processes
+     iso-iec-ieee_24748-3:2020--life-cycle-management--part-3--guidelines-to-applying-iso_12207
+     iso-iec-ieee_29148:2018--systems-and-software-engineering--life-cycle-processes-requirements-engineering
+
+● Bash(ls /home/minttea/dev/agent-data-leverage/feat--taxonomy--llm-judge/llm/david/taxonomy/standards/output/html/i
+  so-iec-ieee_29148:2018--systems-and-software-engineering--life-cycle-processes-requirements-engineering/ 2>&1 |
+  head -20)
+  ⎿  iso-iec-ieee_29148:2018--systems-and-software-engineering--life-cycle-processes-requirements-engineering.html
+     iso-iec-ieee_29148:2018--systems-and-software-engineering--life-cycle-processes-requirements-engineering_meta.j
+     son
+     _page_103_Picture_0.jpeg
+     _page_1_Picture_1.jpeg
+     _page_24_Figure_1.jpeg
+     _page_27_Figure_1.jpeg
+     _page_7_Picture_0.jpeg
+
+● Bash(ls /home/minttea/dev/agent-data-leverage/feat--taxonomy--llm-judge/llm/david/taxonomy/standards/output/html/i
+  so-iec-ieee_12207:2017--systems-and-software-engineering--software-life-cycle-processes/ 2>&1 | head -20)
+  ⎿  iso-iec-ieee_12207:2017--systems-and-software-engineering--software-life-cycle-processes.html
+     iso-iec-ieee_12207:2017--systems-and-software-engineering--software-life-cycle-processes_meta.json
+     _page_117_Figure_3.jpeg
+     _page_153_Picture_0.jpeg
+     _page_156_Picture_0.jpeg
+     _page_157_Picture_0.jpeg
+     _page_1_Picture_1.jpeg
+     _page_21_Figure_1.jpeg
+     _page_21_Figure_4.jpeg
+     _page_22_Figure_5.jpeg
+     _page_28_Figure_1.jpeg
+     _page_7_Picture_0.jpeg
+
+● Bash(ls /home/minttea/dev/agent-data-leverage/feat--taxonomy--llm-judge/llm/david/taxonomy/transcripts/ 2>&1)
+  ⎿  c0de1aa9-6656-4532-a53b-41995bf92682--transcript.jsonl
+
+● Good. I have the lay of the land. Let me now execute Phase 1.
+
+  Phase 1: REQUEST — Capture & Classify
+
+  Verbatim user request:
+
+  ▎ I have an initially sketched out taxonomy of user-LLM coding agent communications at
+  llm/david/taxonomy/test-annotations.md. The core standards mentioned in the test-annotations.md file can be found
+  at llm/david/taxonomy/standards/output/html. An example of an initial coding of the transcript (used to devise the
+   taxonomy) can be found at llm/david/taxonomy/initial-survey--david--8aa871ef-2f25-45c4-988b-c20b185c5d13.md. We
+  also have another example session at
+  llm/david/taxonomy/initial-survey--patrick--c0de1aa9-6656-4532-a53b-41995bf92682.md. Let's try to improve the
+  taxonomy here taking into account terms used from requirements engineering and the software development life
+  cycle. However, we still want to keep the taxonomy relatively simple. I am David, and my session is already
+  ingested, so it can be queried and downloaded to llm/david/taxonomy/transcripts/. Patrick's raw coding transcript
+  can be found in that folder. The taxonomy is focused on elements of user-agent communication that lead to semantic
+   failures, misspecification, underspecification, and implementations that do not match user requirements; how
+  users communicate their requests, and what they communicate.
+
+  Classification (4 axes)
+
+  ┌─────────────┬─────────────┬─────────────────────────────────────────────────────────────────────────────────┐
+  │    Axis     │   Rating    │                                    Rationale                                    │
+  ├─────────────┼─────────────┼─────────────────────────────────────────────────────────────────────────────────┤
+  │ Scope       │ Medium      │ Refining an existing taxonomy document — no code changes, but requires deep     │
+  │             │             │ analysis of standards + transcripts                                             │
+  ├─────────────┼─────────────┼─────────────────────────────────────────────────────────────────────────────────┤
+  │ Complexity  │ Medium-High │ Requires synthesizing ISO/IEC/IEEE requirements engineering terminology with    │
+  │             │             │ empirical transcript observations into a coherent, simple classification scheme │
+  ├─────────────┼─────────────┼─────────────────────────────────────────────────────────────────────────────────┤
+  │ Risk        │ Low         │ Purely analytical/documentary work — no production code impact                  │
+  ├─────────────┼─────────────┼─────────────────────────────────────────────────────────────────────────────────┤
+  │ Domain      │ High        │ Novel research domain — coding taxonomy for human-agent communication failures; │
+  │ novelty     │             │  requires original synthesis of RE standards with empirical data                │
+  └─────────────┴─────────────┴─────────────────────────────────────────────────────────────────────────────────┘
+
+  Materials inventory
+
+  Material: Initial taxonomy sketch
+  Location: llm/david/taxonomy/test-annotations.md
+  Status: Read (113 lines, 2 iterations)
+  ────────────────────────────────────────
+  Material: David's coded transcript
+  Location: llm/david/taxonomy/initial-survey--david--8aa871ef-2f25-45c4-988b-c20b185c5d13.md
+  Status: Read (150 lines)
+  ────────────────────────────────────────
+  Material: Patrick's coded transcript
+  Location: llm/david/taxonomy/initial-survey--patrick--c0de1aa9-6656-4532-a53b-41995bf92682.md
+  Status: Read (84 lines)
+  ────────────────────────────────────────
+  Material: Patrick's raw transcript
+  Location: llm/david/taxonomy/transcripts/c0de1aa9-6656-4532-a53b-41995bf92682--transcript.jsonl
+  Status: Available
+  ────────────────────────────────────────
+  Material: ISO 29148:2018 (Requirements Engineering)
+  Location: standards/output/html/iso-iec-ieee_29148:2018.../
+  Status: Available (HTML + images)
+  ────────────────────────────────────────
+  Material: ISO 12207:2017 (Software Life Cycle)
+  Location: standards/output/html/iso-iec-ieee_12207:2017.../
+  Status: Available (HTML + images)
+  ────────────────────────────────────────
+  Material: ISO 24748-3:2020 (Life Cycle Management Guidelines)
+  Location: standards/output/html/iso-iec-ieee_24748-3:2020.../
+  Status: Available
+  ────────────────────────────────────────
+  Material: ISO 15288:2023 (System Life Cycle)
+  Location: standards/output/html/iso-iec-ieee_15288:2023.../
+  Status: Available
+
+  Creating the REQUEST task now.
+
+● Bash(bd create --title "REQUEST: Improve taxonomy of user-LLM coding agent communications using RE and SDLC
+      terminology" \
+        --description "Verbatim request: User has an initially sketched taxonomy of user-LLM coding agent
+      communications (2 iterations in test-annotations.md). Wants to improve it using terms from requirements
+      engineering (ISO 29148) and SDLC (ISO 12207). Must remain relatively simple. Focus: semantic failures,
+      misspecification, underspecification, requirements mismatch in user-agent communication. Two coded transcripts
+       available (David's + Patrick's) plus raw Patrick transcript. Four ISO standards available as HTML
+      references." \
+        --type=feature --priority=2 --labels "aura:p1-user:s1_1-classify")
+  ⎿  warning: beads.role not configured. Run 'bd init' to set.
+     ✓ Created issue: unified-schema-mtkmg — REQUEST: Improve taxonomy of user-LLM coding agent communications
+     using RE and SDLC terminology
+       Priority: P2
+       Status: open
+
+     💡 Tip: Install the beads plugin for automatic workflow context, or run 'bd setup claude' for CLI-only
+     mode
+
+</verbatim>
+
+
+<clean-review>
+MUST end on a clean review round. Can't simply just implement fixes for a previous review, and then exit. MUST have those fixes re-reviewed, and that wave must end on a clean review round.
+
+---
+
+@supervisor❯ All 3 findings fixed, tests pass
+
+● Good. Let me verify the test results myself and then commit.
+
+● Bash(nix develop /home/minttea/codebases/dayvidpham/provenance --command
+      bash -c "CGO_ENABLED=0 go build ./... && CGO_ENABLED=0 go test
+      -count=1 ./... && go vet ./..." 2>&1)
+  ⎿  warning: Git tree '/home/minttea/codebases/dayvidpham/provenance' has
+     uncommitted changes
+     Go go1.26.1 dev shell
+     ok         github.com/dayvidpham/provenance        0.425s
+     ok         github.com/dayvidpham/provenance/internal/graph 0.020s
+     ok         github.com/dayvidpham/provenance/internal/helpers       0.0
+     ok         github.com/dayvidpham/provenance/internal/sqlite        0.3
+     ?          github.com/dayvidpham/provenance/internal/testutil      [no
+     ok         github.com/dayvidpham/provenance/pkg/namespace  0.005s
+     ok         github.com/dayvidpham/provenance/pkg/ptypes     0.003s
+
+
+
+
+● All clean — build, tests, vet pass. Now commit.
+
+● Bash(git diff --stat)
+  ⎿   CLAUDE.md                            |  2 +-
+      CONTRIBUTING.md                      | 12 ++++----
+      ast-grep/no-bare-signal-literals.yml | 17 +++++++++++
+      ast-grep/no-string-status-types.yml  | 22 ++++++++++++++
+      ast-grep/no-stringly-typed-args.yml  | 19 ++++++++++++
+      ast-grep/no-untyped-string-const.yml | 17 +++++++++++
+      demo_test.go                         | 58
+     ++++++++++++++++++++++++++++--------
+      internal/graph/store.go              |  2 +-
+      internal/helpers/ancestors.go        |  2 +-
+      internal/sqlite/db.go                |  2 +-
+      internal/testutil/fixtures.go        |  2 +-
+      models_test.go                       | 19 ++++++++++++
+      pkg/ptypes/enums.go                  |  2 +-
+      sgconfig.yml                         |  4 +++
+      14 files changed, 156 insertions(+), 24 deletions(-)
+
+● Bash(git add \
+        CLAUDE.md \
+        CONTRIBUTING.md \
+        demo_test.go \
+        internal/graph/store.go \
+        internal/helpers/ancestors.go \
+        internal/sqlite/db.go \
+        internal/testutil/fixtures.go \
+        models_test.go \
+        pkg/ptypes/enums.go)
+  ⎿  (No output)
+
+● Bash(git diff --cached --stat)
+  ⎿   CLAUDE.md                     |  2 +-
+      CONTRIBUTING.md               | 12 ++++-----
+      demo_test.go                  | 58
+     ++++++++++++++++++++++++++++++++++---------
+      internal/graph/store.go       |  2 +-
+      internal/helpers/ancestors.go |  2 +-
+      internal/sqlite/db.go         |  2 +-
+      internal/testutil/fixtures.go |  2 +-
+      models_test.go                | 19 ++++++++++++++
+      pkg/ptypes/enums.go           |  2 +-
+      9 files changed, 77 insertions(+), 24 deletions(-)
+
+● Bash(git agent-commit -m "$(cat <<'EOF'
+      fix(provenance): review round 5 — unchecked errors, Lookup test,
+      stale names
+
+      I1: Add mustCloseTask, mustAddLabel, mustEndActivity, mustAddComment
+          helpers to demo_test.go. Replace all 11 remaining bare calls that
+          discarded errors across Demo 2, 7, and 9.
+      I2: Add TestDefaultRegistry_LookupRejectsBeforeDB proving the
+      registry
+          Lookup fires before the DB layer — opens with default registry,
+          attempts RegisterMLAgent with an unknown provider/model pair,
+          asserts errors.Is(err, ErrNotFound).
+      M1: Fix "Providence" → "Provenance" in CONTRIBUTING.md (title + 5
+      prose),
+          CLAUDE.md (1), and 5 package doc comments across internal
+      packages.
+
+      Co-Authored-By: Claude Opus 4.6 (1M context) <noreply@anthropic.com>
+      EOF
+      )")
+  ⎿  [main 2e5e54a] fix(provenance): review round 5 — unchecked errors,
+     Lookup test, stale names
+      9 files changed, 77 insertions(+), 24 deletions(-)
+
+● Now let me shut down the supervisor team.
+
+● Committed as 2e5e54a. Branch is 5 ahead of origin.
+
+  Cumulative commit history:
+
+  ┌─────────┬───────────────────────────────────────────────────────────┐
+  │ Commit  │                        Description                        │
+  ├─────────┼───────────────────────────────────────────────────────────┤
+  │ 42e113d │ feat: ModelRegistry interface, fix ml_models seed data    │
+  │         │ (closes #1)                                               │
+  ├─────────┼───────────────────────────────────────────────────────────┤
+  │ c4068dc │ fix: SQL injection, unused Lookup, test gaps              │
+  ├─────────┼───────────────────────────────────────────────────────────┤
+  │ 9746ca6 │ fix: errors.Is assertions, testRegistry copy semantics    │
+  ├─────────┼───────────────────────────────────────────────────────────┤
+  │ aeffffd │ fix: nil guard for WithModelRegistry                      │
+  ├─────────┼───────────────────────────────────────────────────────────┤
+  │ 4aee1d8 │ feat: full ModelRegistry with Lookup validation, review   │
+  │         │ fixes                                                     │
+  ├─────────┼───────────────────────────────────────────────────────────┤
+  │ 2e5e54a │ fix: unchecked demo errors, Lookup isolation test, stale  │
+  │         │ names                                                     │
+  └─────────┴───────────────────────────────────────────────────────────┘
+
+  Want me to send another review wave, or push?
+
+
+@supervisor❯ Acknowledged, ready to shut down
+
+● Supervisor shutdown sent. Waiting on your call — another review wave, or
+  push to origin?
+
+✻ Worked for 3m 48s
+
+● Supervisor shut down. Ready for your next call — review wave or push?
+
+● Supervisor confirmed terminated. Branch is 5 commits ahead of origin.
+  Want me to send a review wave on the final state, or push?
+
+❯ Did we end on a clean review round?
+
+● No. The last review round (round 5) returned findings that we just fixed
+  in 2e5e54a. Those fixes haven't been reviewed yet. Let me send round 6.
+
+</clean-review>

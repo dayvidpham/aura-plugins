@@ -979,3 +979,5 @@
 {"author":"David Huu Pham","created_at":"2026-03-26T19:05:41Z","id":979,"issue_id":"aura-plugins-prrwk","text":"RATIFIED: All 3 reviewers ACCEPT (Round 6), UAT passed (aura-plugins-9fhor). Reviewers: A=aura-plugins-n6p3w, B=aura-plugins-iky12, C=aura-plugins-cxb2m."}
 {"author":"David Huu Pham","created_at":"2026-03-26T19:05:41Z","id":980,"issue_id":"aura-plugins-cxmvp","text":"Superseded by PROPOSAL-2 (aura-plugins-prrwk) — ratified 2026-03-26"}
 {"author":"David Huu Pham","created_at":"2026-03-26T19:05:41Z","id":981,"issue_id":"aura-plugins-wqo4k","text":"Ratified: PROPOSAL-2 (aura-plugins-prrwk) confirmed as canonical spec for marker fix epoch"}
+{"author":"David Huu Pham","created_at":"2026-04-04T14:32:56Z","id":982,"issue_id":"aura-plugins-n8q10","text":"All R1-R7 verified met. Body behaviors now in standardized G/W/T format (commit 6f922f6). URD complete."}
+{"author":"David Huu Pham","created_at":"2026-04-04T14:32:56Z","id":983,"issue_id":"aura-plugins-f85gw","text":"R1-R7, R9-R12 verified met. R8 (bd-backed stub) superseded by provenance SQLite implementation — stub was unnecessary. URD complete."}
