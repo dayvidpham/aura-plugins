@@ -2601,3 +2601,198 @@ MUST end on a clean review round. Can't simply just implement fixes for a previo
   These were already captured in my corrected URE record under USER NOTE: lines. I didn't use preview on any of the options (no mockups were needed for these questions). Let me verify the URE notes are complete and accurate.
 
 </capture-user-input-verbatim>
+
+
+<handoff-architect-to-supervisor>
+● Phase 6 (Ratify) complete. Now Phase 7: Handoff — creating the handoff document for the supervisor.
+
+● Bash(mkdir -p /home/minttea/dev/agent-data-leverage/feat--research-annotation-infra/worktree/feat--cli--retrieve-context-around-session-turn/.git/.aura/handoff/unified-schema-iqybg)
+  ⎿  Error: Exit code 1
+     mkdir: cannot create directory ‘/home/minttea/dev/agent-data-leverage/feat--research-annotation-infra/worktree/feat--cli--retrieve-context-around-session-turn/.git’: Not a directory
+
+● Bash(git rev-parse --git-dir 2>/dev/null)
+  ⎿  /home/minttea/dev/agent-data-leverage/.git/worktrees/feat--cli--retrieve-context-around-session-turn
+
+● Bash(mkdir -p /home/minttea/dev/agent-data-leverage/.git/worktrees/feat--cli--retrieve-context-around-session-turn/.aura/handoff/unified-schema-iqybg)
+  ⎿  Interrupted · What should Claude do instead?
+
+❯ handoff goes in the body of the Beads task
+
+● Bash(bd create --type=task --priority=2 \
+        --labels "aura:p7-plan:s7-handoff" \
+        --title "HANDOFF: Architect → Supervisor for sessions context + list" \
+        --description "$(cat <<'EOFD'
+      ---
+      references:
+        request: unified-schema-iqybg
+        urd: unified-schema-706en
+        proposal: unified-schema-2g0fr
+        uat: unified-schema-a3jex
+      ---
+
+      ## Handoff: Architect → Supervisor
+
+      ### Task IDs
+      - REQUEST: unified-schema-iqybg
+      - URD: unified-schema-706en
+      - PROPOSAL-1 (ratified): unified-schema-2g0fr
+      - UAT-1: unified-schema-a3jex
+
+      ### Scope
+      Two new subcommands under \`peasant sessions\`:
+      1. \`peasant sessions context\` — retrieve raw entries around a center entry_index
+      2. \`peasant sessions list\` — list and filter sessions
+      3. Bare \`peasant sessions\` — help text + recent sessions listing
+
+      ### Key Decisions (from UAT revisions)
+
+      **CRITICAL — these override the original PROPOSAL-1:**
+
+      1. **Entry_index addressing, NO folding:**
+         - \`--turn N\` = entry_index N (direct DB lookup)
+         - \`-C K\` = K raw entries before and K after by entry_index
+         - Single SQL: \`SELECT * FROM session_entries WHERE session_id=? AND entry_index BETWEEN ? AND ? ORDER BY entry_index\`
+         - EntriesToTurns is NOT used for context command
+         - Each entry (depth=0 and depth=1) gets its own \`[N]\` line
+         - Depth=1 entries are visually indented under their parent
+
+      2. **Project matching (two-tier):**
+         - \`--project X\`: search \`canonical_remote LIKE '%X%'\` first
+         - If no match: fall back to \`basename(canonical_cwd) = X\`
+
+      3. **Bare sessions = help + listing:**
+         - Override cobra's default RunE to print help then run listing
+
+      ### Architecture (revised)
+
+      #### Store layer (internal/store/)
+
+      New methods:
+      \`\`\`go
+      // ListEntriesRange returns entries in [fromIndex, toIndex] for a session.
+      func (s *Store) ListEntriesRange(ctx context.Context, sessionID string, fromIndex, toIndex int) ([]schema.SessionEntry, error)
+
+      // ListSessionsFiltered returns sessions with sort, limit, tag, and project matching.
+      func (s *Store) ListSessionsFiltered(ctx context.Context, f SessionListFilter) ([]SessionRow, error)
+
+      // FirstUserMessage returns ~40 char preview of first user entry.
+      func (s *Store) FirstUserMessage(ctx context.Context, sessionID string) (string, error)
+
+      // MaxEntryIndex returns the highest entry_index for a session (for boundary clamping).
+      func (s *Store) MaxEntryIndex(ctx context.Context, sessionID string) (int, error)
+      \`\`\`
+
+      New types:
+      \`\`\`go
+      type SessionListFilter struct {
+          SessionFilter                    // embed existing (provider, project hash, date range)
+          Tag           *string
+          ProjectName   *string            // matches canonical_remote then canonical_cwd
+          SortField     defaults.SessionSortField
+          SortDesc      bool
+          Limit         int
+      }
+      \`\`\`
+
+      #### Defaults layer (internal/defaults/)
+
+      New file: \`sessions.go\`
+      \`\`\`go
+      type SessionSortField string  // date, turns, tokens, project
+      type ToolCallFormat string    // verbose, compact, quiet (MVP: verbose only)
+      const SessionListDefaultLimit = 20
+      const SessionContextDefaultRadius = 3
+      const SessionPreviewMaxChars = 40
+      \`\`\`
+
+      #### CLI layer (cmd/peasant/)
+
+      Modified: \`cmd_sessions.go\` — add list + context subcommands, R15 bare behavior
+      New: \`cmd_sessions_list.go\` — list command with filters, sort, limit, --json
+      New: \`cmd_sessions_context.go\` — context command with --session, --turn, -C, --json
+
+      #### Output rendering
+
+      Context command entry display:
+      \`\`\`
+      [5] assistant  14:21:05  depth=0  ◀ center
+        Adding tests now.
+
+        [6] tool_use  14:21:06  depth=1  parent=5
+          ┌ Tool: Write(parser_test.go)
+          │ Args: {"content": "..."}
+          │ Result: OK
+          └
+
+        [7] tool_result  14:21:07  depth=1  parent=5
+          ┌ Tool: Write (result)
+          │ OK
+          └
+
+      [8] user  14:22:00  depth=0
+        Perfect, ship it.
+      \`\`\`
+
+      List command table:
+      \`\`\`
+      ID        Date        Project       Turns  Tokens  Preview
+      abc12345  2026-04-08  my-project    42     12.4k   Can you fix the bug in the parser?
+      def45678  2026-04-07  other-proj    18     5.2k    Add error handling to the API...
+      (20 of 127 sessions — use --limit to show more)
+      \`\`\`
+
+      ### MVP scope
+      - R1 (entry_index addressing), R2 (boundary), R3 (no cross-ref needed — entry_index IS the ID)
+      - R5 verbose only (full tool detail with indentation)
+      - R6 (--json single object for context)
+      - R7 + R14 (no-session fallback uses shared list logic)
+      - R8 (table with preview), R9 (project/since/until/provider/tag filters)
+      - R11 (sort + limit), R13 (--json array for list)
+      - R15 (bare sessions = help + listing)
+
+      ### Deferred
+      - R4: --show-full-content
+      - R5 compact/quiet: --format-tool-calls
+      - R10: annotation filtering
+      - R12: --columns flag
+
+      ### Open items for supervisor
+      - Reviewer A noted: error handling for session-not-found, turn ordinal beyond max, zero entries
+      - Reviewer B noted: Unicode safety for 40-char preview truncation
+      - SessionSortField should live in defaults/ only (not duplicated in store/)
+
+      ### Acceptance criteria (from BDD)
+      See PROPOSAL-1 unified-schema-2g0fr for full BDD criteria, but note the UAT revisions:
+      - Context uses entry_index not ordinals
+      - -C radius is in raw entries not folded turns
+      - No folding — each entry is a separate line
+      EOFD
+      )")
+  ⎿  warning: beads.role not configured. Run 'bd init' to set.
+     ✓ Created issue: unified-schema-7a1pj — HANDOFF: Architect → Supervisor for sessions context + list
+       Priority: P2
+       Status: open
+
+● Bash(bd dep add unified-schema-2g0fr --blocked-by unified-schema-7a1pj)
+  ⎿  ✓ Added dependency: unified-schema-2g0fr (PROPOSAL-1: sessions context + sessions list subcommands) depends on unified-schema-7a1pj (HANDOFF: Architect → Supervisor for sessions context + list) (blocks)
+
+● Phases 1-7 complete. The full dependency chain:
+
+  REQUEST (unified-schema-iqybg)
+    └── blocked by ELICIT (unified-schema-6hgok) ✓ closed
+          └── blocked by PROPOSAL-1 (unified-schema-2g0fr) ratified
+                ├── blocked by REVIEW-A (unified-schema-62fku) ACCEPT
+                ├── blocked by REVIEW-B (unified-schema-cb4kh) ACCEPT
+                ├── blocked by REVIEW-C (unified-schema-suqzd) ACCEPT
+                ├── blocked by UAT-1 (unified-schema-a3jex) ACCEPT
+                └── blocked by HANDOFF (unified-schema-7a1pj)
+    └── blocked by ELICIT-list (unified-schema-ik2tn) ✓ closed
+  URD: unified-schema-706en (reference doc)
+</handoff-architect-to-supervisor>
+
+
+<handoff-user-to-external>
+Did we open a GitHub issue for this epoch? That should have been done capturing the REQUEST, URE, URD, and UATs. Assume that readers won't have access to our Beads database: the resulting issue should be self-contained without reference to Beads.
+Make sure it communicates our design space, challenges, decisions, and architecture.
+We should also have a template of an MR to reference in our /protocol materials.
+<handoff-user-to-external>
