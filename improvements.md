@@ -2796,3 +2796,170 @@ Did we open a GitHub issue for this epoch? That should have been done capturing 
 Make sure it communicates our design space, challenges, decisions, and architecture.
 We should also have a template of an MR to reference in our /protocol materials.
 <handoff-user-to-external>
+
+<impl-plan-leaf-tasks>
+● Bash(bd create \
+        --title "IMPL_PLAN: Entity normalization pipeline" \
+        --type task --priority 2 \
+        --labels "aura:p8-impl:s8-plan" \
+        --description "$(cat <<'EOF'
+      ---
+      references:
+        request: bestiary-n6x
+        urd: bestiary-rjf
+        elicit: bestiary-73x
+        proposal: bestiary-1oq
+        handoff: bestiary-28c
+        uat: bestiary-qz7
+      ---
+
+      ## Objective
+      Decompose the ratified PROPOSAL-3 (bestiary-1oq) into vertical slices with explicit horizontal Layer Integration Points. Each slice owns a full vertical
+      (types → tests → impl → wiring) and is implemented by exactly one worker.
+
+      ## Decomposition: 8 Vertical Slices
+
+      ### Slice 1 — parse package + codegen template apply (foundation)
+      Owner files (NEW): `parse.go`, `parse_test.go`, `parse/data/family_overrides.json`, `parse/data/variant_suffixes.json`,
+      `parse/data/version_patterns.json`.
+      Touched: `families_gen.go`, `models_static_gen.go`, `providers_gen.go` (regenerate via `go generate ./...` to apply commit 6a8d75b template fix — must end
+       with `type Family string`, NOT `type Family = string`). `.bestiary-gen-cache/api_response.json` (dirty, will be re-cached).
+
+      Deliverables:
+      - `ParseFamily(raw Family) (Family, string)` — uses overrides table → suffix table → versioned-variant patterns (v/k/m/no-prefix). Hyphen-separated
+      versions (claude-opus-4-5) handled. Empty raw families return zero values.
+      - `ExtractDate(id ModelID, releaseDate string) string` — match YYYYMMDD or YYYY-MM-DD only.
+      - `inferFamilyFromID(id ModelID, p Provider) Family` — fallback for empty-family models (~25%).
+      - Embed JSON via `//go:embed parse/data/*.json` (regular package directory, NOT testdata/).
+      - `go generate ./...` regenerates all `_gen.go` files with named Family type.
+
+      ### Slice 2 — ModelInfo extension + family methods + codegen normalization splice
+      Owner files (NEW): `family.go`, `family_test.go`.
+      Touched: `bestiary.go` (ModelInfo new fields), `cmd/bestiary-gen/main.go` (genToModelInfo at line 524, validateGeneratedFamilyType post-condition).
+
+      Deliverables:
+      - ModelInfo gains `NormalizedFamily Family`, `NormalizedVariant string`, `NormalizedDate string`.
+      - `family.go`: `Family.IsKnown()`, `String()`, `MarshalText()`, `UnmarshalText()` — resolves debt task bestiary-ptm.
+      - Codegen splice: invoke `parse.ParseFamily` + `parse.ExtractDate` in `genToModelInfo()` to bake Normalized fields into `models_static_gen.go`.
+      - `validateGeneratedFamilyType(path)` post-condition runs at end of `run()` and asserts grep for `type Family string` (no `=`).
+      - TestFamilyType_NamedNotAlias regression test in package root.
+
+      ### Slice 3 — ModelRef + canonical + designation + Resolve (public API)
+      Owner files (NEW): `canonical.go`, `designation.go`, `resolve.go`, `canonical_test.go`, `designation_test.go`, `resolve_test.go`.
+      Touched: `modelref.go` (ModelRef gains ID field, becomes 6-field; Format(scheme) dispatch; Designations() method; Stringer uses SchemeCanonical),
+      `errors.go` (NEW *ErrAmbiguous struct error), `errors_test.go`.
+
+      Deliverables:
+      - `CanonicalScheme` int enum: SchemeCanonical | SchemeHuggingFace | SchemePURL | SchemeRaw (UAT Option A formats).
+      - `Designation{Value, Scheme, Provider, Rating}`, `AcceptabilityRating` int enum (Admitted | Preferred | Deprecated). All static designations default to
+      Admitted.
+      - ModelRef 6 fields: ID, Provider, RawFamily, Family, Variant, Date.
+      - ModelRef.Format(scheme), ModelRef.Designations().
+      - `Resolve(input string, opts ...ResolveOption) ([]ModelRef, error)` — slice for cross-provider hosting, *ErrAmbiguous for distinct canonicals,
+      ErrNotFound for zero. WithScheme(s) option.
+
+      ### Slice 4 — Model_ constants generation
+      Owner files (NEW): `cmd/bestiary-gen` additions for `generateConstantsSource()`, `models_constants_gen.go` (generated), `constants_test.go`.
+
+      Deliverables:
+      - New codegen step: emits `Model_<Provider>_<Family>_<Variant>_<Date>?` constants. Underscore-separated component naming. Provider/Family/Harness keep
+      PascalCase.
+      - Two-pass collision algorithm: append disambiguator from raw ID version segment, fall back to `_<n>` sequential suffix.
+      - Skip rule: empty family AND no extractable family from ID → no constant generated.
+      - `Models() []ModelID` returns all generated constants (defensive copy).
+      - Tests: TestModelConstants_Unique, TestModelConstants_RoundTrip, TestModelConstants_NamingStable.
+
+      ### Slice 5 — SQLite v2→v3 migration + QueryByCanonical
+      Owner files (NEW): `migrations/v2_to_v3.sql`.
+      Touched: `store.go` (migrateToV3 mirroring migrateToV2 pattern, currentSchemaVersion bump, scanModelInfo + UpsertModels column-list updates, new
+      QueryByCanonical method), `store_migration_test.go`, `store_test.go`.
+
+      Deliverables:
+      - v2→v3 migration: rename existing `family` → `raw_family`; add `family` (parsed), `variant`, `date` columns; create `idx_canonical ON models(family,
+      variant, provider)`.
+      - Backfill on first migrate: re-run parse logic on existing rows.
+      - QueryByCanonical(ctx, family, variant, date) ([]ModelInfo, error).
+      - Standalone SQL file at `migrations/v2_to_v3.sql` containing equivalent ALTER/CREATE statements (reference doc, not executed by Go code).
+      - Migration test: 5 sub-tests — preserves-data, backfill, idempotent, edge-cases, index-used.
+
+      ### Slice 6 — CLI extensions (bestiary show + bestiary-gen cache flags)
+      Touched: `cmd/bestiary/main.go` (show: --scheme=<canonical|huggingface|purl|raw> flag, auto-detect by prefix, ErrAmbiguous candidate-list rendering),
+      `cmd/bestiary/main_test.go`, `cmd/bestiary-gen/main.go` (--cache-dir <path> and --no-fetch flags), `cmd/bestiary-gen/main_test.go`.
+
+      Deliverables:
+      - `bestiary show <input> [--scheme=...]` resolves via Resolve. Auto-detect default. Prints candidate table on *ErrAmbiguous.
+      - `bestiary-gen --cache-dir <path>` overrides hardcoded `.bestiary-gen-cache/`.
+      - `bestiary-gen --no-fetch` reads cached api_response.json instead of HTTP. Cache miss → actionable error (path, reason, remediation per
+      C-actionable-errors).
+
+      ### Slice 7 — Schema + version + MIGRATION docs
+      Touched: `bestiary.schema.json` (document NormalizedFamily/Variant/Date, ModelRef.ID, Designation array, AcceptabilityRating enum, schema version 0.0.2),
+      `version.go` (BestiarySchemaVersion → "0.0.2", NOT 0.1.0), `schema_test.go`, `version_test.go`. NEW: `MIGRATION_v0.0.1_to_v0.0.2.md`.
+
+      Deliverables:
+      - BestiarySchemaVersion exact string "0.0.2".
+      - bestiary.schema.json conformance test (TestJSONOutput_ConformsToSchema) passes against new fields.
+      - MIGRATION doc: ModelInfo new fields, ModelRef.ID, parse package, SQL column renames, Model_ constants naming, schema version bump.
+
+      ### Slice 8 — Provenance companion PR (separate repo)
+      Repo: `~/codebases/dayvidpham/provenance/` (NOTE: repo root, not under `/main/`).
+      Touched: `pkg/ptypes/enums.go` (Provider.IsValid delegates to bestiary.Provider(p).IsKnown(); MarshalText/UnmarshalText permissive),
+      `pkg/ptypes/enums_test.go`, `models_test.go`, `go.mod` (bump bestiary dependency to v0.0.2 — note: current pin is v0.1.0; if release tag differs from
+      BestiarySchemaVersion, surface back to supervisor).
+
+      Deliverables:
+      - Provider remains a wrapper string type but loses 4-value enforcement.
+      - RegistryFromBestiary unchanged (already a direct cast).
+      - Tests refactored to drop 4-value assumption; add 110-provider validation case.
+      - PR ready for coordinated landing once bestiary v0.0.2 is tagged.
+
+      ## Horizontal Layer Integration Points
+
+      | ID | Owner | Consumers | Contract | Merge Timing |
+      |----|-------|-----------|----------|--------------|
+      | IP-1 | Slice 1 | All slices | `families_gen.go` declares `type Family string` (named type) | After Slice 1 commits & before Slice 2 starts |
+      | IP-2 | Slice 2 | Slices 3, 4, 5, 7 | `ModelInfo.NormalizedFamily/Variant/Date` populated by codegen | After Slice 2 commits |
+      | IP-3 | Slice 3 | Slices 6, 7 | `ModelRef` 6-field shape with `ID ModelID`; `CanonicalScheme` enum; `*ErrAmbiguous` | After Slice 3 commits |
+      | IP-4 | Slice 1 | Slices 2, 4, 6 | `parse.ParseFamily`, `parse.ExtractDate`, `parse.InferFamilyFromID` public API | After Slice 1 commits |
+      | IP-5 | Slice 5 | Slice 7 | `family`/`variant`/`date` columns; `idx_canonical` index | After Slice 5 commits |
+      | IP-6 | Slice 4 | None internal; external Models() | `Model_*` constants + `Models()` API | After Slice 4 commits |
+      | IP-7 | Slice 7 | Slice 8 | `BestiarySchemaVersion = "0.0.2"` ratified; ready for tag | After Slice 7 commits |
+
+      ## Build Wave Order
+
+      - **Wave 1 (parallel)**: Slice 1, Slice 8 (Slice 8 is independent of bestiary internals; only its go.mod bump waits for v0.0.2 tag).
+      - **Wave 2 (depends on Slice 1)**: Slice 2.
+      - **Wave 3 (depends on Slice 2, parallel)**: Slice 3, Slice 4, Slice 5.
+      - **Wave 4 (depends on Slice 3)**: Slice 6.
+      - **Wave 5 (depends on Slice 2-5)**: Slice 7.
+
+      ## Acceptance Criteria (from HANDOFF bestiary-28c)
+      See full list in handoff. All slices must collectively satisfy:
+      - `go vet ./...` and `CGO_ENABLED=0 go test ./...` pass.
+      - families_gen.go declares `type Family string` (named type), confirmed by TestFamilyType_NamedNotAlias.
+      - BestiarySchemaVersion exact string "0.0.2".
+      - MIGRATION_v0.0.1_to_v0.0.2.md exists.
+      - migrations/v2_to_v3.sql exists.
+      - bestiary.schema.json conformance test passes.
+
+      ## Cross-cutting reminders
+      - All commits via `git agent-commit -m "..."` (NEVER `git commit`).
+      - Provider/Family/Harness keep PascalCase (no breaking change). Only Model_* constants use underscore separators.
+      - Schema 0.0.1 → 0.0.2 (NOT 0.1.0).
+      EOF
+      )"
+      )
+  ⎿  ✓ Created issue: bestiary-0ip — IMPL_PLAN: Entity normalization pipeline
+       Priority: P2
+       Status: open
+
+● Bash(bd dep add bestiary-28c --blocked-by bestiary-0ip && echo "OK: HANDOFF blocked-by IMPL_PLAN")
+  ⎿  ✓ Added dependency: bestiary-28c (HANDOFF: Architect → Supervisor for entity normalization) depends on bestiary-0ip (IMPL_PLAN: Entity normalization
+     pipeline) (blocks)
+     OK: HANDOFF blocked-by IMPL_PLAN
+
+● Now creating 8 slices with L1/L2/L3 leaf tasks each. Doing it as a single shell sequence to capture and chain task IDs.
+  ⎿  Interrupted · What should Claude do instead?
+
+❯ They don't NEED to have ONLY 3 leaf tasks. They can have as many leaf tasks as makes sense.
+</impl-plan-leaf-tasks>
