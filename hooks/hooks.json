@@ -1,5 +1,5 @@
 {
-  "description": "Aura plugin hooks — injects beads workflow context on session start and before compaction",
+  "description": "Aura plugin hooks — injects beads workflow context on session start, registers sessions, and enforces shared-worktree git discipline for worker agents.",
   "hooks": {
     "SessionStart": [
       {
@@ -28,6 +28,18 @@
           {
             "type": "command",
             "command": "cat ${CLAUDE_PLUGIN_ROOT}/hooks/bd-prime.md 2>&1"
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash ${CLAUDE_PLUGIN_ROOT}/hooks/scripts/git-discipline.sh",
+            "timeout": 10
           }
         ]
       }

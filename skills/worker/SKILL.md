@@ -466,3 +466,103 @@ bd update <task-id> --status=blocked
 bd update <task-id> --notes="Blocked: <reason>. Need: <dependency or clarification>"
 ```
 
+## Shared-Worktree Git Discipline (BINDING)
+
+Workers commonly run in parallel against a **shared worktree**. The git
+working tree, the index, and the stash are global to that worktree —
+anything one worker does there is visible to (and can destroy) every
+other worker. Two real incidents during the unified-pasture-workflow-record
+epic (`aura-plugins-eauj6`) lost peer-worker work:
+
+- **S4 wipe (first instance):** A parallel worker ran `git reset --hard HEAD`
+  mid-run, wiping S4's staged changes. S4 was recovered via
+  `git fsck --unreachable` but the recovery was costly and luck-dependent.
+- **W5 wipe of W3 (second instance, Phase 10 fix wave):** Worker W5,
+  cleaning what they perceived as stale stash content, ran
+  `git checkout HEAD -- internal/tasks/...` which wiped W3's mid-flight
+  work on `free_floating.go`. W5's own commit was scope-clean, but the
+  pre-commit cleanup was destructive to a peer in the shared worktree.
+
+Recurring lesson: when a worker sees unexpected files in the working tree,
+the correct response is **coordinate**, not **clean up**. Those files
+likely belong to a peer worker who is still mid-flight.
+
+### Forbidden git operations in shared worktrees
+
+The following commands are **forbidden** for workers operating in a
+shared worktree, because they can silently destroy work belonging to
+peers running in parallel:
+
+- `git reset --hard ...` — discards every uncommitted change in the
+  worktree, including peer-worker WIP.
+- `git checkout HEAD -- <path>` (or `git restore --source=HEAD <path>`)
+  for any path **outside your declared slice scope** — overwrites peer
+  files with the committed version.
+- `git stash pop` — pops onto the shared working tree. The popped stash
+  may contain another worker's foreign work, which then looks like
+  yours and gets misattributed.
+- `git stash apply` — same hazard as `pop`. Forbidden for the same
+  reason.
+- `git clean -fd` (and `-fdx`) — deletes untracked files, including
+  peer-worker untracked WIP.
+- `git branch -D <name>` — force-deletes a branch that may still hold
+  the only ref to peer work.
+- `git rebase --abort` — only forbidden when others depend on the
+  branch; if you are alone on the branch, it is fine.
+
+A PreToolUse hook (`hooks/scripts/git-discipline.sh`) blocks these
+patterns at the Bash-tool level when `AURA_ROLE=worker`. Treat the hook
+as a backstop, not as permission to attempt the operation — your skill
+instructions are the primary authority.
+
+### Stage files individually by name
+
+When committing, stage files by name rather than sweeping the whole
+worktree:
+
+```bash
+# Correct — only your slice's files end up in the commit
+git add cmd/feature/list.go pkg/feature/service.go pkg/feature/types.go
+git agent-commit -m "feat(feature): add list subcommand"
+
+# Wrong — sweeps any peer-worker WIP in the worktree into your commit
+git add .
+git add -A
+git commit -am "..."  # also forbidden: never use git commit, see C-agent-commit
+```
+
+If `git status` shows files you don't recognise, **do not** stage them
+and **do not** clean them up. They are almost certainly peer-worker WIP.
+See "If you find peer work in your way" below.
+
+### If you find peer work in your way
+
+When you discover changes in the worktree that you didn't make and
+that block your fix:
+
+1. **Do not** run any destructive git operation. Do not `reset`,
+   do not `checkout HEAD --`, do not `clean -fd`, do not `stash pop`.
+2. Post a coordination comment on your own slice task:
+   ```bash
+   bd comments add <your-task-id> "Blocked: peer-worker changes present in <files>. Need supervisor coordination before I can proceed."
+   ```
+3. Wait for the supervisor to direct the resolution. The supervisor
+   will either tell you which files to leave alone, ask the peer worker
+   to commit-or-stash their work, or split the slice.
+4. If you genuinely need to run a forbidden command (for example,
+   resolving a merge conflict on a branch where you are the only
+   worker), the hook supports an explicit escape hatch:
+   ```bash
+   BYPASS_GIT_DISCIPLINE=1 git reset --hard <commit>
+   ```
+   Set the env var only for the single command you need to run, and
+   record in your slice's `bd comments add` why the bypass was needed.
+
+### Why this is enforced at the skill + hook level
+
+Every worker is told these rules in their skill prose. The hook exists
+because the rules have already been violated twice in real epics, with
+real data loss. The hook denies the action and the worker still has to
+decide what to do — but it converts a silent destructive action into a
+visible block, which is what a shared worktree needs.
+
