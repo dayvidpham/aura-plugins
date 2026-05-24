@@ -126,6 +126,26 @@ workflows. The skill-bodies migration in §2b is what eventually lets the
 `/aura:*` skills stop reaching for `bd` directly and use `pasture task`
 instead.
 
+### Python `aura_protocol` is deprecated; Go (Pasture) is canonical
+
+As of 2026-05-20, the Python prototype at `aura-plugins/scripts/aura_protocol/`
+is **deprecated**. The Go port (Pasture) has absorbed every substrate concern
+and is the only implementation that runs in any deployment. The two
+implementations are now intentionally forked at the Temporal search-attribute
+wire-name level (Python keeps `Aura*`; Go uses `Pasture*` per
+[`aura-plugins-fb658`](beads://aura-plugins-fb658)) — see
+[`scripts/aura_protocol/DEPRECATED.md`](../../scripts/aura_protocol/DEPRECATED.md)
+in the parent repo and
+[`docs/PYTHON_TO_GO_MIGRATION.md`](PYTHON_TO_GO_MIGRATION.md) for the
+inventory of what's ported, what's drifted, and the reconciliation policy.
+
+Three open audits track the path to a clean Python archival:
+[`aura-plugins-mh4ek`](beads://aura-plugins-mh4ek) (constraint parity),
+[`aura-plugins-5wbhm`](beads://aura-plugins-5wbhm) (codegen authority),
+and [`aura-plugins-naupi`](beads://aura-plugins-naupi) (the deprecation
++ skill drift doc itself). Until those close, the Python tree stays
+in-place as a read-only reference.
+
 ---
 
 ## §1. Observability + smoke-test infrastructure
