@@ -49,7 +49,85 @@ context.
 
 ---
 
-## §1. Smoke-test infrastructure gaps
+## §0. Design context (what this roadmap is and isn't)
+
+A few load-bearing distinctions the roadmap rests on. These are documented
+here so future readers don't re-derive (or worse, misframe) them:
+
+### Why Temporal: observability + introspection
+
+Temporal was selected as the workflow substrate **specifically because it
+provides the observability and introspection surface the toolkit needs**.
+There is no separate Pasture-side "introspection layer" left to build. The
+Temporal stack already gives:
+
+- **Live state** — `pasture-msg query state` queries the running workflow
+  via Temporal's workflow-query API.
+- **Filterable cross-workflow listing** — six search attributes upserted on
+  every workflow (`AuraEpochId`, `AuraPhase`, `AuraRole`, `AuraStatus`,
+  `AuraDomain`, `AuraLastEventType`) make any open epoch greppable.
+- **UI + history replay** — the Temporal UI + `temporal workflow show`
+  provide per-workflow timelines and event histories with zero code on our
+  side.
+- **Durable substrate** — `pasture.db` (`audit_events` + `context_edges`)
+  holds the canonical record outside of Temporal's retention window.
+
+The **join key** that makes these layers coherent is the D5/R13 binding from
+PROPOSAL-2: `epoch-id = Provenance TaskID = Temporal workflow ID =
+audit_events context key`. One string flows through the whole stack without
+translation. §7.12's malformed-epoch-id rejection exists precisely to
+preserve this alignment — losing it would break the introspection surface.
+
+What's tracked on this roadmap, then, is not the introspection layer itself
+(that's done) but **convenience wrappers + missing audits + deferred items
+the original PROPOSAL-2 carved out as future scope**.
+
+### Code generation vs runtime context injection
+
+Two distinct concerns the system handles separately:
+
+- **Code generation (build time)**: protocol schema → SKILL.md headers. The
+  original is `aura-plugins/scripts/aura_protocol/gen_skills.py` (Python).
+  The Go port at `pasture/internal/codegen/skills.go` is live; whether it's
+  now authoritative or still subordinate to Python is the
+  [`aura-plugins-5wbhm`](beads://aura-plugins-5wbhm) audit.
+- **Runtime context injection (session time)**: "load the right phase /
+  role context into a Claude session at the current workflow position." This
+  is *not* a missing Go layer. The session loads the right `/aura:*` skill;
+  Temporal SAs answer "which phase / role are we at"; the SKILL.md author
+  decides what context that skill carries. The bridge between "Temporal says
+  phase=elicit" and "load the elicit-stage skill" can be implicit (user
+  invokes the matching slash command) or explicit (a SessionStart hook —
+  tracked as [`aura-plugins-oo359`](beads://aura-plugins-oo359)).
+
+### Pasture vs Beads vs Provenance — the three task trackers
+
+For new contributors: the three names are not synonyms.
+
+- **Beads (`bd`)**: the meta-tracker for the aura-plugins project itself
+  (issues, dependencies, sync) — see `aura-plugins/CLAUDE.md`. Used for
+  managing the work that builds the toolkit.
+- **Provenance**: the embedded PROV-O task-graph library
+  (`github.com/dayvidpham/provenance`) — used by `protocol.TaskTracker` to
+  store tasks, edges, labels, comments, agents, activities inside
+  `pasture.db`. Domain-pure; ELICIT C4 binds us not to modify it.
+- **Pasture**: the human-facing toolkit (`pasture` / `pasture-msg` /
+  `pastured`) that composes Provenance + the audit subsystem + Temporal
+  workflows into a single unified workflow record. This is the system the
+  ROADMAP tracks.
+
+Pasture was chosen over extending Beads because Beads's model is
+issue-centric (good for project management) while Pasture's model is
+workflow-centric (REQUEST → ELICIT → PROPOSAL → … → LANDING, with phase
+brackets, audit events, and context edges). The two coexist: Beads tracks
+the work of building Pasture; Pasture tracks the work of running aura
+workflows. The skill-bodies migration in §2b is what eventually lets the
+`/aura:*` skills stop reaching for `bd` directly and use `pasture task`
+instead.
+
+---
+
+## §1. Observability + smoke-test infrastructure
 
 | Status | Item | Beads | Notes |
 |---|---|---|---|
@@ -57,6 +135,9 @@ context.
 | 🟡 | **1b. Hook-fired free-floating event recording smoke** | (not yet filed) | A real Claude Code session firing PreToolUse / PostToolUse hooks against the toolkit; assert that `audit_events` accrues `context_kind=GitContext` / `SessionContext` rows. PROPOSAL-2 §11 Scenario 6 covers this in unit tests. |
 | 🟡 | **1c. `git-discipline.sh` PreToolUse hook soak verification** | (not yet filed) | Replay the two known destructive-git incidents from this epic (S4 wipe of original; W5 wipe of W3) through the deployed hook; confirm 100% catch rate. Add allowlist exemptions if false-positives surface on normal worker activity. |
 | 🟡 | **1d. `pasture-migrate-crash` CI integration audit** | (not yet filed) | Verify that the Scenario-11 crash-recovery binary is actually exercised by `make test-race` in CI; add an explicit CI assertion if not. |
+| 🟡 | **1e. Unified "where am I" status command** | [`aura-plugins-punit`](beads://aura-plugins-punit) | Today `pasture-msg query state` (live, via Temporal) + `pasture task events/timeline` (durable, via `pasture.db`) require two CLIs and a mental join on epoch-id. A `pasture status <epoch-id>` consolidation would render one human + JSON view. The pieces are already coherent because of the D5/R13 binding (see §0); this is a UX consolidation, not a missing capability. |
+| 🟡 | **1f. Constraint coverage audit — 26 C-* checks** | [`aura-plugins-mh4ek`](beads://aura-plugins-mh4ek) | The Python `aura_protocol/constraints.py` has 26 C-* runtime checks. The Go side has `ActivityCheckConstraints` wired in the workflow, but a coverage table — for each C-*, is it present on the Go side and is it tested — hasn't been produced. Defense-in-depth audit. |
+| 🟡 | **1g. Codegen authority audit** | [`aura-plugins-5wbhm`](beads://aura-plugins-5wbhm) | Two SKILL.md generators exist: `aura-plugins/scripts/aura_protocol/gen_skills.py` (Python, original) and `pasture/internal/codegen/skills.go` (Go, port). Document which one is authoritative for live regeneration. If both run, deprecate one. Build-time concern; not user-visible. |
 
 ## §2. Deferred roadmap items (PROPOSAL-2 §12)
 
@@ -82,6 +163,7 @@ Low priority; fold into the next CLI cycle.
 |---|---|---|---|
 | 🟡 | **3a. `pasture task events --task-id` alias** | (not yet filed) | Supported filters are `--epoch-id`, `--context-id`, `--context-kind`, `--agent`. Users may reach for `--task-id` from the mental model. Possible fix: add `--task-id` as alias for `--epoch-id` (epoch IDs ARE task IDs per D5), OR clarify the help text. |
 | 🟡 | **3b. `pasture task comment add` auto-default-author** | (not yet filed) | Currently requires `--author <wire-format AgentID>` — end-users without a registered agent can't comment. Possible fix: auto-register a "cli-default" agent on first comment-add, OR document the agent-registration step prominently in CLI help. |
+| 🟡 | **3c. SessionStart hook — auto-load phase-context from Temporal SAs** | [`aura-plugins-oo359`](beads://aura-plugins-oo359) | When a Claude Code session opens in a worktree associated with an open epoch, read the workflow's `AuraPhase` / `AuraRole` SAs and either *suggest* the matching `/aura:*` skill (safer) or *auto-load* it (more magical). Needs a story for "which epoch is this worktree tied to?" — likely a per-worktree `.pasture/epoch-id` marker, or the aura-swarm one-worktree-per-epoch convention. Lives in the parent `aura-plugins/hooks/` directory, not inside `pasture/`. |
 
 ## §4. Discoveries during roadmap execution
 
