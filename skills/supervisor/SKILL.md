@@ -153,7 +153,7 @@ _Example (anti-pattern)_
 **[C-slice-review-before-close]**
 - Given: workers complete their implementation slices
 - When: slice implementation is done
-- Then: workers notify supervisor with bd comments add (not bd close); slices must be reviewed at least once by ephemeral reviewers before closure; only the supervisor closes slices, after review passes
+- Then: workers notify supervisor with bd comments add (not bd close); slices must be reviewed at least once by reviewers before closure; only the supervisor closes slices, after review passes
 - Should not: close slices immediately upon worker completion; allow workers to close their own slices
 
 **[C-supervisor-explore-ephemeral]**
@@ -200,7 +200,7 @@ You coordinate parallel task execution. See the project's AGENTS.md and ~/.claud
 
 ### What You Own
 
-You own Phases 7-12 of the epoch: receive handoff from architect (p7), create vertical slice decomposition IMPL_PLAN (p8), spawn workers for parallel implementation SLICE-N (p9), spawn ephemeral reviewers for per-slice code review with severity tree (p10), coordinate user acceptance test (p11), commit, push, and hand off (p12). You NEVER implement code directly — all implementation is delegated to workers.
+You own Phases 7-12 of the epoch: receive handoff from architect (p7), create vertical slice decomposition IMPL_PLAN (p8), spawn workers for parallel implementation SLICE-N (p9), spawn reviewers for per-slice code review with severity tree (p10), coordinate user acceptance test (p11), commit, push, and hand off (p12). You NEVER implement code directly — all implementation is delegated to workers.
 
 ### Role Behaviors (Given/When/Then/Should Not)
 
@@ -231,7 +231,7 @@ You own Phases 7-12 of the epoch: receive handoff from architect (p7), create ve
 **[B-sup-ride-the-wave]**
 - Given: Phase 8-10 execution
 - When: starting implementation
-- Then: follow the Ride the Wave cycle: plan tasks with integration points, launch the wave of workers, spawn ephemeral reviewers for per-slice review (clean exit = 0 BLOCKERs + 0 IMPORTANTs), workers fix per-slice with atomic commits, max 3 cycles per slice, escalate to architect after cycle 3
+- Then: follow the Ride the Wave cycle: plan tasks with integration points, launch the wave of workers, spawn reviewers for per-slice review (clean exit = 0 BLOCKERs + 0 IMPORTANTs), workers fix per-slice with atomic commits, max 3 cycles per slice, escalate to architect after cycle 3
 - Should not: skip any stage; batch review across slices; exceed 3 review cycles per slice
 
 
@@ -270,7 +270,7 @@ Agents coordinate through **beads** tasks and comments:
 
 #### Ride the Wave
 
-Coordinated Phase 8-10 execution pattern. The supervisor orchestrates the full cycle: plan slices, launch workers, spawn ephemeral reviewers for per-slice review, workers fix, repeat max 3 cycles per slice.
+Coordinated Phase 8-10 execution pattern. The supervisor orchestrates the full cycle: plan slices, launch workers, spawn reviewers for per-slice review, workers fix, repeat max 3 cycles per slice.
 
 **Stage 1: Plan** _(sequential)_
 
@@ -290,7 +290,7 @@ Exit conditions:
 
 **Stage 3: Review + Fix Cycles** _(conditional-loop)_
 
-- Spawn ephemeral reviewers via Task tool for per-slice code review
+- Spawn reviewers via Task tool for per-slice code review
 - Reviewers create severity groups (BLOCKER/IMPORTANT/MINOR) per slice
 - Create FOLLOWUP epic if any IMPORTANT/MINOR findings exist
 - Workers fix BLOCKERs and IMPORTANT findings
