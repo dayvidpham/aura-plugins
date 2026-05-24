@@ -111,11 +111,11 @@ on every transition:
 
 | Attribute key | Type | Value |
 |---|---|---|
-| `AuraEpochId` | text | epoch identifier (immutable, set once) |
-| `AuraPhase` | keyword | current `PhaseId` value (e.g. `"p9"`) |
-| `AuraRole` | keyword | current `RoleId` value |
-| `AuraStatus` | keyword | `"running"` or `"complete"` |
-| `AuraDomain` | keyword | domain tag (`"user"`, `"plan"`, `"impl"`, or `""`) |
+| `PastureEpochId` | text | epoch identifier (immutable, set once) |
+| `PasturePhase` | keyword | current `PhaseId` value (e.g. `"p9"`) |
+| `PastureRole` | keyword | current `RoleId` value |
+| `PastureStatus` | keyword | `"running"` or `"complete"` |
+| `PastureDomain` | keyword | domain tag (`"user"`, `"plan"`, `"impl"`, or `""`) |
 
 **Signals:**
 

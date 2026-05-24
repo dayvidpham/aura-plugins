@@ -64,8 +64,9 @@ Temporal stack already gives:
 - **Live state** — `pasture-msg query state` queries the running workflow
   via Temporal's workflow-query API.
 - **Filterable cross-workflow listing** — six search attributes upserted on
-  every workflow (`AuraEpochId`, `AuraPhase`, `AuraRole`, `AuraStatus`,
-  `AuraDomain`, `AuraLastEventType`) make any open epoch greppable.
+  every workflow (`PastureEpochId`, `PasturePhase`, `PastureRole`,
+  `PastureStatus`, `PastureDomain`, `PastureLastEventType`) make any open
+  epoch greppable.
 - **UI + history replay** — the Temporal UI + `temporal workflow show`
   provide per-workflow timelines and event histories with zero code on our
   side.
@@ -163,7 +164,7 @@ Low priority; fold into the next CLI cycle.
 |---|---|---|---|
 | 🟡 | **3a. `pasture task events --task-id` alias** | (not yet filed) | Supported filters are `--epoch-id`, `--context-id`, `--context-kind`, `--agent`. Users may reach for `--task-id` from the mental model. Possible fix: add `--task-id` as alias for `--epoch-id` (epoch IDs ARE task IDs per D5), OR clarify the help text. |
 | 🟡 | **3b. `pasture task comment add` auto-default-author** | (not yet filed) | Currently requires `--author <wire-format AgentID>` — end-users without a registered agent can't comment. Possible fix: auto-register a "cli-default" agent on first comment-add, OR document the agent-registration step prominently in CLI help. |
-| 🟡 | **3c. SessionStart hook — auto-load phase-context from Temporal SAs** | [`aura-plugins-oo359`](beads://aura-plugins-oo359) | When a Claude Code session opens in a worktree associated with an open epoch, read the workflow's `AuraPhase` / `AuraRole` SAs and either *suggest* the matching `/aura:*` skill (safer) or *auto-load* it (more magical). Needs a story for "which epoch is this worktree tied to?" — likely a per-worktree `.pasture/epoch-id` marker, or the aura-swarm one-worktree-per-epoch convention. Lives in the parent `aura-plugins/hooks/` directory, not inside `pasture/`. |
+| 🟡 | **3c. SessionStart hook — auto-load phase-context from Temporal SAs** | [`aura-plugins-oo359`](beads://aura-plugins-oo359) | When a Claude Code session opens in a worktree associated with an open epoch, read the workflow's `PasturePhase` / `PastureRole` SAs and either *suggest* the matching `/aura:*` skill (safer) or *auto-load* it (more magical). Needs a story for "which epoch is this worktree tied to?" — likely a per-worktree `.pasture/epoch-id` marker, or the aura-swarm one-worktree-per-epoch convention. Lives in the parent `aura-plugins/hooks/` directory, not inside `pasture/`. |
 
 ## §4. Discoveries during roadmap execution
 
