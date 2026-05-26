@@ -30,7 +30,8 @@ references:
 |---|---|---|---|
 | Pre-URE | 2026-05-25 | PROPOSAL-1 strawman drafted before URE. User feedback: process violation — URE should precede proposal. | Doc renamed to PROPOSAL-1; frontmatter re-flagged as pre-URE strawman; REQUEST + ELICIT bd tasks filed. |
 | URE | 2026-05-25 | All 9 URE questions answered (3 pre-URE-strawman + 6 proper URE). Verbatim outputs on [`aura-plugins-blh3a`](beads://aura-plugins-blh3a). | Drafted as PROPOSAL-2 (this doc). |
-| Round 1 | TBD | 3-reviewer cycle (correctness / coverage / elegance) | TBD |
+| Round 1 | 2026-05-25 | A=ACCEPT, **B=REVISE (3 findings)**, C=ACCEPT. Reviewer tasks: [`aura-plugins-aepwv`](beads://aura-plugins-aepwv) / [`aura-plugins-29xsd`](beads://aura-plugins-29xsd) / [`aura-plugins-e7475`](beads://aura-plugins-e7475). | Axis B's 3 findings all valid + actionable. Applied in place: (1) §5.1 Fidelity template gains **F6** (constraint-deference rule auto-verdicts as `superseded`) — load-bearing for `fzctk`'s Q2 outcome that was dropped in PROPOSAL-2's restructure from PROPOSAL-1; (2) §1 gains a paragraph listing 6 non-audit `cmvu5` children with exclusion rationale + flags `64mld` as reconciliation-flavored future audit; (3) §3.5 added — inter-wave residual-escalation checkpoint policy closes the "Wave 1 residual filed-but-not-resolved while Wave 2 launches on stale ground" gap. |
+| Round 2 | TBD | 3-reviewer cycle (re-run all 3 axes) | TBD |
 | UAT | TBD | User ACCEPT/REVISE | TBD |
 
 ### URE outputs (locked into PROPOSAL-2)
@@ -66,6 +67,8 @@ PROPOSAL-2 covers **6 audits + 1 separate-track REQUEST**. Two of the audits (`m
 **Why `mh4ek` and `5wbhm` are out-of-cascade but still in this plan:** The user direction was to fold them in for taxonomy/process uniformity. They're flagged because their completion isn't gating `jbnx3` closure — if `ow0pq` is ready to triage before `mh4ek`/`5wbhm` finish, that's fine. They proceed in parallel without holding up the cascade.
 
 **4 peer epics excluded from this plan** (their own implementation workflows): [`bch`](beads://aura-plugins-bch) (R3), [`6ujr`](beads://aura-plugins-6ujr) (R4), [`rk2su`](beads://aura-plugins-rk2su) (R4 followup), [`x5071`](beads://aura-plugins-x5071) (R5-adjacent). They appear in `ow0pq`'s dep graph but are tracked separately.
+
+**6 non-audit `cmvu5` children also excluded** (not audit-shaped per §2 taxonomy — they're features, bugs, or administrative tasks rather than investigations): [`oo359`](beads://aura-plugins-oo359) (SessionStart hook auto-load — feature), [`punit`](beads://aura-plugins-punit) (unified status command — feature), [`kv0od`](beads://aura-plugins-kv0od) (multi-vendor extensibility — post-`jbnx3` scope), [`64mld`](beads://aura-plugins-64mld) (v1/v2/v3/v4 doc reframing — **reconciliation-flavored**; upgrade to a `reconciliation` audit per §5.8 placeholder if its scope expands beyond mechanical doc edits), [`e86ea`](beads://aura-plugins-e86ea) (ROADMAP refresh — administrative), [`x45ho`](beads://aura-plugins-x45ho) (PROV-O `activities` table bug — bug fix). The 3 closed `cmvu5` children (`naupi`, `cn5ax`, `fb658`) are already landed.
 
 ## §2. Audit type taxonomy (8 types)
 
@@ -118,6 +121,19 @@ Types 7 and 8 get a structural placeholder in §5 (not a full template). The use
 
 **Why `6l5yo` is parallel throughout:** Implementation work runs on its own REQUEST workflow. No dependency on the audit cadence.
 
+## §3.5. Inter-wave residual-escalation checkpoint
+
+The UAT gates in §4 (A3 residual provenance) require residuals to be *filed* before a wave's audit task closes, but not *resolved*. If a Wave 1 residual materially changes a downstream wave's scope — e.g., `qzr8a` surfaces that a stale REQUEST should be reopened and that REQUEST's content overlaps with `fzctk`'s fragment scope — Wave 2 would launch on stale ground.
+
+**Policy:** After each wave's UAT ACCEPT, the architect (handing off to the next wave) performs a 1-step scope-impact check:
+
+1. **List residuals** filed during the wave (`bd list --label=aura:residual --status=open` filtered to those with `discovered-from:<wave-audit-id>`).
+2. **Judge per residual:** does its scope *materially* change any downstream wave's input list, verdict vocabulary, or success criteria?
+3. **If YES:** pause the affected downstream wave and file a mini-URE bd task (label `aura:audit-mini-ure`) scoped to "does this residual change the wave's plan, and how?". Resolve the mini-URE (user signoff) before launching the downstream wave. Update the relevant §5 in-use instantiation if needed.
+4. **If NO (the common case):** proceed to the next wave without delay; log the no-impact judgment in the wave's UAT artifact.
+
+Most residuals will be NO — `qzr8a` closing 18 stale items shouldn't affect `fzctk`'s fragment scope *unless* one of the closed items was specifically about SKILL.md provenance (e.g., `bwfqm` — the aurad+aura-msg URD — is exactly this case, which is why qzr8a runs in Wave 1 before fzctk in Wave 2). The check is cheap, takes ~5 minutes per wave transition, and catches the rare case where a residual genuinely re-shapes downstream work.
+
 ## §4. Cross-cutting URE/UAT template
 
 Every audit URE asks (at minimum) these 5 standard questions. Audit-specific URE additions in §5 layer on top. All audits go through (at minimum) these 5 standard UAT gates.
@@ -161,6 +177,7 @@ Each subsection has:
 | **F3. Distortion threshold** | Paraphrase-equivalent OK or byte-for-byte? | Paraphrase-equivalent OK *if* operational instruction is preserved |
 | **F4. Distorted-fragment handling** | File bd fix task, edit Go literal directly, or flag for next codegen revision? | File bd fix tasks; do not edit during audit (audit = read-only) |
 | **F5. Irrelevant-fragment handling** | ROADMAP §0 cross-ref entry for irrelevant fragments? | Yes — irrelevant fragments deserve a "why this isn't carried" note |
+| **F6. Constraint-deference rule** | When a fragment defers to a C-* constraint (per the `fzctk` URE Q2 outcome — the constraint is the canonical SoT), how is the fragment verdicted? | Auto-verdict as `superseded` — the constraint *is* the captured content via a different mechanism; absence of the prose itself isn't a distortion. Pairs with §5.1's `fzctk` in-use override (F4 maps `superseded` to a ROADMAP §0 entry citing the replacement mechanism). |
 
 **Type template — UAT additions:**
 
