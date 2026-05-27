@@ -32,7 +32,8 @@ references:
 | URE | 2026-05-25 | All 9 URE questions answered (3 pre-URE-strawman + 6 proper URE). Verbatim outputs on [`aura-plugins-blh3a`](beads://aura-plugins-blh3a). | Drafted as PROPOSAL-2 (this doc). |
 | Round 1 | 2026-05-25 | A=ACCEPT, **B=REVISE (3 findings)**, C=ACCEPT. Reviewer tasks: [`aura-plugins-aepwv`](beads://aura-plugins-aepwv) / [`aura-plugins-29xsd`](beads://aura-plugins-29xsd) / [`aura-plugins-e7475`](beads://aura-plugins-e7475). | Axis B's 3 findings all valid + actionable. Applied in place: (1) §5.1 Fidelity template gains **F6** (constraint-deference rule auto-verdicts as `superseded`) — load-bearing for `fzctk`'s Q2 outcome that was dropped in PROPOSAL-2's restructure from PROPOSAL-1; (2) §1 gains a paragraph listing 6 non-audit `cmvu5` children with exclusion rationale + flags `64mld` as reconciliation-flavored future audit; (3) §3.5 added — inter-wave residual-escalation checkpoint policy closes the "Wave 1 residual filed-but-not-resolved while Wave 2 launches on stale ground" gap. |
 | Round 2 | 2026-05-25 | **A=ACCEPT, B=ACCEPT, C=ACCEPT** — consensus reached. Reviewer tasks: [`aura-plugins-85v8o`](beads://aura-plugins-85v8o) / [`aura-plugins-gr8fy`](beads://aura-plugins-gr8fy) / [`aura-plugins-dnhiq`](beads://aura-plugins-dnhiq). | None — proposal proceeds to UAT. Reviewer A verified F6 framing + §1 spot-checks + §3.5 `bwfqm` load-bearing. Reviewer B confirmed all 3 Round 1 findings resolved; 2 minor new observations (oo359/punit future-migration, §3.5 new-audit-discovery) intentionally out-of-scope, not blocking. Reviewer C confirmed clean integration (F6 in URE-table pattern; §1 paragraph parallel to peer-epic exclusion; §3.5 correctly top-level not inlined under §4 A3); ~15% doc growth in budget. |
-| UAT | TBD | User ACCEPT/REVISE | TBD |
+| UAT-1 | 2026-05-25 | **ACCEPT with 2 overrides.** [`aura-plugins-h59t1`](beads://aura-plugins-h59t1). User walked through §7 one-at-a-time. Defaults accepted: UAT1 (Wave-1 alongside), UAT2 (`docs/audits/`), UAT5 (6l5yo filed now in parallel with Wave 1 — user revised this from initial "delayed" answer back to default), UAT6 (both P3). Overrides applied: **UAT3** (all 6 ELICITs at once after ratify, vs default per-wave); **UAT4** (3-form + structured residuals appendix, vs default 3-form only). Catch-all: "No additional feedback." | Applied UAT3 + UAT4 overrides in place: §7 table updated to mark each item RATIFIED with verbatim user choice; §4 gains R-row residuals-appendix sub-policy (applies to F-A5/T-A5/S-A5 where R-row verdict is DONE-with-residuals-filed or NOT-DONE). |
+| Ratify | 2026-05-25 | **RATIFIED.** All 9 phases of meta-plan settled (REQUEST → URE → PROPOSAL → 2 review rounds → UAT → ratify). PROPOSAL-2 is now the authoritative spec. Ratify label + comment land on [`aura-plugins-blh3a`](beads://aura-plugins-blh3a) (the ELICIT, which doubled as proposal tracker since the proposal artifact is this doc, not a separate bd task). | Phase 7 handoff: architect files 6 per-audit ELICIT bd tasks (UAT3 override → all 6 at once) + 1 6l5yo REQUEST+ELICIT (UAT5 → now in parallel). Audit execution begins (Wave 1: 3iz51 + qzr8a + mh4ek + 5wbhm parallel). |
 
 ### URE outputs (locked into PROPOSAL-2)
 
@@ -157,6 +158,18 @@ Every audit URE asks (at minimum) these 5 standard questions. Audit-specific URE
 | **A3. Residual provenance** | Every residual is filed per U3 policy with `discovered-from:<audit-id>` (or equivalent). |
 | **A4. ROADMAP synchronization** | `docs/ROADMAP.md` reflects the audit's outcome. |
 | **A5. Audit task closes** | Audit's bd task closes with a one-line summary; `ow0pq` re-checks readiness if applicable. |
+
+### R-row residuals-appendix sub-policy (RATIFIED per UAT4)
+
+For audits with R-row impact (`fzctk` → R1, `qzr8a` → R1/R2, `h2zd9` → R5), the §5 type-template `F-A5` / `T-A5` / `S-A5` gates require an extra structured-appendix step **when** the R-row verdict is `DONE-with-residuals-filed` or `NOT-DONE-residuals-block-R<N>`:
+
+| Verdict | Appendix requirement |
+|---|---|
+| `R<N> status: DONE` | No appendix. The verdict line stands alone. |
+| `R<N> status: DONE-with-residuals-filed` | **Attach appendix:** for each filed residual, one row `[bd-task-id | 1-line summary | severity]`. The R-row closes; residuals tracked separately. |
+| `R<N> status: NOT-DONE-residuals-block-R<N>` | **Attach appendix:** same row format. The R-row stays open; appendix is the to-do list for closing it. |
+
+Audits without R-row impact (`mh4ek`, `5wbhm`, `3iz51`) don't produce an R-row verdict line, so this sub-policy doesn't apply to them.
 
 ---
 
@@ -366,18 +379,20 @@ Per URE U3: standard 3 axes.
 
 **Reviewer spawn:** `general-purpose` subagents via Task tool, each instructed to first invoke `/aura:reviewer` skill, then read PROPOSAL-2 + this revision-log + URE outputs from `blh3a`.
 
-## §7. Open questions for UAT signoff
+## §7. UAT-1 outcomes (RATIFIED 2026-05-25)
 
-These persist past reviewer consensus to UAT. Items the reviewer cycle won't decide because they're user judgment calls:
+Per the UAT-1 walk-through on `aura-plugins-h59t1`, the user resolved each §7 item explicitly. **DEFAULT** = ratified the proposal's default; **OVERRIDE** = chose an alternative.
 
-| # | Question | Default proposal |
-|---|---|---|
-| **UAT1. Wave-1 mh4ek/5wbhm parallelism** | OK that out-of-cascade audits run in Wave 1, or should they wait until in-cascade Wave 1 finishes? | Run in Wave 1 (zero contention). |
-| **UAT2. Audit artifact directory** | `docs/audits/<id>-<slug>.md` (new dir) or different location? | `docs/audits/` — created lazily by first audit. |
-| **UAT3. Per-audit ELICIT timing** | File all 6 ELICIT tasks at once after ratify, or per-wave as we approach each? | Per-wave — defer Wave 2/3 ELICIT filing until Wave 1 lands (qzr8a outputs may inform fzctk URE). |
-| **UAT4. R-row verdict format** | Standardize the one-line R-row verdict format? | "R<N> status: DONE / DONE-with-residuals-filed / NOT-DONE-residuals-block-R<N>" — strict 3-form. |
-| **UAT5. 6l5yo REQUEST timing** | File 6l5yo's REQUEST workflow now (parallel with Wave 1) or after Wave 1 lands? | Now — fully independent of audit waves. |
-| **UAT6. mh4ek and 5wbhm priority** | Bump priority to match in-cascade audits, or leave at P3? | Leave at P3. Out-of-cascade by design. |
+| # | Item | Status | Ratified choice |
+|---|---|---|---|
+| **UAT1** | Wave-1 mh4ek/5wbhm parallelism | DEFAULT | Run in Wave 1 alongside in-cascade audits. Zero contention; max info per wall-clock. |
+| **UAT2** | Audit artifact directory | DEFAULT | `docs/audits/<id>-<slug>.md`. New dir created lazily by first audit. Pattern matches `docs/proposals/` + `docs/specs/`. |
+| **UAT3** | Per-audit ELICIT timing | **OVERRIDE** | **All 6 ELICITs filed at once after ratify** (vs default "per-wave"). User intent: dep graph fully visible from day 1; supervisor work parallelizable. Tradeoff: fzctk + h2zd9 UREs locked before Wave 1 data exists — §3.5 inter-wave checkpoint absorbs the risk. |
+| **UAT4** | R-row verdict format | **OVERRIDE** | **3-form + structured residuals appendix** (vs default "3-form only"). Verdict line stays strict enum: `R<N> status: DONE / DONE-with-residuals-filed / NOT-DONE-residuals-block-R<N>`. **NEW**: when verdict is `DONE-with-residuals-filed` or `NOT-DONE-residuals-block-R<N>`, the audit attaches a structured appendix: each residual gets a bd-task ID + 1-line summary. See §4 R-row residuals-appendix sub-policy. |
+| **UAT5** | 6l5yo REQUEST timing | DEFAULT | Now — file 6l5yo REQUEST in parallel with Wave 1. (User revised initial answer from "after Wave 1 + separate session" back to default after reflection.) Fully independent of audit waves. |
+| **UAT6** | mh4ek + 5wbhm priority | DEFAULT | Leave both at P3. Out-of-cascade by design; priority field accurately reflects "don't gate jbnx3". |
+
+**Catch-all feedback:** "No additional feedback" — all concerns covered by UAT1–UAT6.
 
 ## §8. Cross-references
 
