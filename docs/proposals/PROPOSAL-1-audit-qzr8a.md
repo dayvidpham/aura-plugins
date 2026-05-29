@@ -1,6 +1,6 @@
 ---
 name: PROPOSAL-1 — qzr8a triage audit (18 unique stale work items)
-status: Phase 3 PROPOSAL, Round-2 revision. Per-audit execution plan refining PROPOSAL-2 §5.2 (Triage) with the URE answers locked on the ELICIT task. Round-1 reviewer findings (correctness/coverage/elegance all REVISE) applied in place per the pre-approved coordination directive. Re-submitted to the 3-reviewer cycle. ACCEPT consensus → batched Phase 5 UAT.
+status: Phase 3 PROPOSAL — 3-axis ACCEPT consensus reached at Round 2. Per-audit execution plan refining PROPOSAL-2 §5.2 (Triage) with the URE answers locked on the ELICIT task. → batched Phase 5 UAT.
 references:
   parent_audit: aura-plugins-qzr8a
   elicit: aura-plugins-7a8nu
@@ -31,6 +31,7 @@ references:
 | Round | Outcome | Changes applied |
 |---|---|---|
 | R1 | correctness=REVISE, coverage=REVISE, elegance=REVISE | (1) **discovered-from contradiction** (correctness IMPORTANT + coverage BLOCKER): §4 and §6 disagreed (`<source-item>` vs audit-id). Resolved to the audit-id form `aura-plugins-qzr8a` — matches the captured U3 answer in the ELICIT, satisfies the ratified A3 gate (`discovered-from:<audit-id>`) as written, and keeps the 4-proposal batch consistent; per-item lineage preserved via the §5c per-item comment + source-item named in the residual. (2) **Bucket-A execution-hold** (coverage BLOCKER): §4 previously executed closes globally, firing Bucket-A closes before the user saw them. Reworked to verdict-only-then-execute-on-sign-off (§4 + §8). (3) **No rejection loop at the pause** (coverage IMPORTANT): added the revise-and-re-present path (§8). (4) **DRY** (elegance BLOCKER×2 + IMPORTANT×3): §3/§6/§7/§9/§10 collapsed to references with only audit-specific facts pinned. (5) **19-vs-18 count** (coverage MINOR): reconciliation note added (§2). |
+| R2 | **correctness=ACCEPT, coverage=ACCEPT, elegance=ACCEPT → CONSENSUS** | All R1 findings verified resolved. Non-blocking minors applied in place: (6) §5 termination clause for `special-attention`/`keep-open` (criterion (b) is a no-op for them); (7) §4 intro scope tightened to "Bucket A only" (only A pauses, per Q5); (8) §6 notes it overrides the T3 `<source-item>` default. Cosmetic dedup minors (§13/§6-label) intentionally not churned. |
 
 ## §1. Objective
 
@@ -66,7 +67,8 @@ special-attention / keep-open` (see §5.2 T1). Exactly one per item.
 
 Execution is **verdict-first, execute-on-sign-off** to honor the Bucket-A pause
 (§8) — no destructive action (close / residual-filing) fires before the user has
-reviewed the bucket it belongs to.
+reviewed **Bucket A** (the only bucket that pauses, per URE Q5; B and C execute
+after A's sign-off without a second pause).
 
 1. **Verdict Bucket A** — assign one §3 verdict to each of the 10 Bucket-A items
    via `bd show`. **Do not execute** any close or residual-filing yet.
@@ -89,15 +91,20 @@ verdict's action executed (close / residual filed), **and** (c) a `bd` comment
 on the source item citing this audit (and, for extracted residuals, the residual
 task id). Full traceability — not table-only.
 
+For `special-attention` and `keep-open` verdicts, criterion (b) is a **no-op** —
+those items take no close/residual-filing; done is satisfied at the verdict plus
+the (c) comment.
+
 ## §6. Residual policy (canonical)
 
 Residuals → new `bd` tasks: **`discovered-from:aura-plugins-qzr8a`** (canonical
-provenance — matches the ELICIT U3 answer and the A3 gate), label
-`aura:residual`, priority inherited unless lowered with a stated reason. The
-remaining T3 fields (title, 1-sentence description) are per §5.2 T3. **Per-item
-lineage:** name the source stale item in the residual's title/description and in
-a `references:` frontmatter block; the §5c per-item comment is the reverse link.
-The T-A1 table records the residual task id alongside the source item.
+provenance — matches the ELICIT U3 answer and the A3 gate; **overrides the T3
+`<source-item>` default** per U3), label `aura:residual`, priority inherited
+unless lowered with a stated reason. The remaining T3 fields (title, 1-sentence
+description) are per §5.2 T3. **Per-item lineage:** name the source stale item in
+the residual's title/description and in a `references:` frontmatter block; the
+§5c per-item comment is the reverse link. The T-A1 table records the residual
+task id alongside the source item.
 
 ## §7. Verbatim-attention (URE Q4 — no additions)
 
@@ -157,9 +164,9 @@ the slice (max 3 fix cycles per slice).
 
 ## §13. Open questions for UAT
 
-Confirm the Bucket-A pause mechanics (§8): **(a)** Bucket A is verdicted but NOT
-executed before the pause (the user reviews live verdicts, can revise, and
-execution for all buckets begins only after sign-off); **(b)** the cadence adds
-exactly one mid-audit touchpoint. This is the captured Q5 OVERRIDE; UAT confirms
-the safe verdict-only-first interpretation is as the user intended. Otherwise no
-open questions; defaults locked.
+Confirm the Bucket-A pause mechanics as specified in §8: **(a)** Bucket A is
+verdicted but NOT executed before the pause (the user reviews live verdicts, can
+revise, and execution for all buckets begins only after sign-off); **(b)** the
+cadence adds exactly one mid-audit touchpoint (Bucket A only). This is the
+captured Q5 OVERRIDE; UAT confirms the safe verdict-only-first interpretation is
+as the user intended. Otherwise no open questions; defaults locked.
