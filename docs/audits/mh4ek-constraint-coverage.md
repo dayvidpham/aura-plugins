@@ -165,11 +165,11 @@ All 27 non-`ported` rows have gap-task-ids. Cv-A3 satisfied.
 
 ## §9. Gap Task Summary
 
-28 gap tasks filed (all `discovered-from:aura-plugins-mh4ek`, label `aura:residual`, priority P3):
-- 25 `missing` (canonical) + 1 `missing` addendum (`C-actionable-errors`) → implement runtime validator in Go temporal package (or document as convention-only)
+**27 gap tasks filed** (all `discovered-from:aura-plugins-mh4ek`, label `aura:residual`) — **REFRAMED** per Phase-5/6 decision C (`implement C-X` → `verify C-X is enforced by its intended layer`; label `aura:mh4ek-investigation`):
+- 24 `missing` (canonical) + 1 `missing` addendum (`C-actionable-errors`) → **verify** whether enforced by the intended layer (hook/SKILL.md/schema/codegen/runtime); implement only if confirmed a genuine runtime-enforcement gap
 - 2 `divergent` → reconcile Go-vs-Python semantics (C-worker-gates quality gates; C-review-binary type-system-vs-string-check)
 - 0 `untested` — no implementation-present-but-untested gaps found
-- All are implementation-debt or reconciliation-debt
+- **Disposition (gap-vs-design) follows investigation `aura-plugins-vji97`.** Count: 24 + 1 + 2 = **27** (consistent with §3/§5/Cv-A3).
 
 ---
 
