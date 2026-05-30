@@ -89,3 +89,32 @@ The `rk2su` PENDING-USER escalation is **resolved** (user decision B):
 - **`rk2su` continues to block `ow0pq`** until verified + closed.
 
 The other 7 epic placements stand as executed in Phase 9. **Final ledger: 8/8 placed** (7 clear-cut + rk2su §2-active pending verification).
+
+---
+
+## Phase-11 Impl-UAT — final ledger (2026-05-30)
+
+The per-epic walkthrough confirmed/refined all 8 placements; cross-check caught a conflation/missed-finding pattern on nearly every epic.
+
+| Epic | Final placement | Phase-11 change |
+|---|---|---|
+| `x5071` | §2-active | Confirmed (remaining-30 port unstarted; blocks ow0pq). Distinguished from re-opened foundation URD `f85gw` — IMPL_UAT decisions belong to f85gw, not x5071. |
+| `q9sz9` | §2-active | Confirmed. 9 findings (2 IMPORTANT + 7 MINOR) filed as child tasks. |
+| `wftdf` | §2-active | Confirmed. 3 MINORs filed as child tasks; **MINOR-4** (test-contract parity audit, missed by the audit — in comments) filed as residual `aura-plugins-wkbc3` (R-C/parity theme). |
+| `ad8i1` | §2-active → **extract-residual** | RE-PLACED: its 8 IMPORTANTs target deprecated Python → verify-against-Go residual `aura-plugins-fs107` (R-A theme). |
+| `9wdwc` | §2-active | **RE-SCOPED**: 'Beads → Temporal' → 'Beads → provenance integration' (provenance/PROV-O is the shipped Beads-replacement). Links ROADMAP §2b. |
+| `6ujr` | §2-active (P3 low-prio) | **SPLIT + DESCOPED from `ow0pq`**: R16/indexer → `aura-plugins-n856x` (low-prio, harness-independent); R13/R15/R17 externally-blocked on Claude Code native ACP. jbnx3 R4 = 'core + ACP types delivered; live bidirectional ACP deferred'. |
+| `ytzcl` | §5-done (pending verification) | Verify-first (like rk2su): residual `aura-plugins-0qrq1`; ytzcl NOT closed until verified. |
+| `rk2su` | §2-active (pending verification) | Decision B (residual `aura-plugins-t70aw`); kept OPEN, still blocks ow0pq. |
+
+### State changes
+- **RE-OPENED** (port-to-Go effort incomplete): `f85gw` (URD foundation) + `cgwc1` (REQUEST) + `xh675` (ELICIT) + `ygkp0` (PROPOSAL-3) — all were CLOSED P1. `f85gw` linked to the open follow-up `x5071`.
+- **6ujr descoped from `ow0pq`** (dependency removed) — jbnx3 no longer gated on external Claude Code ACP support.
+- **9wdwc re-scoped** (title + comment): Beads → provenance.
+- **`in_progress`**: none set — all 8 epics are open-not-started (no demonstrable current progress); per the user directive, left OPEN.
+- **Provenance-misnomer cleanup** residual `aura-plugins-ijcfk` (rename `providence`→`provenance` across labels + ROADMAP frontmatter/prose + memory).
+
+### C-5 peer-linkage reconciliation (updated)
+`ow0pq` blockers among the 8 audit epics: **`x5071` + `rk2su`** (rk2su pending verification). **`6ujr` removed** (descoped 2026-05-30). ROADMAP §1.5 updated (9→8 prerequisites; 4→3 peer epics).
+
+**Final: 8/8 placed.** 3iz51 audit complete (Phase-11 ACCEPT). Closing `ow0pq` still requires `x5071` + `rk2su` (+ the non-epic blockers) to land.
