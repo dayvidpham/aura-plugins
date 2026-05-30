@@ -2963,3 +2963,13 @@ We should also have a template of an MR to reference in our /protocol materials.
 
 ❯ They don't NEED to have ONLY 3 leaf tasks. They can have as many leaf tasks as makes sense.
 </impl-plan-leaf-tasks>
+
+----------------------
+
+Issue: new versions of Claude Code require that the agent definitions (e.g. @supervisor, @worker) are given access to the SendMessage tool. This hamstrings the /epoch autonomous workflow, since teammates can no longer communicate with each other.
+
+<log>
+● Short answer: SendMessage isn't in my granted tool set for this agent type, even
+  though the team-coordination boilerplate tells every teammate to use it.
+</log>
+
