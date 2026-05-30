@@ -1,6 +1,6 @@
 ---
-name: PROPOSAL-1 — 5wbhm status audit (codegen authority — REWORDED qualified claim + coverage overlay)
-status: Phase 3 PROPOSAL. Per-audit execution plan refining PROPOSAL-2 §5.6 (Status). SCOPE-CHANGED by the URE — the claim was reworded by the user from a trivial "confirmed" pass-through into a qualified-verdict status audit WITH a skill-coverage overlay. Submitted to the 3-reviewer cycle. ACCEPT consensus → batched Phase 5 UAT.
+name: PROPOSAL-1 — 5wbhm status audit (codegen authority — qualified claim, 8-skill coverage overlay)
+status: Phase 6 RATIFIED. Phase 4 3-axis ACCEPT consensus + Phase 5 plan-UAT ACCEPT with the 3 open questions resolved (verified set = overlapping-8; 'verified' = content-currency; claim corrected 7→8). Per-audit execution plan refining PROPOSAL-2 §5.6 (Status). → Phase 7-9 execution.
 references:
   parent_audit: aura-plugins-5wbhm
   elicit: aura-plugins-hwnt2
@@ -9,122 +9,123 @@ references:
   type: status
   wave: 1
   cascade: out-of-cascade (does NOT block ow0pq)
-  ure_answers: "aura-plugins-hwnt2 (latest comment — Q8 SCOPE-CHANGING reword, read carefully)"
+  ure_answers: "aura-plugins-hwnt2 (Q8 reworded claim)"
+  uat: "aura-plugins-hwnt2 (Phase 5 UAT comment — Q1/Q2 overlapping-8, Q3 content-currency)"
   migration_doc: docs/PYTHON_TO_GO_MIGRATION.md
-  roadmap_section: "docs/ROADMAP.md §1i (skill-drift CI check — '7 overlapping skills')"
-  related_epic: aura-plugins-x5071 (port remaining 31 Python-only skills — the not-yet-ported remainder)
+  roadmap_section: "docs/ROADMAP.md §1i (skill-drift CI check)"
+  related_epic: aura-plugins-x5071 (port remaining 31 Python-only skills)
+  residuals:
+    doc_correction: aura-plugins-acroy (7→8 overlapping correction)
+    skill_drift_ci: aura-plugins-g8egz (skill-drift CI check, ROADMAP §1i)
   deliverable_target: pasture/AGENTS.md ("Code generation" section)
 ---
 
-# PROPOSAL-1 — `5wbhm` status audit (REWORDED)
+# PROPOSAL-1 — `5wbhm` status audit
 
 > Delta over PROPOSAL-2 §5.6. The Status type template (St1–St5 /
-> St-A1/St-A2/St-A3) is not restated — read §5.6. **This audit's scope was
-> changed by the URE**; this proposal locks the reworded claim, the coverage
-> overlay it now requires, the candidate skill sets (WITH evidence, NOT locked),
-> and the open questions that UAT must resolve before execution.
+> St-A1/St-A2/St-A3) is **referenced, not restated** — read §5.6. The URE
+> reworded this audit's claim; Phase-5 UAT then resolved the 3 open questions.
+> This doc locks the corrected claim, the verified set, the `verified` predicate,
+> and the deliverable.
 
-## §0. Provenance + SCOPE CHANGE
+## §0. Provenance + revision log
 
-- **Type template:** PROPOSAL-2 §5.6 (Status). Standard URE/UAT: PROPOSAL-2 §4.
-- **URE answer (locked):** `aura-plugins-hwnt2`, latest comment — **Q8 is
-  scope-changing.** The user rejected the pre-filled trivial "Go authoritative;
-  Python deprecated" claim (expected `confirmed`) and reworded it.
-- **Effect:** 5wbhm is **no longer a binary pass-through.** It is now a
-  **qualified-verdict status audit with a skill-coverage overlay.** Expected
-  verdict shifts from `confirmed` → **`qualified`**.
-- **Out-of-cascade:** does NOT block `ow0pq` / `jbnx3` closure.
-- **Plan, not audit.** Enumerating exactly which skills are Go-verified is
-  Phase 9 work; this specifies the methodology and flags what UAT must confirm.
+- **Type template:** PROPOSAL-2 §5.6 (Status). Standard URE/UAT: §4.
+- **URE (`hwnt2` Q8):** user rewrote the claim from trivial "confirmed" to a
+  qualified-authority + coverage-overlay claim.
+- **Out-of-cascade:** does NOT block `ow0pq` / `jbnx3`.
+- **Plan, not audit.** The per-skill enumeration is Phase 9 work.
 
-## §1. The reworded claim (VERBATIM, replaces the pre-filled St2 claim)
+| Stage | Outcome | Changes |
+|---|---|---|
+| Phase 4 | 3-axis ACCEPT (consensus) | Candidate "the 7" presented WITH evidence but NOT locked; 3 open questions surfaced for UAT. Denominator standardized to 31 Python-only. |
+| Phase 5 UAT | **ACCEPT + 3 resolutions** | User verbatim (`hwnt2`): (Q1/Q2) "Overlapping-8 (protocol included)" → verified set = **overlapping-8** (drifted-7 + `protocol`); the claim's "7" was an **off-by-one**, corrected to 8 and noted. (Q3) "Go is ahead-of / at-parity-with Python (content currency)" → **`verified` = content-currency**, not schema-structural, not a formal drift-tool pass. Residuals filed: `acroy` (7→8 doc correction), `g8egz` (skill-drift CI check). §3/§4/§10 updated; the §10 open-questions are now resolved. |
+
+## §1. The claim (corrected 7 → 8 per Phase-5 UAT)
+
+**User's reworded claim (verbatim, URE `hwnt2` Q8):**
 
 > "Go is the authoritative implementation of the SKILL.md generation pipeline,
-> but has only been verified for 7 skills. Python generation pipeline and
-> content is slightly less up-to-date for these 7 skills, but the rest would be
-> used as reference as they haven't been fully ported over yet."
+> but has only been verified for 7 skills. Python generation pipeline and content
+> is slightly less up-to-date for these 7 skills, but the rest would be used as
+> reference as they haven't been fully ported over yet."
 
-**Parse into two verifiable parts:**
+**Correction (Phase-5 UAT):** the count "7" was an **off-by-one** — the
+overlapping (and verified) set is **8** skills: the 7 drifted skills **plus
+`protocol`** (which the migration doc lists at 0-diff/in-sync; the user confirmed
+it counts). The audit **verifies the corrected 8-skill claim and notes the 7→8
+correction** (and files `acroy` to fix the doc/ROADMAP phrasing).
 
-1. **Qualified authority.** Go is authoritative *for the SKILL.md generation
-   pipeline*, but that authority has only been *verified across 7 skills*. For
-   those 7, Python is *slightly less up-to-date* (Go is ahead).
-2. **Coverage overlay.** The *remaining* skills are NOT yet ported; Python
-   pipeline/content remains the *reference* for them. The deliverable must
-   **enumerate** which skills fall in each set.
+**Parsed (corrected) claim, two parts:**
+1. **Qualified authority** — Go is authoritative for the SKILL.md pipeline, but
+   that authority is *verified* only across the **8 overlapping** skills; for
+   those 8, Python is *slightly less up-to-date* (Go is ahead / at parity).
+2. **Coverage overlay** — the remaining **31 Python-only** skills are NOT yet
+   ported (Python remains the reference); this is `x5071`'s scope.
 
-## §2. Verdict vocabulary (locked — St1 default; expected verdict shifted)
+## §2. Verdict vocabulary (St1) + expected verdict
 
-`confirmed` / `refuted` / `qualified`. **Expected: `qualified`** — the claim is
-true *with the explicit caveat* that verification covers only a subset of skills
-(St4: `qualified` = true-with-caveats).
+`confirmed` / `refuted` / `qualified`. **Expected: `qualified`** — the corrected
+claim is true *with the explicit caveat* that verification covers only the 8
+overlapping skills while 31 remain Python-as-reference (St4: true-with-caveats).
 
-## §3. Coverage overlay — candidate skill sets (EVIDENCE, NOT locked)
+## §3. The verified set (RESOLVED at UAT — overlapping-8, locked)
 
-The reworded claim hinges on "the 7." The supporting doc evidence gives **three
-non-identical candidate definitions** — this proposal surfaces all three rather
-than silently picking one (see §10 open questions):
+The verified set is the **overlapping-8** (no longer a candidate; locked):
 
-- **Candidate A — "Drifted skills (7)"** (PYTHON_TO_GO_MIGRATION.md L47):
-  `architect`, `impl-review`, `reviewer`, `supervisor`, `supervisor-plan-tasks`,
-  `supervisor-spawn-worker`, `worker`. These are the 7 the migration doc tracked
-  as drifted, and ROADMAP §1i's "7 overlapping skills" phrasing.
-- **Candidate B — overlapping skills (8):** Candidate A **+ `protocol`** — which
-  the same table lists as a row with **0 diff** ("in sync; not previously
-  tracked"). So the homes actually overlap on **8** skills, not 7. `protocol`
-  being already-in-sync may or may not count as "verified."
-- **Candidate C — the user's "verified 7":** a *verified* predicate, which is
-  not necessarily the same as the *drifted* set (A) or the *overlapping* set
-  (B). A skill can be overlapping-and-in-sync (e.g. `protocol`) yet still be
-  "verified."
+`architect`, `impl-review`, `reviewer`, `supervisor`, `supervisor-plan-tasks`,
+`supervisor-spawn-worker`, `worker`, **`protocol`**.
 
-**The not-yet-ported remainder (the "rest"):** the migration doc records **31
-Python-only skills** (exist only under `aura-plugins/skills/`, e.g. `epoch`,
-`feedback`, `research`, the `msg-*` / `architect-*` / `reviewer-*` sub-skills)
-plus **1 Pasture-only skill** (`install-cli`). The 31 Python-only set is exactly
-the scope of epic **`x5071`** ("port remaining Python-only skills"). This is the
-audit's coverage-overlay denominator for "the rest."
+(= the migration doc's "Drifted skills (7)" + `protocol` at 0-diff/in-sync.)
+
+**The not-yet-ported remainder:** **31 Python-only** skills (exist only under
+`aura-plugins/skills/`) — `x5071`'s scope — plus **1 Pasture-only** skill
+(`install-cli`). This is the coverage-overlay denominator for "the rest."
+
+**`verified` predicate (RESOLVED at UAT — content currency):** a skill is
+"verified" when the **Go-generated SKILL.md is content-current — i.e. Go is
+ahead-of or at-parity-with the Python copy** (matching the claim's "Python
+slightly less up-to-date"). **NOT** mere schema-structural correctness, and
+**NOT** a formal drift-check-tool pass.
 
 ## §4. Methodology (execution steps for Phase 9)
 
-1. **Resolve "the 7"** against the UAT answer (§10) + the migration doc, and
-   record the exact verified set with the 7-vs-8 (`protocol`) reconciliation.
-2. **Establish part 1 (qualified authority):** evidence (St3 — observed behavior
+1. **Establish part 1 (qualified authority):** evidence (St3 — observed behavior
    weighted highest, then code, then docs/history) that the Go pipeline
-   (`pasture/internal/codegen/skills.go`) is authoritative and that for the
-   verified set Python is *slightly less up-to-date* (Go ahead). Check
-   `Makefile` / `go:generate` directives, the regeneration sections of
-   `aura-plugins/CLAUDE.md` + `pasture/AGENTS.md`, any `DEPRECATED.md` banner,
-   and observed regeneration behavior.
-3. **Establish part 2 (coverage overlay):** enumerate which skills are
-   Go-verified vs which still rely on Python as reference (cross-ref `x5071`).
-   Reconcile counts against the migration doc (7/8 overlapping + 31 Python-only
-   + 1 Pasture-only).
-4. **Verdict:** assign `confirmed`/`refuted`/`qualified` to the reworded claim
-   (expected `qualified`).
+   (`pasture/internal/codegen/skills.go`) is authoritative, and that for **each
+   of the 8** overlapping skills Go is **content-current** (ahead-of/at-parity
+   with Python). Check `Makefile` / `go:generate`, the regeneration sections of
+   `aura-plugins/CLAUDE.md` + `pasture/AGENTS.md`, the migration doc's
+   "Regenerator commands" result (Go regen produced 0 changes on a clean tree),
+   any `DEPRECATED.md` banner, and observed regeneration behavior.
+2. **Establish part 2 (coverage overlay):** enumerate the verified-8 vs the 31
+   not-yet-ported (cross-ref `x5071`). Reconcile counts against the migration doc.
+3. **Verdict:** assign `qualified` (expected) to the corrected claim, with the
+   8-vs-31 split stated explicitly.
 
 ## §5. Done criteria (status + overlay)
 
-Done when: (a) the reworded claim has a verdict with bullet-list evidence
-(St-A1), (b) the deliverable **enumerates** the verified-skill set and the
-not-yet-ported remainder (the overlay — not just a binary authority statement),
-and (c) if `qualified` (expected) or `refuted`, follow-up tasks are filed per §6.
+Done when: (a) the corrected claim has a verdict (expected `qualified`) with
+bullet-list evidence (St-A1); (b) the deliverable **enumerates** the verified-8
+and the 31 not-yet-ported (the overlay — not a binary authority statement); and
+(c) the §6 residuals are filed (done — `acroy`, `g8egz`).
 
-## §6. Residual policy (St-A3)
+## §6. Residual policy (St-A3 — filed)
 
-Because the expected verdict is `qualified`, **St-A3 applies:** file follow-up
-`bd` tasks (`discovered-from:aura-plugins-5wbhm`, `aura:residual`) to either
-close the gap or update the claim. Cross-reference `x5071` for the
-not-yet-ported remainder rather than duplicating it; file the skill-drift CI
-check (ROADMAP §1i, "never filed") as a residual if the audit confirms it is
-still missing.
+Because the verdict is `qualified`, St-A3 applies. Filed at Phase-5 UAT
+(`discovered-from:aura-plugins-5wbhm`, `aura:residual`):
+- **`acroy`** — correct "7 overlapping skills" → 8 in PYTHON_TO_GO_MIGRATION.md +
+  ROADMAP §1i.
+- **`g8egz`** — file the skill-drift CI check for the 8 overlapping skills
+  (ROADMAP §1i, never filed).
+The not-yet-ported remainder is tracked by `x5071` (not duplicated).
 
 ## §7. Deliverable
 
-- **`pasture/AGENTS.md` "Code generation" section** (add if absent) — must
-  contain the verdict statement **and the coverage overlay**: the enumerated
-  verified-skill set + the not-yet-ported remainder (cross-ref `x5071`). Not a
-  binary authority sentence.
+- **`pasture/AGENTS.md` "Code generation" section** (add if absent) — the verdict
+  statement (`qualified`) **and the coverage overlay**: the enumerated
+  **verified-8** + the **31 not-yet-ported** (cross-ref `x5071`) + the 7→8 note.
+  Not a binary authority sentence.
 - **bd comment** on `aura-plugins-5wbhm`: St-A1 1-sentence verdict + bullet
   evidence; close reason = the verdict statement.
 - St-A2 trivial (one claim, one verdict).
@@ -132,33 +133,21 @@ still missing.
 ## §8. UAT gates (inherited)
 
 Standard A1–A5 (PROPOSAL-2 §4) + §5.6 St-A1 / St-A2 / St-A3. **No R-row verdict
-line** (out-of-cascade; confirmed in ELICIT in-use overrides).
+line** (out-of-cascade).
 
 ## §9. Phase 10 (code review) applicability
 
-**SKIP** — rationale to be recorded on the slice: "enumerate-and-verdict, no
-interpretive judgment beyond Phase 11 UAT." The audit gathers evidence and
-records a verdict + enumeration; it edits docs only (`pasture/AGENTS.md`), no
-production code. **Escalation rule:** if resolving "the 7" or the qualified-vs-
-refuted call surfaces genuine ambiguity that needs a judgment review (beyond the
-§10 UAT confirmation), promote to full Phase 10 and notify team-lead first.
+**SKIP** — rationale on the slice: "enumerate-and-verdict, no interpretive
+judgment beyond Phase 11 UAT." Docs-only deliverable (`pasture/AGENTS.md`), no
+production code. **Escalation:** if the per-skill content-currency call surfaces
+genuine ambiguity needing a judgment review, promote to full Phase 10 and notify
+team-lead first.
 
-## §10. OPEN QUESTIONS FOR UAT (must resolve before execution)
+## §10. UAT resolutions (was: open questions — now CLOSED)
 
-This audit carries **real open questions** the user must settle (do not silently
-resolve):
-
-1. **Which 7 is "the verified 7"?** Confirm whether the user's "verified for 7
-   skills" maps to Candidate A (drifted-7), Candidate B (overlapping-8 incl.
-   `protocol`), or a different explicit set (Candidate C). The deliverable's
-   enumeration depends on this.
-2. **7 vs 8 — does `protocol` count?** ROADMAP §1i says "7 overlapping" but the
-   migration doc actually shows **8** overlapping skills (the 7 drifted +
-   `protocol` at 0 diff). Is `protocol` part of "verified," excluded as
-   trivially-in-sync, or the source of an off-by-one in the original "7"?
-3. **"Verified" definition.** What does "verified" require for a skill — Go
-   output matches the schema? Go is *ahead* of Python? A passing drift check?
-   This sets the bar the enumeration must meet.
-
-These are surfaced at Phase 5 UAT; the §4 methodology executes against whatever
-the user confirms.
+All three Phase-4 open questions were resolved at Phase-5 UAT:
+1. **Which set / 7-vs-8** → **overlapping-8** (drifted-7 + `protocol`); the "7"
+   was an off-by-one, corrected to 8 (residual `acroy`).
+2. **Does `protocol` count?** → **Yes** (0-diff/in-sync still counts as verified).
+3. **What `verified` requires** → **content currency** (Go ahead-of/at-parity
+   with Python), not schema-structural-only, not a formal drift-tool pass.
