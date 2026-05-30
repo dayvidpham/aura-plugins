@@ -76,3 +76,16 @@ The other 5 (`q9sz9`, `wftdf`, `ytzcl`, `ad8i1`, `9wdwc`) do NOT appear in ow0pq
 2. **Add a ROADMAP §5 note** — if the user wants to verify residuals first before closing, add a §5 note to ROADMAP and leave `rk2su` open with explicit rationale.
 
 **Worker action:** Zero edits to ROADMAP or rk2su. Reported here and to team-lead per §10 escalation rule.
+
+---
+
+## Phase-5/6 UAT Resolution — rk2su escalation (2026-05-30)
+
+The `rk2su` PENDING-USER escalation is **resolved** (user decision B):
+
+- **Placement:** `§2-active` (OPEN, **pending verification**) — ROADMAP **§2r**. NOT `§5-done`, NOT closed.
+- **Why:** all 9 children (ACP-WIRING-REVIEW A/B/C IMPORTANT+MINOR) are closed, but closure is **gated on verifying the children actually addressed the original findings**.
+- **Verification task:** [`aura-plugins-t70aw`](beads://aura-plugins-t70aw) (`discovered-from:aura-plugins-3iz51`) — on confirmation → close `rk2su` (unblocks `ow0pq`).
+- **`rk2su` continues to block `ow0pq`** until verified + closed.
+
+The other 7 epic placements stand as executed in Phase 9. **Final ledger: 8/8 placed** (7 clear-cut + rk2su §2-active pending verification).

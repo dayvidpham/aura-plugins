@@ -170,3 +170,15 @@ All 27 non-`ported` rows have gap-task-ids. Cv-A3 satisfied.
 - 2 `divergent` → reconcile Go-vs-Python semantics (C-worker-gates quality gates; C-review-binary type-system-vs-string-check)
 - 0 `untested` — no implementation-present-but-untested gaps found
 - All are implementation-debt or reconciliation-debt
+
+---
+
+## Phase-5/6 UAT Resolution — architectural finding (2026-05-30)
+
+**User decision C: verdict stays `QUALIFIED` / PROVISIONAL — gap-vs-design interpretation DEFERRED pending investigation.**
+
+- **Investigation task** [`aura-plugins-vji97`](beads://aura-plugins-vji97) (`discovered-from:aura-plugins-mh4ek`): (a) grep bd history for `RuntimeConstraintChecker` — was Go's no-runtime-checker a known/decided choice during the port? (b) locate where each of the ~25 constraints is actually enforced now (hooks / SKILL.md / schema / codegen / agent-behavioral). The per-constraint gap-vs-design verdict follows from this.
+- **27 provisional gap tasks REFRAMED**: `implement C-X in Go runtime` → **`verify C-X is enforced by its intended layer`** (labeled `aura:mh4ek-investigation`). Disposition — close confirmed-enforced, keep only genuine enforcement gaps — follows the investigation.
+- **Count:** the hardcoded C-* count is being **REMOVED** from `aura-plugins/CLAUDE.md` (+ other docs) rather than corrected 26→27 — task [`aura-plugins-t7x6e`](beads://aura-plugins-t7x6e) (volatile, low-value). No separate count residual; folded here.
+- **Phase 10:** `mh4ek` is **PROMOTED to a full Phase-10 review** (per the skip-audit-complexity escalation rule).
+- **Out-of-cascade:** does NOT block `ow0pq` / `jbnx3`.
