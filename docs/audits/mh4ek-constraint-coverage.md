@@ -182,3 +182,43 @@ All 27 non-`ported` rows have gap-task-ids. Cv-A3 satisfied.
 - **Count:** the hardcoded C-* count is being **REMOVED** from `aura-plugins/CLAUDE.md` (+ other docs) rather than corrected 26→27 — task [`aura-plugins-t7x6e`](beads://aura-plugins-t7x6e) (volatile, low-value). No separate count residual; folded here.
 - **Phase 10:** `mh4ek` is **PROMOTED to a full Phase-10 review** (per the skip-audit-complexity escalation rule).
 - **Out-of-cascade:** does NOT block `ow0pq` / `jbnx3`.
+
+---
+
+## Phase-11 Impl UAT — RESOLVED (2026-05-30)
+
+**Verdict: `QUALIFIED` — RESOLVED** (was PROVISIONAL). The gap-vs-design question deferred to `vji97` was answered by an interactive per-constraint walk with the user, mapping each constraint's *true* enforcement locus across the whole `pasture/` codebase (not just `internal/temporal/`).
+
+### Key finding: the two-worlds architecture
+
+The audit's "missing from `internal/temporal/`" verdicts were misleading — almost no constraint is *absent from Go*; they are enforced at a **different layer**. `pasture` has two largely-disconnected halves:
+
+- **Orchestrator** (`pastured` + `pasture-msg` + `internal/temporal/`) — real runtime enforcement (consensus gate, blocker gate, `VoteType` enum). But **no skill invokes it**, and there is **no bridge** from the bd tasks agents actually use (free-text `bd comments add "VOTE: ACCEPT"`, `skills/reviewer/SKILL.md:278`) to the Temporal `RecordVote` signal. `workflow_review.go` does not read bd tasks.
+- **Skill+bd layer** (`internal/codegen` → `skills/*/SKILL.md` + `bd`) — what agents actually execute.
+
+**Architecture decision (user, verbatim):** *"The current skills / agents / schema are the prioritized, near-term driver. Once we have all of the generators for these ported to Golang, the multi-agent orchestrator should be the primary driver, integrated with running agents via skills + hooks."* → skill+bd is the near-term primary model; the orchestrator's `①/②` enforcement is a **future phase**.
+
+### 6-layer enforcement model (user taxonomy)
+
+`①/②/③` was too coarse. Enforcement has distinct layers:
+- **L1** — rule text in the skill/prompt (`SKILL.md`); agent reads & complies. Not tested.
+- **L2** — the **generator** guarantees L1 is present & consistent across the right roles/phases (`internal/codegen`). **Tested.**
+- **L3** — the **orchestrator**, via: **L4** CLI validation (`pasture task`) · **L5** Temporal workflows · **L6** FSM/state-machine (`ValidateAdvance`).
+
+Most constraints are currently enforced at **L1+L2** (a real, tested layer). The vote/consensus/type guarantees live in the orchestrator (L5/L6), which the agent path does not yet invoke.
+
+### Per-constraint dispositions (27 verify-tasks; `C-review-consensus` is `ported`, no task)
+
+**CLOSED — confirmed enforced / by-design (13):**
+- *Enforced now (type system):* `C-actionable-errors` (`StructuredError`, `vxvt1`), `C-review-binary` (`VoteType` enum, `apz6j`).
+- *By-design at L1+L2 (11 agent-judgment):* `autonomous-progression` (`nakvo`), `handoff-skill-invocation` (`g3s5o`), `supervisor-explore-ephemeral` (`1w2hb`), `vertical-slices` (`gmmyz`), `ure-verbatim` (`hyceu`), `followup-leaf-adoption` (`fd1g4`), `followup-timing` (`nzp41`), `followup-lifecycle` (`6r3hx`), `integration-points` (`gtfpm`), `severity-eager` (`l3dxz`), `severity-not-plan` (`1ag61`).
+- `C-review-consensus` — FSM consensus gate built (L6); no verify-task.
+
+**DEFERRED — machine-enforcement epic `aura-plugins-y5fps` + GitHub issue [`dayvidpham/pasture#3`](https://github.com/dayvidpham/pasture/issues/3) (14, verify-tasks stay open):**
+- *CLI (L4) — 9:* `dep-direction` (`8giwl`), `proposal-naming` (`nnnzg`), `review-naming` (`41gqs`), `slice-leaf-tasks` (`oeufm`), `slice-review-before-close` (`l0w6v`), `audit-never-delete` (`8mj6v`), `audit-dep-chain` (`c91i2`), `blocker-dual-parent` (`p2nq2`), `frontmatter-refs` (`3gxlt`).
+- *Claude Code PreToolUse hooks — 2:* `agent-commit` (`rfqkm`), `supervisor-no-impl` (`kfp41`).
+- *Orchestrator FSM gate completion (L5/L6) — 3:* `worker-gates` quality gates (`fkmwt`), `clean-review-exit` IMPORTANT gate (`gxdlh`), `max-review-cycles` (`lwm3m`).
+
+**Correction applied:** `C-slice-leaf-tasks` requires only **≥1 leaf task** (slice is decomposed), NOT a fixed L1/L2/L3 set — per `check_slice_has_leaf_tasks` (`constraints.py:901`) and user correction. Earlier "L1/L2/L3" phrasing was illustrative.
+
+**`vji97`** is effectively answered by this walk (the per-constraint enforcement loci are now documented); it remains open only as the pointer to the deferred epic.
