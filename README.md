@@ -107,8 +107,7 @@ protocol docs into `~/.claude/`:
 }
 ```
 
-Core commands (`aura:plan`, `aura:status`, `aura:test`, `aura:feedback`,
-`aura:msg:*`, `aura:impl:*`, `aura:user:*`) are always installed when
+Core commands (`aura:status`, `aura:impl:*`, `aura:user:*`) are always installed when
 `commands.enable = true`, regardless of role selection.
 
 ### Manual
@@ -685,10 +684,7 @@ voting procedures, etc.):
 
 | Skill                | Description                                        |
 |----------------------|----------------------------------------------------|
-| `/aura:plan`         | Plan coordination across roles                     |
 | `/aura:status`       | Project status and monitoring                      |
-| `/aura:test`         | Run tests (BDD patterns)                           |
-| `/aura:feedback`     | Leave structured feedback                          |
 | `/aura:impl-slice`   | Vertical slice assignment and tracking             |
 | `/aura:impl-review`  | Code review across all implementation slices       |
 | `/aura:user-request` | Capture user feature request (Phase 1)             |

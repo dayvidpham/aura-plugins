@@ -11,7 +11,6 @@ See [AGENTS.md](AGENTS.md) for role definitions and phase ownership.
 | Command | Phase | Description |
 |---------|-------|-------------|
 | `/aura:epoch` | 1-12 | Master orchestrator for the full 12-phase workflow. Delegates to role-specific skills per phase. |
-| `/aura:plan` | 1-6 | Plan coordination across roles (phases 1-6 subset). |
 | `/aura:status` | any | Project status and monitoring via Beads queries. |
 
 ---
@@ -90,32 +89,12 @@ See [AGENTS.md](AGENTS.md) for role definitions and phase ownership.
 
 ---
 
-## Messaging (Beads-based IPC)
-
-| Command | Description |
-|---------|-------------|
-| `/aura:msg-send` | Send a message to another agent via Beads comment. |
-| `/aura:msg-receive` | Check inbox for messages from other agents. |
-| `/aura:msg-broadcast` | Broadcast a message to multiple agents. |
-| `/aura:msg-ack` | Acknowledge received messages. |
-
----
-
 ## Research & Exploration
 
 | Command | Phase | Label | Description |
 |---------|-------|-------|-------------|
 | `/aura:research` | 1 (s1_2), any | `aura:p1-user:s1_2-research` | Domain research — find standards, prior art, competing approaches. Writes structured findings to `docs/research/<topic>.md`. Depth-scoped: quick-scan, standard-research, deep-dive. |
 | `/aura:explore` | 1 (s1_3), any | `aura:p1-user:s1_3-explore` | Codebase exploration — find integration points, existing patterns, dependencies, conflicts. Depth-scoped: quick-scan, standard-research, deep-dive. |
-
----
-
-## Utilities
-
-| Command | Description |
-|---------|-------------|
-| `/aura:test` | Run tests using BDD patterns. |
-| `/aura:feedback` | Leave structured feedback on any Beads task. |
 
 ---
 

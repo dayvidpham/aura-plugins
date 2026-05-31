@@ -238,7 +238,6 @@ class CommandId(StrEnum):
     """
 
     Epoch = "cmd-epoch"
-    Plan = "cmd-plan"
     Status = "cmd-status"
     UserRequest = "cmd-user-request"
     UserElicit = "cmd-user-elicit"
@@ -264,14 +263,8 @@ class CommandId(StrEnum):
     RevVote = "cmd-rev-vote"
     ImplSlice = "cmd-impl-slice"
     ImplReview = "cmd-impl-review"
-    MsgSend = "cmd-msg-send"
-    MsgReceive = "cmd-msg-receive"
-    MsgBroadcast = "cmd-msg-broadcast"
-    MsgAck = "cmd-msg-ack"
     Explore = "cmd-explore"
     Research = "cmd-research"
-    Test = "cmd-test"
-    Feedback = "cmd-feedback"
 
 
 # ─── Step Slug + Skill Ref Namespaces ─────────────────────────────────────────
@@ -1997,15 +1990,6 @@ COMMAND_SPECS: dict[CommandId, CommandSpec] = {
         file="skills/epoch/SKILL.md",
         creates_labels=(),
     ),
-    CommandId.Plan: CommandSpec(
-        id=CommandId.Plan,
-        name="aura:plan",
-        description="Plan coordination across phases 1-6",
-        role_ref=RoleId.Architect,
-        phases=("p1", "p2", "p3", "p4", "p5", "p6"),
-        file="skills/plan/SKILL.md",
-        creates_labels=(),
-    ),
     CommandId.Status: CommandSpec(
         id=CommandId.Status,
         name="aura:status",
@@ -2231,42 +2215,6 @@ COMMAND_SPECS: dict[CommandId, CommandSpec] = {
         file="skills/impl-review/SKILL.md",
         creates_labels=("L-p10s10", "L-sev-blocker", "L-sev-import", "L-sev-minor"),
     ),
-    CommandId.MsgSend: CommandSpec(
-        id=CommandId.MsgSend,
-        name="aura:msg:send",
-        description="Send a message to another agent via Beads comment",
-        role_ref=None,
-        phases=(),
-        file="skills/msg-send/SKILL.md",
-        creates_labels=(),
-    ),
-    CommandId.MsgReceive: CommandSpec(
-        id=CommandId.MsgReceive,
-        name="aura:msg:receive",
-        description="Check inbox for messages from other agents",
-        role_ref=None,
-        phases=(),
-        file="skills/msg-receive/SKILL.md",
-        creates_labels=(),
-    ),
-    CommandId.MsgBroadcast: CommandSpec(
-        id=CommandId.MsgBroadcast,
-        name="aura:msg:broadcast",
-        description="Broadcast a message to multiple agents",
-        role_ref=None,
-        phases=(),
-        file="skills/msg-broadcast/SKILL.md",
-        creates_labels=(),
-    ),
-    CommandId.MsgAck: CommandSpec(
-        id=CommandId.MsgAck,
-        name="aura:msg:ack",
-        description="Acknowledge received messages",
-        role_ref=None,
-        phases=(),
-        file="skills/msg-ack/SKILL.md",
-        creates_labels=(),
-    ),
     CommandId.Explore: CommandSpec(
         id=CommandId.Explore,
         name="aura:explore",
@@ -2286,24 +2234,6 @@ COMMAND_SPECS: dict[CommandId, CommandSpec] = {
         phases=("p1",),
         file="skills/research/SKILL.md",
         creates_labels=("L-p1s1_2",),
-    ),
-    CommandId.Test: CommandSpec(
-        id=CommandId.Test,
-        name="aura:test",
-        description="Run tests using BDD patterns",
-        role_ref=None,
-        phases=(),
-        file="skills/test/SKILL.md",
-        creates_labels=(),
-    ),
-    CommandId.Feedback: CommandSpec(
-        id=CommandId.Feedback,
-        name="aura:feedback",
-        description="Leave structured feedback on any Beads task",
-        role_ref=None,
-        phases=(),
-        file="skills/feedback/SKILL.md",
-        creates_labels=(),
     ),
 }
 
