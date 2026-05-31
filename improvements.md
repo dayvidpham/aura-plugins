@@ -3181,3 +3181,101 @@ Failed to capture user input during UAT verbatim.
   acknowledge the messaging limitation, quoting your words
   verbatim.
 </log>
+
+-----------
+
+aura-swarm: failure when path doesn't already exist.
+* manages to launch the new session with the correct prompt, role, etc., but python script errors out afterwards
+
+● Bash(aura-swarm start --epic unified-schema-8iyw5 --swarm-mode intree --role architect --model opus --skill
+      aura:architect --prompt "$(cat <<'EOFD'
+      You are the architect for FOLLOWUP epic unified-schema-8iyw5 ("FOLLOWUP: Non-blocking improvements from
+      sessions CLI review").
+
+      **FIRST: Invoke Skill("aura:architect") to load your role instructions.**
+
+      ## Origin epic (parent context)
+      - REQUEST: unified-schema-iqybg ("Add sessions context subcommand (grep -C style turn retrieval)") — CLOSED
+      - URD: unified-schema-706en — still open as the living requirements doc
+      - Original PR: peasant-labs/peasant#35 (PR for the parent epic; SHOULD NOT be reopened)
+      - Followup GitHub issue tracking: peasant-labs/peasant#37 — see the Impl UAT-2 comment for the verbatim
+      followup scope summary
+      - Followup epoch should produce its OWN PR (separate from #35)
+
+      ## Branch context
+      - Currently on branch feat--cli--retrieve-context-around-session-turn
+      - This branch has PR #35 already open targeting feat/research-annotation-infra
+      - For the followup, create a NEW branch off feat/research-annotation-infra (NOT off this branch, to avoid
+      coupling the followup PR to the parent PR)
+
+      ## Followup scope (4 items already tracked under epic 8iyw5)
+
+      | Severity | Beads ID | Description |
+      |----------|----------|-------------|
+      | IMPORTANT (new from UAT-2) | unified-schema-y1r8k | Add --provider flag for LLM vendor filtering
+      (anthropic/google/openai/anysphere). Orthogonal to --harness which filters by coding tool. Affects sessions
+      list + prune. May require schema work (model_provider column? or query-time derivation from bestiary?). |
+      | MINOR (new from UAT-2) | unified-schema-1bjw2 | Error format polish: `[claude-code gemini-cli codex
+      opencode]` -> `[claude-code, gemini-cli, codex, opencode]` (commas inside brackets). Affects
+      cmd_sessions_list.go + cmd_prune.go. |
+      | MINOR (pre-existing) | unified-schema-vcehj | seedOne(t, db, ctx, ...) violates Go ctx-after-T convention.
+      cmd_sessions_list_test.go. |
+      | MINOR (pre-existing) | unified-schema-l0gbx | peasant prune dry-run JSON key still emits "provider" while
+      CLI flag is now --harness. Wire-format change — may be a deliberate version bump. |
+
+      ## Pre-existing deferred items in 8iyw5 body (from original review)
+      Read `bd show unified-schema-8iyw5` for the full list. Some highlights:
+      - Deferred IMPORTANT: N+1 FirstUserMessage queries → FirstUserMessageBulk method with IN() query
+      - Deferred IMPORTANT: No store-level tests for ListEntriesRange/MaxEntryIndex
+      - Deferred IMPORTANT: Duplicated seeding logic (ALREADY DONE in commit 22e4db1e — see 8iyw5 comments)
+      - Several MINORs: UTF-8 byte truncation, countTotalSessions full-fetch, unused ToolCallFormat, --turn=0
+      ambiguity, seedTestSessionFull golden DB re-copy
+
+      ## Your workflow (start of FOLLOWUP epoch)
+      1. Read the original URD (`bd show unified-schema-706en`) and the followup epic body (`bd show
+      unified-schema-8iyw5`)
+      2. Read all 4 new finding tasks (y1r8k, 1bjw2, vcehj, l0gbx) and the pre-existing items
+      3. Create FOLLOWUP_URE task — conduct a scoping URE with the user to determine which findings to address in
+      this followup epoch (may be all of them, may be a subset)
+      4. Create FOLLOWUP_URD task with the scoped requirements
+      5. Create FOLLOWUP_PROPOSAL-1 with the technical plan (note: --provider flag IMPORTANT may need a separate
+      URD/proposal phase due to schema/derivation question)
+      6. Spawn 3 reviewers (axes A/B/C) for FOLLOWUP_PROPOSAL-1
+      7. Run Plan UAT
+      8. Ratify and hand off to supervisor
+
+      The supervisor will then take over for impl planning + slices.
+
+      ## Constraints
+      - All commits via `git agent-commit`
+      - All task tracking via Beads (not TodoWrite)
+      )" 2>&1 | tail -20)
+  ⎿      )
+       File "/nix/store/iwwif8xda49i3gvj9wj0gqgc6xbz4fg2-source/bin/aura-swarm", line 1074, in _start_intree
+         registry.register(record)
+         ~~~~~~~~~~~~~~~~~^^^^^^^^
+       File "/nix/store/iwwif8xda49i3gvj9wj0gqgc6xbz4fg2-source/scripts/aura_protocol/session_registry.py",
+     line 323, in register
+         self._atomic_write(path, serialize_session(record))
+         ~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+       File "/nix/store/iwwif8xda49i3gvj9wj0gqgc6xbz4fg2-source/scripts/aura_protocol/session_registry.py",
+     line 402, in _atomic_write
+         tmp_path.write_text(content)
+         ~~~~~~~~~~~~~~~~~~~^^^^^^^^^
+       File "/nix/store/qwb5ygz9k8gs5ql9bpxbrsrv12r1icgm-python3-3.13.12/lib/python3.13/pathlib/_local.py",
+     line 555, in write_text
+         return PathBase.write_text(self, data, encoding, errors, newline)
+                ~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+       File "/nix/store/qwb5ygz9k8gs5ql9bpxbrsrv12r1icgm-python3-3.13.12/lib/python3.13/pathlib/_abc.py",
+     line 651, in write_text
+         with self.open(mode='w', encoding=encoding, errors=errors, newline=newline) as f:
+              ~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+       File "/nix/store/qwb5ygz9k8gs5ql9bpxbrsrv12r1icgm-python3-3.13.12/lib/python3.13/pathlib/_local.py",
+     line 537, in open
+         return io.open(self, mode, buffering, encoding, errors, newline)
+                ~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+     FileNotFoundError: [Errno 2] No such file or directory:
+     '/home/minttea/.local/state/aura/sessions/dev/agent-data-leverage--architect-1--8bef.tmp.388960a1'
+  ⎿  Allowed by auto mode classifier
+
+
