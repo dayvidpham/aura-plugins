@@ -44,7 +44,7 @@ working surface at the time. The two homes drifted. **Latest audit
 post-regeneration so they reflect the structural template drift, not
 stale output):
 
-### Drifted skills (7)
+### Drifted skills (7, out of 8 overlapping)
 
 | Skill | Diff lines (2026-05-24) | vs 2026-05-20 | Nature of drift |
 |---|---:|---:|---|
@@ -72,7 +72,7 @@ counterpart.
 
 ### Structural drift drivers
 
-The seven drifted skills above share a small, repeating set of template-level
+The seven drifted skills above (out of 8 overlapping — `protocol` is the 8th and is in sync) share a small, repeating set of template-level
 differences. Listing them once here so readers don't have to re-derive them
 from each per-skill diff:
 
@@ -155,7 +155,7 @@ Result of the 2026-05-24 run:
 - Go regen made no changes — `pasture/skills/*` and `pasture/agents/*`
   were already in sync with the Go template output.
 
-The takeaway: the residual 7-skill drift listed above is **structural
+The takeaway: the residual 7-skill drift (out of 8 overlapping; `protocol` is in sync) listed above is **structural
 between the two generators** and not a stale-regeneration backlog.
 Running the regenerators on a clean tree does not close the drift.
 

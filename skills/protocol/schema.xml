@@ -258,8 +258,8 @@
               <command>Skill(/aura:supervisor)</command>
             </step>
             <step order="2" id="S-supervisor-read-plan">
-              <instruction>Read RATIFIED_PLAN and URD via bd show</instruction>
-              <command>bd show &lt;ratified-plan-id&gt; &amp;&amp; bd show &lt;urd-id&gt;</command>
+              <instruction>Read RATIFIED_PLAN, URD, UAT, and elicit tasks via bd show for full context</instruction>
+              <command>bd show &lt;ratified-plan-id&gt; &amp;&amp; bd show &lt;urd-id&gt; &amp;&amp; bd show &lt;uat-id&gt; &amp;&amp; bd show &lt;elicit-id&gt;</command>
             </step>
             <step order="3" id="S-supervisor-explore-ephemeral">
               <instruction>Spawn ephemeral Explore subagents via Task tool for scoped codebase queries</instruction>
@@ -274,8 +274,7 @@
               <command>bd create --labels aura:p9-impl:s9-slice --title "SLICE-{K}-L{1,2,3}: &lt;description&gt;" ...</command>
             </step>
             <step order="6" id="S-supervisor-spawn-workers" next-state="p9">
-              <instruction>Spawn workers for leaf tasks</instruction>
-              <command>aura-swarm start --epic &lt;epic-id&gt;</command>
+              <instruction>Spawn workers via the Agent tool — set `name` for a named teammate, leave `name` empty for a backgrounded subagent (NOT aura-swarm). Choose model: sonnet for non-trivial slices, haiku for trivial changes. Set thinking effort to match slice complexity.</instruction>
             </step>
           </startup-sequence>
         </substep>
@@ -1174,8 +1173,8 @@ bd create --title "UAT: Plan acceptance" \
         <command>Skill(/aura:supervisor)</command>
       </step>
       <step order="2" id="S-supervisor-read-plan">
-        <instruction>Read RATIFIED_PLAN and URD via bd show</instruction>
-        <command>bd show &lt;ratified-plan-id&gt; &amp;&amp; bd show &lt;urd-id&gt;</command>
+        <instruction>Read RATIFIED_PLAN, URD, UAT, and elicit tasks via bd show for full context</instruction>
+        <command>bd show &lt;ratified-plan-id&gt; &amp;&amp; bd show &lt;urd-id&gt; &amp;&amp; bd show &lt;uat-id&gt; &amp;&amp; bd show &lt;elicit-id&gt;</command>
       </step>
       <step order="3" id="S-supervisor-explore-ephemeral">
         <instruction>Spawn ephemeral Explore subagents via Task tool for scoped codebase queries</instruction>
@@ -1201,8 +1200,7 @@ Layer 1: types and interfaces for <slice name>."]]></code>
         </example>
       </step>
       <step order="6" id="S-supervisor-spawn-workers" next-state="p9">
-        <instruction>Spawn workers for leaf tasks</instruction>
-        <command>aura-swarm start --epic &lt;epic-id&gt;</command>
+        <instruction>Spawn workers via the Agent tool — set `name` for a named teammate, leave `name` empty for a backgrounded subagent (NOT aura-swarm). Choose model: sonnet for non-trivial slices, haiku for trivial changes. Set thinking effort to match slice complexity.</instruction>
       </step>
     </role>
     <role ref="worker">
@@ -1285,7 +1283,7 @@ Layer 1: types and interfaces for <slice name>."]]></code>
         <exit-condition type="proceed" condition="All slices created with leaf tasks, dependency-chained, assigned" />
       </stage>
       <stage id="rtw-build" name="Build" order="2" execution="parallel" phase-ref="p9">
-        <action id="rtw-build-spawn" instruction="Spawn N workers for parallel slice implementation" command="aura-swarm start --epic &lt;epic-id&gt;" />
+        <action id="rtw-build-spawn" instruction="Spawn workers via the Agent tool — set `name` for a named teammate, leave `name` empty for a backgrounded subagent (NOT aura-swarm). Choose model: sonnet for non-trivial slices, haiku for trivial changes. Set thinking effort to match slice complexity." />
         <action id="rtw-build-monitor" instruction="Monitor worker progress via bd list and bd show" command="bd list --labels=&quot;aura:p9-impl:s9-slice&quot; --status=in_progress" />
         <exit-condition type="proceed" condition="All workers have notified completion via bd comments add" />
       </stage>

@@ -2559,8 +2559,11 @@ PROCEDURE_STEPS: dict[RoleId, tuple[ProcedureStep, ...]] = {
         ProcedureStep(
             id=StepSlug.Supervisor.ReadPlan,
             order=2,
-            instruction="Read RATIFIED_PLAN and URD via bd show",
-            command="bd show <ratified-plan-id> && bd show <urd-id>",
+            instruction="Read RATIFIED_PLAN, URD, UAT, and elicit tasks via bd show for full context",
+            command=(
+                "bd show <ratified-plan-id> && bd show <urd-id> "
+                "&& bd show <uat-id> && bd show <elicit-id>"
+            ),
         ),
         ProcedureStep(
             id=StepSlug.Supervisor.ExploreEphemeral,
@@ -2609,8 +2612,13 @@ PROCEDURE_STEPS: dict[RoleId, tuple[ProcedureStep, ...]] = {
         ProcedureStep(
             id=StepSlug.Supervisor.SpawnWorkers,
             order=6,
-            instruction="Spawn workers for leaf tasks",
-            command="aura-swarm start --epic <epic-id>",
+            instruction=(
+                "Spawn workers via the Agent tool — "
+                "set `name` for a named teammate, leave `name` empty for a backgrounded subagent "
+                "(NOT aura-swarm). "
+                "Choose model: sonnet for non-trivial slices, haiku for trivial changes. "
+                "Set thinking effort to match slice complexity."
+            ),
             next_state=PhaseId.P9_Slice,
         ),
     ),
@@ -3011,8 +3019,13 @@ WORKFLOW_SPECS: dict[str, Workflow] = {
                 actions=(
                     WorkflowAction(
                         id="rtw-build-spawn",
-                        instruction="Spawn N workers for parallel slice implementation",
-                        command="aura-swarm start --epic <epic-id>",
+                        instruction=(
+                            "Spawn workers via the Agent tool — "
+                            "set `name` for a named teammate, leave `name` empty for a backgrounded subagent "
+                            "(NOT aura-swarm). "
+                            "Choose model: sonnet for non-trivial slices, haiku for trivial changes. "
+                            "Set thinking effort to match slice complexity."
+                        ),
                     ),
                     WorkflowAction(
                         id="rtw-build-monitor",

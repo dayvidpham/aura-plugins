@@ -188,11 +188,11 @@ _Example (anti-pattern)_
 ### Startup Sequence
 
 **Step 1:** Call Skill(/aura:supervisor) to load role instructions (`Skill(/aura:supervisor)`)
-**Step 2:** Read RATIFIED_PLAN and URD via bd show (`bd show <ratified-plan-id> && bd show <urd-id>`)
+**Step 2:** Read RATIFIED_PLAN, URD, UAT, and elicit tasks via bd show for full context (`bd show <ratified-plan-id> && bd show <urd-id> && bd show <uat-id> && bd show <elicit-id>`)
 **Step 3:** Spawn ephemeral Explore subagents via Task tool for scoped codebase queries — _Each subagent is short-lived and returns findings; no standing team overhead_
 **Step 4:** Decompose into vertical slices — _Vertical slices give one worker end-to-end ownership of a feature path (types → tests → impl → wiring) with clear file boundaries_ → `p8`
 **Step 5:** Create leaf tasks (L1/L2/L3) for every slice (`bd create --labels aura:p9-impl:s9-slice --title "SLICE-{K}-L{1,2,3}: <description>" ...`)
-**Step 6:** Spawn workers for leaf tasks (`aura-swarm start --epic <epic-id>`) → `p9`
+**Step 6:** Spawn workers via the Agent tool — set `name` for a named teammate, leave `name` empty for a backgrounded subagent (NOT aura-swarm). Choose model: sonnet for non-trivial slices, haiku for trivial changes. Set thinking effort to match slice complexity. → `p9`
 
 ### Introduction
 
@@ -283,7 +283,7 @@ Exit conditions:
 
 **Stage 2: Build** _(parallel)_
 
-- Spawn N workers for parallel slice implementation (`aura-swarm start --epic <epic-id>`)
+- Spawn workers via the Agent tool — set `name` for a named teammate, leave `name` empty for a backgrounded subagent (NOT aura-swarm). Choose model: sonnet for non-trivial slices, haiku for trivial changes. Set thinking effort to match slice complexity.
 - Monitor worker progress via bd list and bd show (`bd list --labels="aura:p9-impl:s9-slice" --status=in_progress`)
 Exit conditions:
 - **proceed**: All workers have notified completion via bd comments add
