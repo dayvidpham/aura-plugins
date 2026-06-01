@@ -83,6 +83,22 @@ See the project's `AGENTS.md` and `~/.claude/CLAUDE.md` for coding standards.
    - Type checking passes
    - Tests pass
 
+5. Commit safely in a shared worktree:
+   - Stage **only** the files belonging to your slice, by name:
+     ```bash
+     git add cmd/feature/list.go pkg/feature/service.go pkg/feature/types.go
+     git agent-commit -m "feat(feature): add list subcommand"
+     ```
+   - **Never** use `git add .`, `git add -A`, or `git commit -am ...` —
+     they sweep peer-worker WIP into your commit.
+   - **Never** use destructive git operations (`git reset --hard`,
+     `git checkout HEAD -- <path>`, `git stash pop`, `git stash apply`,
+     `git clean -fd`, `git branch -D`) on the shared worktree. A
+     PreToolUse hook blocks these for worker agents; if you find peer
+     work in your way, post `bd comments add` and wait for supervisor
+     coordination instead. See **Shared-Worktree Git Discipline** in
+     `/aura:worker` for the full rationale and the escape hatch.
+
 ## Checklist
 
 - [ ] Planned backwards from production code path
@@ -95,6 +111,8 @@ See the project's `AGENTS.md` and `~/.claude/CLAUDE.md` for coding standards.
 - [ ] Service wired with real dependencies (not mocks in production)
 - [ ] Quality gates pass (type checking + tests)
 - [ ] Production code path verified (via code inspection: no TODOs, real deps wired, tests import production code)
+- [ ] Files staged individually by name (no `git add .` / `git add -A`)
+- [ ] No destructive git operations (`reset --hard`, `checkout HEAD -- <path>`, `stash pop/apply`, `clean -fd`, `branch -D`) used on the shared worktree
 
 ## Follow-up Slices (FOLLOWUP_SLICE-N)
 
