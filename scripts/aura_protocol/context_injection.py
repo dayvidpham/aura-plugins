@@ -32,19 +32,40 @@ Design:
 from __future__ import annotations
 
 from dataclasses import dataclass
+from pathlib import Path
 from xml.sax.saxutils import escape as xml_escape
 
 from aura_protocol.types import (
+    CHECKLIST_SPECS,
     COMMAND_SPECS,
     CONSTRAINT_SPECS,
+    COORDINATION_COMMANDS,
+    FIGURE_SPECS,
     HANDOFF_SPECS,
     LABEL_SPECS,
     PHASE_SPECS,
+    REVIEW_AXIS_SPECS,
+    ROLE_SPECS,
+    WORKFLOW_SPECS,
+    BehaviorSpec,
+    Checklist,
     ConstraintContext,
+    CoordinationCommand,
+    Figure,
+    FigureId,
     PhaseId,
+    ReviewAxisSpec,
     RoleId,
     Transition,
+    Workflow,
 )
+
+
+# ─── Error Types ─────────────────────────────────────────────────────────────
+
+
+class FigureLoadError(Exception):
+    """Raised when a figure YAML file cannot be loaded."""
 
 
 # ─── Runtime Context Dataclasses ──────────────────────────────────────────────
@@ -58,11 +79,19 @@ class RoleContext:
     to embed role-appropriate constraints, phases, commands, and handoffs.
 
     Fields:
-        role:        The agent role this context describes.
-        phases:      Phases this role operates in (from PHASE_SPECS owner_roles, inverted).
-        constraints: ConstraintContext objects relevant to this role.
-        commands:    Command names (aura:*) applicable to this role.
-        handoffs:    Handoff IDs where this role is source or target.
+        role:                  The agent role this context describes.
+        phases:                Phases this role operates in (from PHASE_SPECS owner_roles, inverted).
+        constraints:           ConstraintContext objects relevant to this role.
+        commands:              Command names (aura:*) applicable to this role.
+        handoffs:              Handoff IDs where this role is source or target.
+        introduction:          1-2 sentence opener from ROLE_SPECS[role].introduction.
+        ownership_narrative:   Prose "What You Own" from ROLE_SPECS[role].ownership_narrative.
+        behaviors:             Tactical GWT behaviors from ROLE_SPECS[role].behaviors.
+        checklists:            Completion checklists for this role from CHECKLIST_SPECS.
+        coordination_commands: Inter-agent commands (role-specific + shared) from COORDINATION_COMMANDS.
+        workflows:             Named workflows for this role from WORKFLOW_SPECS.
+        review_axes:           Review axes from REVIEW_AXIS_SPECS (reviewer only, empty for others).
+        figures:               ASCII diagram figures for this role from FIGURE_SPECS, filtered by role_refs.
     """
 
     role: RoleId
@@ -70,6 +99,14 @@ class RoleContext:
     constraints: frozenset[ConstraintContext]
     commands: tuple[str, ...]
     handoffs: tuple[str, ...]
+    introduction: str | None
+    ownership_narrative: str | None
+    behaviors: tuple[BehaviorSpec, ...]
+    checklists: tuple[Checklist, ...]
+    coordination_commands: tuple[CoordinationCommand, ...]
+    workflows: tuple[Workflow, ...]
+    review_axes: tuple[ReviewAxisSpec, ...]
+    figures: tuple[Figure, ...]
 
 
 @dataclass(frozen=True)
@@ -124,10 +161,10 @@ _GENERAL_CONSTRAINTS: frozenset[str] = frozenset({
 #   C-followup-timing         → SUPERVISOR (given: "code review completion" — supervisor orchestrates followup)
 #   C-vertical-slices         → SUPERVISOR (given: "implementation decomposition" when: "assigning work")
 #   C-supervisor-no-impl      → SUPERVISOR (given: "supervisor role")
-#   C-supervisor-cartographers → SUPERVISOR (given: "supervisor needs codebase exploration and code review")
+#   C-supervisor-explore-ephemeral → SUPERVISOR (given: "supervisor needs codebase exploration")
 #   C-integration-points      → SUPERVISOR (given: "multiple vertical slices share types" when: "decomposing IMPL_PLAN")
 #   C-slice-review-before-close → SUPERVISOR (given: "workers complete their implementation slices")
-#   C-max-review-cycles       → SUPERVISOR (given: "worker-Cartographer review-fix cycles are ongoing")
+#   C-max-review-cycles       → SUPERVISOR (given: "per-slice review-fix cycles are ongoing")
 #   C-slice-leaf-tasks        → SUPERVISOR (given: "vertical slice created" — supervisor creates slices)
 #   C-handoff-skill-invocation→ ARCHITECT + SUPERVISOR (both are sources of handoffs h1 and h2/h3)
 #   C-dep-direction           → ALL (see _GENERAL_CONSTRAINTS)
@@ -142,13 +179,13 @@ _GENERAL_CONSTRAINTS: frozenset[str] = frozenset({
 #   C-actionable-errors       → ALL (see _GENERAL_CONSTRAINTS)
 
 _ROLE_CONSTRAINTS: dict[RoleId, frozenset[str]] = {
-    RoleId.EPOCH: frozenset(_GENERAL_CONSTRAINTS | {
+    RoleId.Epoch: frozenset(_GENERAL_CONSTRAINTS | {
         # Epoch orchestrates all phases — review consensus gating applies to advance
         "C-review-consensus",
         # Epoch creates handoffs as master orchestrator
         "C-handoff-skill-invocation",
-        # Epoch delegates p8/p10 exploration+review to 3 Cartographers (Ride the Wave)
-        "C-supervisor-cartographers",
+        # Epoch delegates exploration to ephemeral Explore subagents (Ride the Wave)
+        "C-supervisor-explore-ephemeral",
         # Epoch ensures supervisor documents integration points between slices
         "C-integration-points",
         # Epoch enforces: slices reviewed before closure; supervisor closes, not workers
@@ -156,7 +193,7 @@ _ROLE_CONSTRAINTS: dict[RoleId, frozenset[str]] = {
         # Epoch enforces: max 3 worker-reviewer cycles; remaining IMPORTANT → FOLLOWUP
         "C-max-review-cycles",
     }),
-    RoleId.ARCHITECT: frozenset(_GENERAL_CONSTRAINTS | {
+    RoleId.Architect: frozenset(_GENERAL_CONSTRAINTS | {
         # Architect creates proposals → must follow naming convention
         "C-proposal-naming",
         # Architect runs user interviews (URE/UAT) → must capture verbatim
@@ -166,7 +203,7 @@ _ROLE_CONSTRAINTS: dict[RoleId, frozenset[str]] = {
         # Architect commits code outputs occasionally (ratified docs)
         "C-agent-commit",
     }),
-    RoleId.REVIEWER: frozenset(_GENERAL_CONSTRAINTS | {
+    RoleId.Reviewer: frozenset(_GENERAL_CONSTRAINTS | {
         # Reviewer checks consensus in review phases
         "C-review-consensus",
         # Reviewer must use binary ACCEPT/REVISE
@@ -180,13 +217,13 @@ _ROLE_CONSTRAINTS: dict[RoleId, frozenset[str]] = {
         # Reviewer creates review task names
         "C-review-naming",
     }),
-    RoleId.SUPERVISOR: frozenset(_GENERAL_CONSTRAINTS | {
+    RoleId.Supervisor: frozenset(_GENERAL_CONSTRAINTS | {
         # Supervisor gates transition on consensus
         "C-review-consensus",
         # Supervisor must not implement code directly
         "C-supervisor-no-impl",
-        # Supervisor must use Cartographers for p8/p10 exploration and review
-        "C-supervisor-cartographers",
+        # Supervisor must use ephemeral Explore subagents for codebase exploration
+        "C-supervisor-explore-ephemeral",
         # Supervisor must document integration points between slices
         "C-integration-points",
         # Slices must be reviewed before closure
@@ -208,7 +245,7 @@ _ROLE_CONSTRAINTS: dict[RoleId, frozenset[str]] = {
         # Supervisor adopts leaf tasks into follow-up slices
         "C-followup-leaf-adoption",
     }),
-    RoleId.WORKER: frozenset(_GENERAL_CONSTRAINTS | {
+    RoleId.Worker: frozenset(_GENERAL_CONSTRAINTS | {
         # Worker must pass quality gates before closing slice
         "C-worker-gates",
         # Worker commits code with agent-commit
@@ -232,7 +269,7 @@ _ROLE_CONSTRAINTS: dict[RoleId, frozenset[str]] = {
 #   C-followup-timing         → P10_CODE_REVIEW (given: "code review completion")
 #   C-vertical-slices         → P8_IMPL_PLAN, P9_SLICE (given: "implementation decomposition")
 #   C-supervisor-no-impl      → P8_IMPL_PLAN, P9_SLICE (given: "implementation phase")
-#   C-supervisor-cartographers → P8_IMPL_PLAN, P9_SLICE, P10_CODE_REVIEW (dual-role: explore then review)
+#   C-supervisor-explore-ephemeral → P8_IMPL_PLAN, P9_SLICE, P10_CODE_REVIEW (ephemeral explore + review)
 #   C-integration-points      → P8_IMPL_PLAN (given: "decomposing IMPL_PLAN in Phase 8")
 #   C-slice-review-before-close → P9_SLICE, P10_CODE_REVIEW (given: "slice implementation is done")
 #   C-max-review-cycles       → P10_CODE_REVIEW (given: "counting review-fix iterations")
@@ -250,17 +287,17 @@ _ROLE_CONSTRAINTS: dict[RoleId, frozenset[str]] = {
 #   C-actionable-errors       → ALL phases
 
 _PHASE_CONSTRAINTS: dict[PhaseId, frozenset[str]] = {
-    PhaseId.P1_REQUEST: frozenset(_GENERAL_CONSTRAINTS),
-    PhaseId.P2_ELICIT: frozenset(_GENERAL_CONSTRAINTS | {
+    PhaseId.P1_Request: frozenset(_GENERAL_CONSTRAINTS),
+    PhaseId.P2_Elicit: frozenset(_GENERAL_CONSTRAINTS | {
         # User interviews happen in elicitation
         "C-ure-verbatim",
         # Proposals may begin forming here → naming awareness
     }),
-    PhaseId.P3_PROPOSE: frozenset(_GENERAL_CONSTRAINTS | {
+    PhaseId.P3_Propose: frozenset(_GENERAL_CONSTRAINTS | {
         # Proposals created in p3
         "C-proposal-naming",
     }),
-    PhaseId.P4_REVIEW: frozenset(_GENERAL_CONSTRAINTS | {
+    PhaseId.P4_Review: frozenset(_GENERAL_CONSTRAINTS | {
         # Plan review → consensus required
         "C-review-consensus",
         # Plan review → binary voting only
@@ -270,28 +307,28 @@ _PHASE_CONSTRAINTS: dict[PhaseId, frozenset[str]] = {
         # Review tasks created in p4
         "C-review-naming",
     }),
-    PhaseId.P5_UAT: frozenset(_GENERAL_CONSTRAINTS | {
+    PhaseId.P5_Uat: frozenset(_GENERAL_CONSTRAINTS | {
         # User acceptance test → verbatim capture
         "C-ure-verbatim",
     }),
-    PhaseId.P6_RATIFY: frozenset(_GENERAL_CONSTRAINTS),
-    PhaseId.P7_HANDOFF: frozenset(_GENERAL_CONSTRAINTS | {
+    PhaseId.P6_Ratify: frozenset(_GENERAL_CONSTRAINTS),
+    PhaseId.P7_Handoff: frozenset(_GENERAL_CONSTRAINTS | {
         # Handoff document required at p7 transition
         "C-handoff-skill-invocation",
     }),
-    PhaseId.P8_IMPL_PLAN: frozenset(_GENERAL_CONSTRAINTS | {
+    PhaseId.P8_ImplPlan: frozenset(_GENERAL_CONSTRAINTS | {
         # Implementation decomposition into vertical slices
         "C-vertical-slices",
         # Supervisor must not implement directly
         "C-supervisor-no-impl",
-        # Supervisor must use Cartographers for p8 exploration
-        "C-supervisor-cartographers",
+        # Supervisor must use ephemeral Explore subagents for p8 exploration
+        "C-supervisor-explore-ephemeral",
         # Supervisor must document integration points in p8
         "C-integration-points",
         # Each slice must have leaf tasks
         "C-slice-leaf-tasks",
     }),
-    PhaseId.P9_SLICE: frozenset(_GENERAL_CONSTRAINTS | {
+    PhaseId.P9_Slice: frozenset(_GENERAL_CONSTRAINTS | {
         # Worker quality gates before slice completion
         "C-worker-gates",
         # Commits happen in slice phase
@@ -302,12 +339,12 @@ _PHASE_CONSTRAINTS: dict[PhaseId, frozenset[str]] = {
         "C-supervisor-no-impl",
         # Slice tasks still need leaf tasks tracked
         "C-slice-leaf-tasks",
-        # Cartographers persist from p8 into p9/p10 — no shutdown between phases
-        "C-supervisor-cartographers",
+        # Ephemeral explore/review pattern applies across p8-p10
+        "C-supervisor-explore-ephemeral",
         # Slices must be reviewed before closure; workers notify, supervisor closes
         "C-slice-review-before-close",
     }),
-    PhaseId.P10_CODE_REVIEW: frozenset(_GENERAL_CONSTRAINTS | {
+    PhaseId.P10_CodeReview: frozenset(_GENERAL_CONSTRAINTS | {
         # Code review → consensus required (all 3 reviewers ACCEPT)
         "C-review-consensus",
         # Code review → binary voting
@@ -324,24 +361,65 @@ _PHASE_CONSTRAINTS: dict[PhaseId, frozenset[str]] = {
         "C-followup-lifecycle",
         # Follow-up leaf adoption
         "C-followup-leaf-adoption",
-        # Cartographers switch to reviewer role in p10
-        "C-supervisor-cartographers",
+        # Ephemeral reviewers spawned for per-slice review in p10
+        "C-supervisor-explore-ephemeral",
         # Slices reviewed before closure — supervisor closes after review passes
         "C-slice-review-before-close",
         # Review-fix cycles capped at 3; remaining IMPORTANTs move to FOLLOWUP
         "C-max-review-cycles",
     }),
-    PhaseId.P11_IMPL_UAT: frozenset(_GENERAL_CONSTRAINTS | {
+    PhaseId.P11_ImplUat: frozenset(_GENERAL_CONSTRAINTS | {
         # Implementation UAT → verbatim capture
         "C-ure-verbatim",
     }),
-    PhaseId.P12_LANDING: frozenset(_GENERAL_CONSTRAINTS | {
+    PhaseId.P12_Landing: frozenset(_GENERAL_CONSTRAINTS | {
         # Landing phase commits code
         "C-agent-commit",
     }),
     # Terminal state — intentionally empty: no constraints apply after landing
-    PhaseId.COMPLETE: frozenset(),
+    PhaseId.Complete: frozenset(),
 }
+
+
+# ─── Figure Loading ──────────────────────────────────────────────────────────
+
+
+def _load_figure_content(figure_id: FigureId, figures_dir: Path) -> str:
+    """Load figure content from YAML file.
+
+    Reads skills/protocol/figures/{figure_id.value}.yaml and returns the 'content' field.
+
+    Raises:
+        FigureLoadError: If file is missing, malformed, has no 'content' key, or content is empty.
+    """
+    yaml_path = figures_dir / f"{figure_id.value}.yaml"
+    if not yaml_path.exists():
+        raise FigureLoadError(
+            f"Figure YAML not found: {yaml_path}. "
+            f"Fix: create {yaml_path} with id, title, type, content fields."
+        )
+    try:
+        import yaml
+
+        with open(yaml_path, encoding="utf-8") as f:
+            data = yaml.safe_load(f)
+    except Exception as exc:
+        raise FigureLoadError(
+            f"Malformed YAML in {yaml_path}: {exc}. "
+            f"Fix: ensure valid YAML syntax."
+        ) from exc
+    if not isinstance(data, dict) or "content" not in data:
+        raise FigureLoadError(
+            f"Missing 'content' key in {yaml_path}. "
+            f"Fix: add a 'content' field with the figure's ASCII diagram."
+        )
+    content = data["content"]
+    if not content or not content.strip():
+        raise FigureLoadError(
+            f"Empty 'content' in {yaml_path}. "
+            f"Fix: add the ASCII diagram to the 'content' field."
+        )
+    return content
 
 
 # ─── Context Lookup Functions ─────────────────────────────────────────────────
@@ -421,12 +499,69 @@ def get_role_context(role: RoleId) -> RoleContext:
         )
     )
 
+    # Populate new schema extension fields from ROLE_SPECS and canonical dicts.
+    role_spec = ROLE_SPECS[role]
+
+    # Checklists filtered by role_ref matching this role.
+    checklists: tuple[Checklist, ...] = tuple(
+        spec
+        for spec in CHECKLIST_SPECS.values()
+        if spec.role_ref == role
+    )
+
+    # Coordination commands: role-specific (role_ref == role) OR shared (shared == True).
+    coord_commands: tuple[CoordinationCommand, ...] = tuple(
+        cmd
+        for cmd in COORDINATION_COMMANDS.values()
+        if cmd.role_ref == role or cmd.shared
+    )
+
+    # Workflows filtered by role_ref matching this role.
+    workflows: tuple[Workflow, ...] = tuple(
+        wf
+        for wf in WORKFLOW_SPECS.values()
+        if wf.role_ref == role
+    )
+
+    # Review axes only for reviewer role; empty for all others.
+    review_axes: tuple[ReviewAxisSpec, ...] = (
+        tuple(REVIEW_AXIS_SPECS.values())
+        if role == RoleId.Reviewer
+        else ()
+    )
+
+    # Figures filtered by role (M:N via role_refs frozenset).
+    # Content loaded from YAML at generation time.
+    figures_dir = Path(__file__).resolve().parent.parent.parent / "skills" / "protocol" / "figures"
+    figures: tuple[Figure, ...] = tuple(
+        Figure(
+            id=fig.id,
+            title=fig.title,
+            type=fig.type,
+            role_refs=fig.role_refs,
+            section_ref=fig.section_ref,
+            workflow_refs=fig.workflow_refs,
+            command_refs=fig.command_refs,
+            content=_load_figure_content(fig.id, figures_dir),
+        )
+        for fig in FIGURE_SPECS.values()
+        if role in fig.role_refs
+    )
+
     return RoleContext(
         role=role,
         phases=frozenset(owned_phases),
         constraints=constraints,
         commands=commands,
         handoffs=handoffs,
+        introduction=role_spec.introduction,
+        ownership_narrative=role_spec.ownership_narrative,
+        behaviors=role_spec.behaviors,
+        checklists=checklists,
+        coordination_commands=coord_commands,
+        workflows=workflows,
+        review_axes=review_axes,
+        figures=figures,
     )
 
 

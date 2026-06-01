@@ -104,9 +104,9 @@ bd dep add ure-id --blocked-by request-id
 
 **Given** you need to launch parallel agents for an epic **then** use `aura-swarm start --epic <id>` to create worktree-based agent sessions. Use `aura-swarm status` to monitor. **SHOULD NOT** launch long-running supervisors or workers as Task tool subagents.
 
-**Given** you need a separate supervisor or architect to plan a new epic **then** use `aura-parallel --role <role> -n 1 --prompt "..."` to launch in a tmux session. **SHOULD** only use `aura-parallel` for long-running supervisor/architect agents that need persistent context. **SHOULD NOT** use `aura-parallel` for reviewer rounds.
+**Given** you need a separate supervisor or architect to plan a new epic **then** use `aura-swarm start --swarm-mode intree --role <role> -n 1 --prompt "..."` to launch in a tmux session. **SHOULD** only use `aura-swarm` for long-running supervisor/architect agents that need persistent context. **SHOULD NOT** use `aura-swarm start` for reviewer rounds.
 
-**Given** you need reviewer rounds (plan review or code review) **then** spawn reviewers as subagents (via the Task tool) or coordinate via TeamCreate. Reviewers are short-lived and should stay in-session for direct result collection. **SHOULD NOT** use `aura-parallel` for reviewers.
+**Given** you need reviewer rounds (plan review or code review) **then** spawn reviewers as subagents (via the Task tool) or coordinate via TeamCreate. Reviewers are short-lived and should stay in-session for direct result collection. **SHOULD NOT** use `aura-swarm start` for reviewers.
 
 **Given** inter-agent communication is needed **then** use beads for coordination (`bd comments add`, `bd update --notes`, `bd show`). **SHOULD NOT** reference `aura agent send/broadcast/inbox` — that CLI does not exist.
 
@@ -114,7 +114,7 @@ bd dep add ure-id --blocked-by request-id
 
 **Given** you are a supervisor **when** implementation work is needed (code edits, file creation, config changes — no matter how small) **then** MUST delegate to a worker teammate or subagent. **MUST NEVER** use Edit, Write, or other file-modification tools directly. The supervisor's role is coordination, tracking, and quality control — never implementation.
 
-**Given** you are a supervisor **when** codebase exploration is needed (understanding APIs, tracing data flow, finding integration points) **then** MUST create a standing explore team via TeamCreate and delegate exploration to scoped `/aura:explore` agents. Minimum 1 standing explore agent. Reuse explore agents for follow-up questions on the same domain — they act as context caches. **SHOULD NEVER** perform deep codebase exploration directly as the supervisor.
+**Given** you are a supervisor **when** codebase exploration is needed (understanding APIs, tracing data flow, finding integration points) **then** MUST spawn ephemeral Explore subagents via the Task tool with scoped queries. Each subagent is short-lived and returns findings — no standing team overhead. **SHOULD NEVER** perform deep codebase exploration directly as the supervisor or maintain a standing explore team.
 
 ### Tests & Fixtures
 

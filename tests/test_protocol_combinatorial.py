@@ -9,7 +9,7 @@ The fixture defines 5 axes:
     2. epoch_states         — pre-built epoch state snapshots
     3. vote_combinations    — review vote combinations for consensus testing
     4. audit_events         — sample AuditEvent objects
-    5. constraint_violations — all 26 C-* constraints (5 runnable, 21 skipped)
+    5. constraint_violations — all 26 C-* constraints (25 runnable, 1 skipped)
 
 Generators yield TestCase objects with a consistent `id` field used in
 pytest.param(id=...) for readable test names.
@@ -199,24 +199,24 @@ class TestFixtureLoaderGenerators:
         assert len(ids) == len(set(ids)), "Constraint case IDs must be unique"
         assert all(ids), "All IDs must be non-empty"
 
-    def test_constraint_cases_have_five_runnable(self) -> None:
-        """Exactly 5 constraint cases are runnable (violation_state is set)."""
+    def test_constraint_cases_have_twenty_seven_runnable(self) -> None:
+        """Exactly 27 constraint cases are runnable (no skip_reason)."""
         runnable = [tc for tc in _CONSTRAINT_CASES if tc.skip_reason is None]
-        assert len(runnable) == 5
+        assert len(runnable) == 27
 
     def test_build_vote_dict_all_accept(self) -> None:
         """build_vote_dict('all_accept') returns typed ReviewAxis → VoteType dict."""
         votes = _PROTOCOL_FIXTURE.build_vote_dict("all_accept")
-        assert votes[ReviewAxis.CORRECTNESS] == VoteType.ACCEPT
-        assert votes[ReviewAxis.TEST_QUALITY] == VoteType.ACCEPT
-        assert votes[ReviewAxis.ELEGANCE] == VoteType.ACCEPT
+        assert votes[ReviewAxis.Correctness] == VoteType.Accept
+        assert votes[ReviewAxis.TestQuality] == VoteType.Accept
+        assert votes[ReviewAxis.Elegance] == VoteType.Accept
 
     def test_build_vote_dict_all_revise(self) -> None:
         """build_vote_dict('all_revise') returns all-REVISE dict."""
         votes = _PROTOCOL_FIXTURE.build_vote_dict("all_revise")
-        assert votes[ReviewAxis.CORRECTNESS] == VoteType.REVISE
-        assert votes[ReviewAxis.TEST_QUALITY] == VoteType.REVISE
-        assert votes[ReviewAxis.ELEGANCE] == VoteType.REVISE
+        assert votes[ReviewAxis.Correctness] == VoteType.Revise
+        assert votes[ReviewAxis.TestQuality] == VoteType.Revise
+        assert votes[ReviewAxis.Elegance] == VoteType.Revise
 
 
 # ─── TestPhaseSpecsFixture ─────────────────────────────────────────────────────
@@ -293,16 +293,16 @@ class TestTransitionCombinatorial:
         # phase (i.e. P4→P5 inside _advance_to), but here we are AT P4 already
         # and need to cast them manually.
         if tc.requires_consensus:
-            sm.record_vote(ReviewAxis.CORRECTNESS, VoteType.ACCEPT)
-            sm.record_vote(ReviewAxis.TEST_QUALITY, VoteType.ACCEPT)
-            sm.record_vote(ReviewAxis.ELEGANCE, VoteType.ACCEPT)
+            sm.record_vote(ReviewAxis.Correctness, VoteType.Accept)
+            sm.record_vote(ReviewAxis.TestQuality, VoteType.Accept)
+            sm.record_vote(ReviewAxis.Elegance, VoteType.Accept)
 
         # Backward revision transitions (P4→P3, P10→P9) require a REVISE vote.
         if tc.source_phase == "p4" and tc.target_phase == "p3":
-            sm.record_vote(ReviewAxis.CORRECTNESS, VoteType.REVISE)
+            sm.record_vote(ReviewAxis.Correctness, VoteType.Revise)
 
         if tc.source_phase == "p10" and tc.target_phase == "p9":
-            sm.record_vote(ReviewAxis.CORRECTNESS, VoteType.REVISE)
+            sm.record_vote(ReviewAxis.Correctness, VoteType.Revise)
 
         # Advance to target — should not raise
         sm.advance(target, triggered_by="test", condition_met="test-condition")
@@ -352,15 +352,15 @@ class TestForwardPathCombinatorial:
         # _advance_to already satisfies consensus gates for P4→P5 and P10→P11.
         # The next advance also goes through _advance_to's gate logic for those pairs.
         # Here we call sm.advance directly for the final step.
-        if tc.requires_consensus and source == PhaseId.P4_REVIEW:
-            sm.record_vote(ReviewAxis.CORRECTNESS, VoteType.ACCEPT)
-            sm.record_vote(ReviewAxis.TEST_QUALITY, VoteType.ACCEPT)
-            sm.record_vote(ReviewAxis.ELEGANCE, VoteType.ACCEPT)
+        if tc.requires_consensus and source == PhaseId.P4_Review:
+            sm.record_vote(ReviewAxis.Correctness, VoteType.Accept)
+            sm.record_vote(ReviewAxis.TestQuality, VoteType.Accept)
+            sm.record_vote(ReviewAxis.Elegance, VoteType.Accept)
 
-        if tc.requires_consensus and source == PhaseId.P10_CODE_REVIEW:
-            sm.record_vote(ReviewAxis.CORRECTNESS, VoteType.ACCEPT)
-            sm.record_vote(ReviewAxis.TEST_QUALITY, VoteType.ACCEPT)
-            sm.record_vote(ReviewAxis.ELEGANCE, VoteType.ACCEPT)
+        if tc.requires_consensus and source == PhaseId.P10_CodeReview:
+            sm.record_vote(ReviewAxis.Correctness, VoteType.Accept)
+            sm.record_vote(ReviewAxis.TestQuality, VoteType.Accept)
+            sm.record_vote(ReviewAxis.Elegance, VoteType.Accept)
 
         sm.advance(target, triggered_by="test", condition_met="forward-path")
         assert sm.state.current_phase == target
@@ -381,7 +381,7 @@ class TestVoteCombinatorial:
         sm = EpochStateMachine("test-epoch")
         source = PhaseId(tc.phase)
         # Forward target for each review phase
-        targets = {"p4": PhaseId.P5_UAT, "p10": PhaseId.P11_IMPL_UAT}
+        targets = {"p4": PhaseId.P5_Uat, "p10": PhaseId.P11_ImplUat}
         target = targets[tc.phase]
 
         _advance_to(sm, source)
@@ -403,8 +403,8 @@ class TestVoteCombinatorial:
         sm = EpochStateMachine("test-epoch")
         source = PhaseId(tc.phase)
         # Backward targets for each review phase
-        back_targets = {"p4": PhaseId.P3_PROPOSE, "p10": PhaseId.P9_SLICE}
-        fwd_targets = {"p4": PhaseId.P5_UAT, "p10": PhaseId.P11_IMPL_UAT}
+        back_targets = {"p4": PhaseId.P3_Propose, "p10": PhaseId.P9_Slice}
+        fwd_targets = {"p4": PhaseId.P5_Uat, "p10": PhaseId.P11_ImplUat}
 
         _advance_to(sm, source)
 
@@ -434,7 +434,7 @@ class TestVoteCombinatorial:
         """Vote combinations with partial/empty votes block forward advance."""
         sm = EpochStateMachine("test-epoch")
         source = PhaseId(tc.phase)
-        fwd_targets = {"p4": PhaseId.P5_UAT, "p10": PhaseId.P11_IMPL_UAT}
+        fwd_targets = {"p4": PhaseId.P5_Uat, "p10": PhaseId.P11_ImplUat}
         fwd_target = fwd_targets[tc.phase]
 
         _advance_to(sm, source)
@@ -504,12 +504,11 @@ _SKIPPED_CONSTRAINT_CASES = [tc for tc in _CONSTRAINT_CASES if tc.skip_reason is
 class TestConstraintViolationCombinatorial:
     """Parametrized tests: constraint violation states fire the expected C-* constraint.
 
-    5 runnable cases: check_state() on the violation EpochState must include the
-    expected constraint_id in its violations list.
+    25 runnable cases: check_state(), check_handoff_required(), or individual
+    check_* methods on the violation data must include the expected constraint_id.
 
-    21 skipped cases: pytest.mark.skip applied — constraints require non-EpochState
-    data (task hierarchies, commit strings, document content) not representable
-    as static YAML state dicts.
+    1 skipped case: pytest.mark.skip applied — C-actionable-errors has no check
+    method; it is a code review convention only.
     """
 
     @pytest.mark.parametrize(
@@ -523,10 +522,14 @@ class TestConstraintViolationCombinatorial:
 
         - State-based (violation_state set): calls check_state(state).
         - Transition-based (violation_from/to_phase set): calls check_handoff_required.
-        Both assert the expected constraint_id appears in the returned violations.
+        - Method-based (violation_method set): calls method(**violation_args) directly.
+        All assert the expected constraint_id appears in the returned violations.
         """
         if tc.violation_state is not None:
             violations = _CHECKER.check_state(tc.violation_state)
+        elif tc.violation_method is not None:
+            method = getattr(_CHECKER, tc.violation_method)
+            violations = method(**tc.violation_args)
         else:
             assert tc.violation_from_phase is not None
             assert tc.violation_to_phase is not None

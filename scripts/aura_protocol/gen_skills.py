@@ -37,14 +37,23 @@ from typing import Sequence
 
 from jinja2 import Environment, FileSystemLoader, StrictUndefined
 
+from aura_protocol.context_injection import (
+    RoleContext,
+    _load_figure_content,
+    get_role_context,
+)
 from aura_protocol.types import (
     COMMAND_SPECS,
+    CONSTRAINT_SPECS,
+    FIGURE_SPECS,
     HANDOFF_SPECS,
     PHASE_SPECS,
     PROCEDURE_STEPS,
     ROLE_SPECS,
+    CommandId,
     CommandSpec,
-    ConstraintContext,
+    ConstraintSpec,
+    Figure,
     HandoffSpec,
     PhaseId,
     PhaseSpec,
@@ -97,14 +106,52 @@ def _commands_for_role(role_id: RoleId) -> list[CommandSpec]:
     ]
 
 
-def _constraints_for_role(role_id: RoleId) -> list[ConstraintContext]:
-    """Return ConstraintContext objects relevant to a given role.
+def _skill_names_for_role(role_id: RoleId) -> list[str]:
+    """Return skill invocation names for a role's sub-commands.
 
-    Uses get_role_context() to return only the role-scoped constraints,
-    derived from _ROLE_CONSTRAINTS in context_injection.py.
+    Converts command names to skill directory names: `aura:a:b` → `aura:a-b`.
+    Skips the main role command (e.g., `aura:worker` for the worker role).
+
+    What went wrong if list is empty: no sub-commands defined for this role.
+    Why: COMMAND_SPECS only has the main role entry and no sub-commands.
+    Where: types.py COMMAND_SPECS dict.
+    How to fix: add CommandSpec entries with role_ref matching role_id.
     """
-    from aura_protocol.context_injection import get_role_context
-    return list(get_role_context(role_id).constraints)
+    main_cmd = f"aura:{role_id.value}"
+    result = []
+    for cmd in _commands_for_role(role_id):
+        if cmd.name == main_cmd:
+            continue
+        parts = cmd.name.split(":")
+        # aura:a:b → aura:a-b  (join first two with ':', rest with '-')
+        if len(parts) >= 3:
+            skill_name = f"{parts[0]}:{parts[1]}-{'-'.join(parts[2:])}"
+        else:
+            skill_name = cmd.name
+        result.append(skill_name)
+    return result
+
+
+def _constraints_from_role_context(
+    role_ctx: "RoleContext",
+) -> list[ConstraintSpec]:
+    """Return ConstraintSpec objects from a pre-built RoleContext.
+
+    Extracts constraint IDs from the RoleContext's ConstraintContext objects,
+    then looks them up in CONSTRAINT_SPECS to return the full spec objects
+    (including examples field) for template rendering.
+
+    Returns specs sorted by ID for deterministic template output.
+
+    Args:
+        role_ctx: A RoleContext already built by get_role_context().
+                  Avoids a second get_role_context() call in _render_header().
+    """
+    constraint_ids = {c.id for c in role_ctx.constraints}
+    return sorted(
+        [spec for cid, spec in CONSTRAINT_SPECS.items() if cid in constraint_ids],
+        key=lambda s: s.id,
+    )
 
 
 def _handoffs_for_role(role_id: RoleId) -> list[HandoffSpec]:
@@ -207,6 +254,18 @@ def _find_marker_positions(
     return begin_idx, end_idx
 
 
+# ─── Figure grouping ─────────────────────────────────────────────────────────
+
+
+def _figures_by_workflow(figures: tuple[Figure, ...]) -> dict[str, list[Figure]]:
+    """Group figures by workflow ref for template rendering."""
+    result: dict[str, list[Figure]] = {}
+    for fig in figures:
+        for wf_ref in fig.workflow_refs:
+            result.setdefault(wf_ref, []).append(fig)
+    return result
+
+
 # ─── Template rendering ───────────────────────────────────────────────────────
 
 
@@ -244,15 +303,93 @@ def _render_header(
     # Sort owned phases by declaration order in PhaseId (not string order)
     owned_phases_sorted = [p for p in PhaseId if p in set(role_spec.owned_phases)]
 
+    # Single get_role_context() call provides constraints, checklists,
+    # coordination_commands, workflows, and review_axes for this role.
+    # Avoids duplicating the filtering logic already in context_injection.py.
+    role_ctx = get_role_context(role_id)
+
     context: dict = {
         "role": role_spec,
         "commands": _commands_for_role(role_id),
-        "constraints": _constraints_for_role(role_id),
+        "constraints": _constraints_from_role_context(role_ctx),
         "handoffs": _handoffs_for_role(role_id),
         "owned_phases": owned_phases_sorted,
         "phases_detail": _owned_phase_details(role_spec),
         "steps": list(PROCEDURE_STEPS.get(role_id, [])),
         "phase_slug": phase_slug,
+        "sub_skills": _skill_names_for_role(role_id),
+        "introduction": role_spec.introduction,
+        "ownership_narrative": role_spec.ownership_narrative,
+        "behaviors": list(role_spec.behaviors),
+        "checklists": list(role_ctx.checklists),
+        "coordination_commands": list(role_ctx.coordination_commands),
+        "workflows": list(role_ctx.workflows),
+        "figures_by_workflow": _figures_by_workflow(role_ctx.figures),
+        "review_axes": list(role_ctx.review_axes),
+    }
+
+    return template.render(**context)
+
+
+# ─── Sub-skill rendering ─────────────────────────────────────────────────────
+
+
+def _figures_for_command(command_id: CommandId) -> list[Figure]:
+    """Return Figure objects whose command_refs include the given CommandId.
+
+    Content is loaded from YAML at call time (same pattern as context_injection).
+    Returns figures sorted by id for deterministic output.
+    """
+    figures_dir = pathlib.Path(__file__).resolve().parent.parent.parent / "skills" / "protocol" / "figures"
+    result: list[Figure] = []
+    for fig in FIGURE_SPECS.values():
+        if command_id in fig.command_refs:
+            result.append(
+                Figure(
+                    id=fig.id,
+                    title=fig.title,
+                    type=fig.type,
+                    role_refs=fig.role_refs,
+                    section_ref=fig.section_ref,
+                    workflow_refs=fig.workflow_refs,
+                    command_refs=fig.command_refs,
+                    content=_load_figure_content(fig.id, figures_dir),
+                )
+            )
+    return sorted(result, key=lambda f: f.id.value)
+
+
+def _render_sub_skill_header(
+    command_id: CommandId,
+    template_dir: pathlib.Path,
+) -> str:
+    """Render the generated header block for a sub-skill (command).
+
+    Returns the rendered string including the BEGIN/END markers.
+    Uses Jinja2 StrictUndefined — any undefined variable causes an error.
+
+    The template receives:
+    - command_name: str — the command invocation name (e.g. "aura:supervisor:plan-tasks")
+    - command_description: str — human-readable description
+    - figures: list[Figure] — figures associated with this command via command_refs
+    """
+    command_spec: CommandSpec = COMMAND_SPECS[command_id]
+
+    env = Environment(
+        loader=FileSystemLoader(str(template_dir)),
+        undefined=StrictUndefined,
+        keep_trailing_newline=True,
+        trim_blocks=True,
+        lstrip_blocks=True,
+    )
+    template = env.get_template("skill_sub_figure.j2")
+
+    figures = _figures_for_command(command_id)
+
+    context: dict = {
+        "command_name": command_spec.name,
+        "command_description": command_spec.description,
+        "figures": figures,
     }
 
     return template.render(**context)
@@ -347,10 +484,110 @@ def generate_skill(
     body_lines = old_lines[end_idx + 1 :]
     body = "".join(body_lines)
 
-    # Assemble new content: everything before BEGIN + new header + body
+    # Assemble new content: generated header (includes frontmatter + heading +
+    # BEGIN…END block) followed by the hand-authored body.  The prefix
+    # (everything before the BEGIN marker in the old file) is intentionally
+    # dropped — frontmatter and the role heading are owned by the template.
+    new_content = rendered_header + body
+
+    # Print unified diff if requested and content changed
+    if diff and new_content != old_content:
+        old_name = str(skill_path)
+        new_name = str(skill_path) + " (generated)"
+        diff_lines = list(
+            difflib.unified_diff(
+                old_content.splitlines(keepends=True),
+                new_content.splitlines(keepends=True),
+                fromfile=old_name,
+                tofile=new_name,
+            )
+        )
+        print("".join(diff_lines), end="")
+
+    # Write to file if requested
+    if write:
+        skill_path.write_text(new_content, encoding="utf-8")
+
+    return new_content
+
+
+def generate_sub_skill(
+    command_id: CommandId,
+    skill_path: pathlib.Path | str,
+    *,
+    template_dir: pathlib.Path | str | None = None,
+    diff: bool = True,
+    write: bool = True,
+    init: bool = False,
+) -> str:
+    """Generate the SKILL.md header for a sub-skill command and (optionally) write it.
+
+    Parameters
+    ----------
+    command_id:
+        The command to generate for (must be in COMMAND_SPECS).
+    skill_path:
+        Path to the target SKILL.md file.  The file must already exist
+        and contain the BEGIN/END marker pair (unless *init* is True).
+    template_dir:
+        Directory containing ``skill_sub_figure.j2``.  Defaults to the
+        ``skills/templates/`` directory relative to the repo root.
+    diff:
+        If True (default), print a unified diff of old vs new content to
+        stdout before writing.  No diff printed when there are no changes.
+    write:
+        If True (default), write the new content to *skill_path*.
+        Set False for dry-run / test assertions.
+    init:
+        If True, prepend BEGIN/END markers to files that lack them before
+        generating.  Files that already have markers are left as-is.
+
+    Returns
+    -------
+    str
+        The complete new file content (generated sub-skill header + preserved body).
+
+    Raises
+    ------
+    MarkerError
+        If *skill_path* is missing the BEGIN/END marker pair and *init* is False.
+    """
+    skill_path = pathlib.Path(skill_path)
+    if template_dir is None:
+        template_dir = _SKILLS_TEMPLATES_DIR
+    template_dir = pathlib.Path(template_dir)
+
+    # Read existing file
+    old_content = skill_path.read_text(encoding="utf-8")
+
+    # In --init mode, prepend markers if missing
+    if init and not _has_markers(old_content):
+        marker_prefix = f"{GENERATED_BEGIN}\n{GENERATED_END}\n\n"
+        old_content = marker_prefix + old_content
+        if write:
+            skill_path.write_text(old_content, encoding="utf-8")
+
+    old_lines = old_content.splitlines(keepends=True)
+
+    # Locate markers — raises MarkerError on any problem
+    begin_idx, end_idx = _find_marker_positions(old_lines, skill_path)
+
+    # Render the new generated sub-skill header (includes markers)
+    rendered_header = _render_sub_skill_header(command_id, template_dir)
+
+    # Ensure header ends with newline for clean concatenation
+    if not rendered_header.endswith("\n"):
+        rendered_header += "\n"
+
+    # Preserve everything before BEGIN marker (e.g. the h1 heading)
     prefix_lines = old_lines[:begin_idx]
     prefix = "".join(prefix_lines)
 
+    # Preserve the hand-authored body below the END marker
+    body_lines = old_lines[end_idx + 1:]
+    body = "".join(body_lines)
+
+    # Assemble: prefix + rendered header + body
     new_content = prefix + rendered_header + body
 
     # Print unified diff if requested and content changed
@@ -378,15 +615,23 @@ def generate_skill(
 
 # Mapping from RoleId → skill directory name (relative to skills/)
 _ROLE_SKILL_DIRS: dict[RoleId, str] = {
-    RoleId.SUPERVISOR: "supervisor",
-    RoleId.WORKER: "worker",
-    RoleId.REVIEWER: "reviewer",
-    RoleId.ARCHITECT: "architect",
+    RoleId.Supervisor: "supervisor",
+    RoleId.Worker: "worker",
+    RoleId.Reviewer: "reviewer",
+    RoleId.Architect: "architect",
+}
+
+# Mapping from CommandId → skill directory name (relative to skills/).
+# Only commands whose FIGURE_SPECS entries have command_refs pointing at them
+# need sub-skill header generation. Others have no generated figures.
+_COMMAND_SKILL_DIRS: dict[CommandId, str] = {
+    CommandId.SupPlan: "supervisor-plan-tasks",
+    CommandId.SupSpawn: "supervisor-spawn-worker",
 }
 
 
 def main() -> int:
-    """CLI entry point. Generates SKILL.md headers for all roles.
+    """CLI entry point. Generates SKILL.md headers for all roles and sub-skills.
 
     Usage: python -m aura_protocol.gen_skills [--init]
 
@@ -403,6 +648,8 @@ def main() -> int:
     skills_dir = script_dir.parent.parent / "skills"
 
     errors: list[str] = []
+
+    # Generate role-level SKILL.md headers
     for role_id, dir_name in _ROLE_SKILL_DIRS.items():
         skill_path = skills_dir / dir_name / "SKILL.md"
         if not skill_path.exists():
@@ -411,6 +658,22 @@ def main() -> int:
         try:
             generate_skill(role_id, skill_path, diff=True, init=init_mode)
             print(f"Generated {skill_path}")
+        except MarkerError as e:
+            errors.append(str(e))
+            print(f"ERROR: {e}", file=sys.stderr)
+        except OSError as e:
+            errors.append(str(e))
+            print(f"ERROR writing {skill_path}: {e}", file=sys.stderr)
+
+    # Generate sub-skill SKILL.md headers (command-level figures)
+    for command_id, dir_name in _COMMAND_SKILL_DIRS.items():
+        skill_path = skills_dir / dir_name / "SKILL.md"
+        if not skill_path.exists():
+            print(f"Skipping sub-skill {skill_path} (not found)", file=sys.stderr)
+            continue
+        try:
+            generate_sub_skill(command_id, skill_path, diff=True, init=init_mode)
+            print(f"Generated sub-skill {skill_path}")
         except MarkerError as e:
             errors.append(str(e))
             print(f"ERROR: {e}", file=sys.stderr)

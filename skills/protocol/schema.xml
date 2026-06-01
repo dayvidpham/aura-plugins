@@ -261,9 +261,9 @@
               <instruction>Read RATIFIED_PLAN and URD via bd show</instruction>
               <command>bd show &lt;ratified-plan-id&gt; &amp;&amp; bd show &lt;urd-id&gt;</command>
             </step>
-            <step order="3" id="S-supervisor-cartographers">
-              <instruction>Create standing explore team via TeamCreate before any codebase exploration</instruction>
-              <context>TeamCreate with /aura:explore role; minimum 3 agents</context>
+            <step order="3" id="S-supervisor-explore-ephemeral">
+              <instruction>Spawn ephemeral Explore subagents via Task tool for scoped codebase queries</instruction>
+              <context>Each subagent is short-lived and returns findings; no standing team overhead</context>
             </step>
             <step order="4" id="S-supervisor-decompose-slices" next-state="p8">
               <instruction>Decompose into vertical slices</instruction>
@@ -389,6 +389,11 @@
         <delegate to-role="architect" phases="p1,p2,p3,p4,p5,p6,p7" />
         <delegate to-role="supervisor" phases="p7,p8,p9,p10,p11,p12" />
       </delegates>
+      <tools>Read, Glob, Grep, Bash, Skill, Agent, Task</tools>
+      <model>opus</model>
+      <thinking>medium</thinking>
+      <introduction>You are the master orchestrator for the full 12-phase epoch lifecycle. You delegate planning phases (1-7) to the architect and implementation phases (7-12) to the supervisor.</introduction>
+      <ownership-narrative>You own the full 12-phase lifecycle from Request to Landing. You delegate phases 1-7 to the architect and phases 7-12 to the supervisor. The epoch role coordinates the complete workflow end-to-end and is the only role that spans all phases.</ownership-narrative>
     </role>
     <role id="architect" name="Architect" description="Specification writer and implementation designer">
       <owns-phases>
@@ -403,6 +408,18 @@
       <label-awareness>
       aura:p1-user, aura:p2-user, aura:p3-plan, aura:p4-plan, aura:p5-user, aura:p6-plan, aura:p7-plan
     </label-awareness>
+      <tools>Read, Glob, Grep, Bash, Skill, Agent, Task</tools>
+      <model>opus</model>
+      <thinking>medium</thinking>
+      <introduction>You design specifications and coordinate the planning phases of epochs. See the project's AGENTS.md and ~/.claude/CLAUDE.md for coding standards and constraints.</introduction>
+      <ownership-narrative>You own Phases 1-7 of the epoch: capture and classify user request (p1), run requirements elicitation URE survey (p2), create PROPOSAL-N with full technical plan (p3), spawn 3 axis-specific reviewers and loop until consensus (p4), present plan to user for acceptance test (p5), add ratify label to accepted PROPOSAL-N (p6), create handoff document and transfer to supervisor (p7).</ownership-narrative>
+      <behaviors>
+        <behavior id="B-arch-elicit" given="user request captured" when="starting" then="run /aura:user-elicit for URE survey" should-not="skip elicitation phase" />
+        <behavior id="B-arch-bdd" given="a feature request" when="writing plan" then="use BDD Given/When/Then format with acceptance criteria" should-not="write vague requirements" />
+        <behavior id="B-arch-reviewers" given="plan ready" when="requesting review" then="spawn 3 axis-specific reviewers (A=Correctness, B=Test quality, C=Elegance)" should-not="spawn reviewers without axis assignment" />
+        <behavior id="B-arch-uat" given="consensus reached (all 3 ACCEPT)" when="proceeding" then="run /aura:user-uat before ratifying" should-not="skip user acceptance test" />
+        <behavior id="B-arch-ratify" given="UAT passed" when="ratifying" then="add aura:p6-plan:s6-ratify label to PROPOSAL-N" should-not="close or delete the proposal task" />
+      </behaviors>
     </role>
     <role id="reviewer" name="Reviewer" description="End-user alignment reviewer for plans and code">
       <owns-phases>
@@ -417,6 +434,16 @@
         <axis-ref ref="axis-test_quality" />
         <axis-ref ref="axis-elegance" />
       </uses-axes>
+      <tools>Read, Glob, Grep, Bash, Skill</tools>
+      <model>sonnet</model>
+      <introduction>You review from an end-user alignment perspective. See the project's protocol/CONSTRAINTS.md for coding standards.</introduction>
+      <ownership-narrative>You participate in two phases: Phase 4 (plan review) — evaluate PROPOSAL-N against one axis using binary ACCEPT/REVISE, NO severity tree; Phase 10 (code review) — review ALL implementation slices against your axis using full severity tree (BLOCKER/IMPORTANT/MINOR), EAGER creation of all 3 severity groups.</ownership-narrative>
+      <behaviors>
+        <behavior id="B-rev-end-user" given="a review assignment" when="reviewing" then="apply end-user alignment criteria" should-not="focus only on technical details" />
+        <behavior id="B-rev-revise-feedback" given="issues found" when="voting" then="vote REVISE with specific actionable feedback" should-not="vote REVISE without suggestions" />
+        <behavior id="B-rev-accept" given="all criteria met" when="voting" then="vote ACCEPT with brief rationale" should-not="delay consensus unnecessarily" />
+        <behavior id="B-rev-all-slices" given="impl review (Phase 10)" when="assigned" then="review ALL slices (not just one)" should-not="skip any slice" />
+      </behaviors>
     </role>
     <role id="supervisor" name="Supervisor" description="Task coordinator, spawns workers, manages parallel execution">
       <owns-phases>
@@ -432,24 +459,22 @@
     </label-awareness>
       <invariants>
         <invariant>NEVER implements code — always spawns workers</invariant>
-        <invariant>NEVER explores codebase directly — delegates to standing explore team</invariant>
+        <invariant>NEVER explores codebase directly — delegates to ephemeral Explore subagents</invariant>
         <invariant>ALWAYS creates leaf tasks within each slice — no undecomposed slices</invariant>
         <invariant>Creates follow-up epic when code review has IMPORTANT or MINOR findings</invariant>
       </invariants>
-      <standing-teams>
-        <team id="explore-team" purpose="Context-cached codebase exploration agents">
-          <description>
-          Standing team of explore agents created via TeamCreate at the start of Phase 8.
-          Each agent is scoped to a specific codebase domain. Agents retain context between
-          queries, making follow-up questions on the same domain near-zero-cost.
-          Minimum 1 agent; scale based on feature complexity (1-4 agents).
-        </description>
-          <agent-template role="explore" skill-ref="cmd-explore" invocation="Skill(/aura:explore)" min-count="1" max-count="4">
-            <scoping>Each agent assigned a specific codebase domain (e.g., CLI wiring, DB layer, build system)</scoping>
-            <lifecycle>Created before exploration, shut down after all slices have leaf tasks</lifecycle>
-          </agent-template>
-        </team>
-      </standing-teams>
+      <tools>Read, Glob, Grep, Bash, Skill, Agent, Task</tools>
+      <model>opus</model>
+      <thinking>medium</thinking>
+      <introduction>You coordinate parallel task execution. See the project's AGENTS.md and ~/.claude/CLAUDE.md for coding standards and constraints.</introduction>
+      <ownership-narrative>You own Phases 7-12 of the epoch: receive handoff from architect (p7), create vertical slice decomposition IMPL_PLAN (p8), spawn workers for parallel implementation SLICE-N (p9), spawn reviewers for per-slice code review with severity tree (p10), coordinate user acceptance test (p11), commit, push, and hand off (p12). You NEVER implement code directly — all implementation is delegated to workers.</ownership-narrative>
+      <behaviors>
+        <behavior id="B-sup-read-context" given="handoff received" when="starting" then="read ratified plan, URD, UAT, and elicit tasks for full context" should-not="start without reading all four" />
+        <behavior id="B-sup-model-trivial" given="trivial changes (single-file edits, config tweaks, typo fixes)" when="spawning a worker" then="use model: haiku to minimize cost and latency" should-not="use a heavyweight model for trivial work" />
+        <behavior id="B-sup-model-nontrivial" given="non-trivial changes (multi-file, architectural, logic-heavy)" when="spawning a worker" then="prefer model: sonnet for the Task tool to ensure quality" should-not="default to haiku for complex work" />
+        <behavior id="B-sup-explore-ephemeral" given="codebase exploration needed" when="needing to understand a codebase area" then="spawn an ephemeral Explore subagent via Task tool with a scoped query; each subagent is short-lived and returns findings" should-not="explore the codebase directly as supervisor or maintain a standing explore team" />
+        <behavior id="B-sup-ride-the-wave" given="Phase 8-10 execution" when="starting implementation" then="follow the Ride the Wave cycle: plan tasks with integration points, launch the wave of workers, spawn reviewers for per-slice review (clean exit = 0 BLOCKERs + 0 IMPORTANTs), workers fix per-slice with atomic commits, max 3 cycles per slice, escalate to architect after cycle 3" should-not="skip any stage; batch review across slices; exceed 3 review cycles per slice" />
+      </behaviors>
     </role>
     <role id="worker" name="Worker" description="Vertical slice implementer (full production code path)">
       <owns-phases>
@@ -458,10 +483,21 @@
       <label-awareness>
       aura:p9-impl:s9-slice
     </label-awareness>
+      <tools>Read, Glob, Grep, Bash, Skill, Edit, Write</tools>
+      <model>sonnet</model>
       <ownership-model>
       One worker per production code path. Owns full vertical
       (types → tests → implementation → wiring).
     </ownership-model>
+      <introduction>You own a vertical slice (full production code path from CLI/API entry point → service → types). See the project's AGENTS.md and ~/.claude/CLAUDE.md for coding standards and constraints.</introduction>
+      <ownership-narrative>NOT: A single file or horizontal layer (e.g., 'all types' or 'all tests'). YES: A full vertical slice (complete production code path end-to-end). You own the FEATURE end-to-end, not a layer or file. Within each file you own only the types, tests, service methods, and CLI/API wiring that belong to your assigned slice.</ownership-narrative>
+      <behaviors>
+        <behavior id="B-worker-vertical-ownership" given="vertical slice assignment" when="implementing" then="own full production code path (types → tests → impl → wiring)" should-not="implement only horizontal layer" />
+        <behavior id="B-worker-plan-backwards" given="production code path" when="planning" then="plan backwards from end point to types" should-not="start with types without knowing the end" />
+        <behavior id="B-worker-test-production-code" given="tests" when="writing" then="import actual production code (CLI/API users will run)" should-not="create test-only export or dual code paths" />
+        <behavior id="B-worker-verify-production" given="implementation complete" when="verifying" then="run actual production code path manually" should-not="rely only on unit tests passing" />
+        <behavior id="B-worker-blocker" given="a blocker" when="unable to proceed" then="use /aura:worker-blocked with details" should-not="guess or work around" />
+      </behaviors>
     </role>
   </roles>
   <!-- ═══════════════════════════════════════════════════════════════════════
@@ -748,7 +784,7 @@
         <label-ref ref="L-p1s1_3" />
       </creates-labels>
       <file>skills/explore/SKILL.md</file>
-      <note>Used in Phase 1 (s1_3) by architect, and in Phase 8 by supervisor's standing explore team.</note>
+      <note>Used in Phase 1 (s1_3) by architect, and in Phase 8 by supervisor's ephemeral Explore subagents.</note>
     </command>
     <command id="cmd-research" name="aura:research" description="Domain research — find standards, prior art, and competing approaches">
       <phases>
@@ -778,7 +814,7 @@
       <required-fields>
       request, urd, proposal, ratified-plan, context, key-decisions, open-items, acceptance-criteria
     </required-fields>
-      <skill-invocation directive="Skill(/aura:supervisor)" note="Supervisor launch prompt MUST start with this invocation. Without it, supervisor skips explore team setup and leaf task creation." />
+      <skill-invocation directive="Skill(/aura:supervisor)" note="Supervisor launch prompt MUST start with this invocation. Without it, supervisor skips leaf task creation." />
     </handoff>
     <handoff id="h2" source-role="supervisor" target-role="worker" at-phase="p9" content-level="summary-with-ids" file-pattern="supervisor-to-worker.md">
       <required-fields>
@@ -829,33 +865,96 @@
   <constraints>
     <!-- Audit trail -->
     <constraint id="C-audit-never-delete" given="any task or label" when="modifying" then="add labels and comments only" should-not="delete or close tasks prematurely, remove labels" />
-    <constraint id="C-audit-dep-chain" given="any phase transition" when="creating new task" then="chain dependency: bd dep add parent --blocked-by child" should-not="skip dependency chaining or invert direction" />
+    <constraint id="C-audit-dep-chain" given="any phase transition" when="creating new task" then="chain dependency: bd dep add parent --blocked-by child" should-not="skip dependency chaining or invert direction" command="bd dep add &lt;parent&gt; --blocked-by &lt;child&gt;">
+      <example id="C-audit-dep-chain-full" lang="bash" label="correct">
+        <code><![CDATA[# Full dependency chain: work flows bottom-up, closure flows top-down
+bd dep add request-id --blocked-by ure-id
+bd dep add ure-id --blocked-by proposal-id
+bd dep add proposal-id --blocked-by impl-plan-id
+bd dep add impl-plan-id --blocked-by slice-1-id
+bd dep add slice-1-id --blocked-by leaf-task-a-id]]></code>
+      </example>
+    </constraint>
     <!-- Reviews -->
     <constraint id="C-review-consensus" given="review cycle (p4 or p10)" when="evaluating" then="all 3 reviewers must ACCEPT before proceeding" should-not="proceed with any REVISE vote outstanding" role-ref="epoch,reviewer,supervisor" phase-ref="p4,p10" />
     <constraint id="C-review-binary" given="a reviewer" when="voting" then="use ACCEPT or REVISE only" should-not="use APPROVE, APPROVE_WITH_COMMENTS, REQUEST_CHANGES, or REJECT" role-ref="reviewer" phase-ref="p4,p10" />
-    <constraint id="C-severity-eager" given="code review round (p10 only)" when="starting review" then="ALWAYS create 3 severity group tasks (BLOCKER, IMPORTANT, MINOR) immediately" should-not="lazily create severity groups only when findings exist" role-ref="reviewer" phase-ref="p10" />
+    <constraint id="C-severity-eager" given="code review round (p10 only)" when="starting review" then="ALWAYS create 3 severity group tasks (BLOCKER, IMPORTANT, MINOR) immediately" should-not="lazily create severity groups only when findings exist" role-ref="reviewer" phase-ref="p10">
+      <example id="C-severity-eager-create" lang="bash" label="correct">
+        <code><![CDATA[# Create all 3 severity groups immediately (even if empty)
+bd create --title "SLICE-1-REVIEW-A-1 BLOCKER" \
+  --labels "aura:severity:blocker,aura:p10-impl:s10-review"
+bd create --title "SLICE-1-REVIEW-A-1 IMPORTANT" \
+  --labels "aura:severity:important,aura:p10-impl:s10-review"
+bd create --title "SLICE-1-REVIEW-A-1 MINOR" \
+  --labels "aura:severity:minor,aura:p10-impl:s10-review"
+
+# Close empty groups immediately
+bd close <empty-important-id>
+bd close <empty-minor-id>]]></code>
+      </example>
+      <example id="C-severity-eager-anti" lang="bash" label="anti-pattern">
+        <code><![CDATA[# WRONG: only creating groups when findings exist
+# This skips empty groups and breaks the audit trail
+if blocker_findings:
+    bd create --title "BLOCKER" ...]]></code>
+      </example>
+    </constraint>
     <constraint id="C-severity-not-plan" given="plan review (p4)" when="reviewing" then="use binary ACCEPT/REVISE only" should-not="create severity tree for plan reviews" role-ref="reviewer" phase-ref="p4" />
     <constraint id="C-blocker-dual-parent" given="a BLOCKER finding in code review" when="recording" then="add as child of BOTH the severity group AND the slice it blocks" should-not="add to severity group only" role-ref="reviewer" phase-ref="p10" />
     <constraint id="C-followup-timing" given="code review completion with IMPORTANT or MINOR findings" when="creating follow-up epic" then="create immediately upon review completion" should-not="gate follow-up epic on BLOCKER resolution" role-ref="supervisor" phase-ref="p10" />
     <!-- Ownership -->
     <constraint id="C-vertical-slices" given="implementation decomposition" when="assigning work" then="each production code path owned by exactly ONE worker (full vertical)" should-not="assign horizontal layers or same path to multiple workers" role-ref="supervisor" phase-ref="p8,p9" />
     <constraint id="C-supervisor-no-impl" given="supervisor role" when="implementation phase" then="spawn workers for all code changes" should-not="implement code directly" role-ref="supervisor" phase-ref="p8,p9" />
-    <constraint id="C-supervisor-cartographers" given="supervisor needs codebase exploration and code review" when="starting Phase 8 (IMPL_PLAN) and Phase 10 (Code Review)" then="create exactly 3 Cartographers via TeamCreate with /aura:explore before any exploration; Cartographers are dual-role: explore codebase in Phase 8, switch to /aura:reviewer in Phase 10; Cartographers NEVER shut down between phases — persist for full Ride the Wave cycle; max 3 worker-reviewer cycles; supervisor shuts down Cartographers after cycle 3 or all-ACCEPT" should-not="perform deep codebase exploration directly as supervisor; shut down Cartographers between Phase 8 and Phase 10; exceed 3 worker-reviewer cycles" role-ref="epoch,supervisor" phase-ref="p8,p9,p10" />
+    <constraint id="C-supervisor-explore-ephemeral" given="supervisor needs codebase exploration" when="starting Phase 8 (IMPL_PLAN)" then="spawn ephemeral Explore subagents via Task tool for scoped codebase queries; each subagent is short-lived and returns findings; no standing team overhead" should-not="explore the codebase directly as supervisor; maintain a standing explore team" role-ref="epoch,supervisor" phase-ref="p8,p9,p10" />
+    <constraint id="C-clean-review-exit" given="per-slice code review" when="evaluating review results" then="clean review exit requires 0 BLOCKERs AND 0 IMPORTANTs; MINORs are acceptable and tracked in FOLLOWUP epic; each slice has its own independent review cycle counter (max 3 cycles); after 3 failed cycles, escalate to architect for re-planning" should-not="accept review with open BLOCKERs or IMPORTANTs; batch review across multiple slices; exceed 3 cycles without escalating; escalate to user instead of architect" />
+    <constraint id="C-autonomous-progression" given="supervisor orchestrating phases" when="deciding whether to proceed" then="4 user-gated phases only: (1) research depth decision, (2) URE survey, (3) Plan UAT, (4) Impl UAT; all other phase transitions are auto-ratified by the supervisor; after Plan UAT ACCEPT, proceed directly to ratification without user gate" should-not="add additional user gates beyond the 4 defined; require user approval for ratification after UAT ACCEPT" />
     <constraint id="C-integration-points" given="multiple vertical slices share types, interfaces, or data flows" when="decomposing IMPL_PLAN in Phase 8" then="identify horizontal Layer Integration Points and document them in IMPL_PLAN; each integration point specifies: owning slice, consuming slices, shared contract, merge timing; include integration points in slice descriptions so workers know what to export and import" should-not="leave cross-slice dependencies implicit; assume workers will discover contracts on their own" role-ref="epoch,supervisor" phase-ref="p8" />
-    <constraint id="C-slice-review-before-close" given="workers complete their implementation slices" when="slice implementation is done" then="workers notify supervisor with bd comments add (not bd close); slices must be reviewed at least once by Cartographers before closure; only the supervisor closes slices, after review passes" should-not="close slices immediately upon worker completion; allow workers to close their own slices" role-ref="epoch,supervisor" phase-ref="p9,p10" />
-    <constraint id="C-max-review-cycles" given="worker-Cartographer review-fix cycles are ongoing" when="counting review-fix iterations" then="limit to a maximum of 3 cycles total; after cycle 3, remaining IMPORTANT findings move to FOLLOWUP epic; proceed to Phase 11 (UAT) regardless of remaining IMPORTANTs after cycle 3" should-not="exceed 3 worker-reviewer cycles; block UAT on non-BLOCKER findings after 3 cycles" role-ref="epoch,supervisor" phase-ref="p10" />
-    <constraint id="C-slice-leaf-tasks" given="vertical slice created" when="decomposing slice into implementation units" then="create Beads leaf tasks (L1: types, L2: tests, L3: impl) within each slice with bd dep add slice-id --blocked-by leaf-task-id" should-not="create slices without leaf tasks — a slice with no children is undecomposed and cannot be tracked" role-ref="supervisor" phase-ref="p8,p9" />
-    <constraint id="C-handoff-skill-invocation" given="an agent is launched for a new phase (especially p7 to p8 handoff)" when="composing the launch prompt" then="prompt MUST start with Skill(/aura:{role}) invocation directive so the agent loads its role instructions" should-not="launch agents without skill invocation — they skip role-critical procedures like explore team setup and leaf task creation" role-ref="epoch,architect,supervisor" phase-ref="p7" />
+    <constraint id="C-slice-review-before-close" given="workers complete their implementation slices" when="slice implementation is done" then="workers notify supervisor with bd comments add (not bd close); slices must be reviewed at least once by reviewers before closure; only the supervisor closes slices, after review passes" should-not="close slices immediately upon worker completion; allow workers to close their own slices" role-ref="epoch,supervisor" phase-ref="p9,p10" />
+    <constraint id="C-max-review-cycles" given="per-slice review-fix cycles are ongoing" when="counting review-fix iterations per slice" then="limit to a maximum of 3 cycles per slice; clean review exit = 0 BLOCKERs + 0 IMPORTANTs; after cycle 3, escalate to architect for re-planning if BLOCKERs or IMPORTANTs remain; remaining IMPORTANT findings move to FOLLOWUP epic" should-not="exceed 3 review cycles per slice; escalate to user instead of architect; batch review across multiple slices" role-ref="epoch,supervisor" phase-ref="p10" />
+    <constraint id="C-slice-leaf-tasks" given="vertical slice created" when="decomposing slice into implementation units" then="create Beads leaf tasks (L1: types, L2: tests, L3: impl) within each slice with bd dep add slice-id --blocked-by leaf-task-id" should-not="create slices without leaf tasks — a slice with no children is undecomposed and cannot be tracked" role-ref="supervisor" phase-ref="p8,p9" command="bd dep add &lt;slice-id&gt; --blocked-by &lt;leaf-task-id&gt;" />
+    <constraint id="C-handoff-skill-invocation" given="an agent is launched for a new phase (especially p7 to p8 handoff)" when="composing the launch prompt" then="prompt MUST start with Skill(/aura:{role}) invocation directive so the agent loads its role instructions" should-not="launch agents without skill invocation — they skip role-critical procedures like ephemeral exploration and leaf task creation" role-ref="epoch,architect,supervisor" phase-ref="p7" />
     <!-- Task management -->
-    <constraint id="C-dep-direction" given="adding a Beads dependency" when="determining direction" then="parent blocked-by child: bd dep add stays-open --blocked-by must-finish-first" should-not="invert (child blocked-by parent)" />
+    <constraint id="C-dep-direction" given="adding a Beads dependency" when="determining direction" then="parent blocked-by child: bd dep add stays-open --blocked-by must-finish-first" should-not="invert (child blocked-by parent)" command="bd dep add &lt;stays-open&gt; --blocked-by &lt;must-finish-first&gt;">
+      <example id="C-dep-direction-correct" lang="bash" label="correct" also-illustrates="C-audit-dep-chain">
+        <code><![CDATA[bd dep add request-id --blocked-by ure-id]]></code>
+      </example>
+      <example id="C-dep-direction-anti" lang="bash" label="anti-pattern">
+        <code><![CDATA[bd dep add ure-id --blocked-by request-id]]></code>
+      </example>
+    </constraint>
     <constraint id="C-frontmatter-refs" given="cross-task references (URD, request, etc.)" when="linking tasks" then="use description frontmatter references: block" should-not="use bd dep relate (buggy) or blocking dependencies for reference docs" />
     <!-- Git -->
-    <constraint id="C-agent-commit" given="code is ready to commit" when="committing" then="use git agent-commit -m ..." should-not="use git commit -m ..." role-ref="architect,supervisor,worker" phase-ref="p9,p12" />
+    <constraint id="C-agent-commit" given="code is ready to commit" when="committing" then="use git agent-commit -m ..." should-not="use git commit -m ..." role-ref="architect,supervisor,worker" phase-ref="p9,p12" command="git agent-commit -m ...">
+      <example id="C-agent-commit-correct" lang="bash" label="correct">
+        <code><![CDATA[git agent-commit -m "feat: add login"]]></code>
+      </example>
+      <example id="C-agent-commit-anti" lang="bash" label="anti-pattern">
+        <code><![CDATA[git commit -m "feat: add login"]]></code>
+      </example>
+    </constraint>
     <!-- Naming -->
     <constraint id="C-proposal-naming" given="a new or revised proposal" when="creating task" then="title PROPOSAL-{N} where N increments; mark old as aura:superseded" should-not="reuse N or delete old proposals" role-ref="architect" phase-ref="p3" />
     <constraint id="C-review-naming" given="a review task" when="creating" then="title {SCOPE}-REVIEW-{axis}-{round} where axis=A|B|C, round starts at 1" should-not="use numeric reviewer IDs (1/2/3) instead of axis letters" role-ref="reviewer" phase-ref="p4,p10" />
     <!-- User interviews -->
-    <constraint id="C-ure-verbatim" given="user interview (URE or UAT)" when="recording in Beads" then="capture full question text, ALL option descriptions, AND user's verbatim response" should-not="summarize options as (1)/(2)/(3) without option text" role-ref="architect" phase-ref="p2,p5,p11" />
+    <constraint id="C-ure-verbatim" given="user interview (Request, URE, or UAT), URD update, or mid-implementation design decision" when="recording in Beads" then="capture full question text, ALL option descriptions, AND user's verbatim response; the URD is the living document of ALL user requests, URE, UAT, and mid-implementation design decisions and feedback — update it via bd comments add whenever user intent is captured" should-not="summarize options as (1)/(2)/(3) without option text, or paraphrase user responses" role-ref="architect" phase-ref="p2,p5,p11">
+      <example id="C-ure-verbatim-correct" lang="bash" label="correct">
+        <code><![CDATA[# Full question, all options with descriptions, verbatim response
+bd create --title "UAT: Plan acceptance for feature-X" \
+  --description "## Component: Verbose fields
+**Question:** Which verbose fields are useful?
+**Options:**
+- backupDir (full path): Shows where the backup landed
+- session ID: Enables log correlation across events
+- repo path + hash: Confirms which git repo was detected
+**User response:** backupDir (full path), session ID
+**Decision:** ACCEPT"]]></code>
+      </example>
+      <example id="C-ure-verbatim-anti" lang="bash" label="anti-pattern">
+        <code><![CDATA[# WRONG: options summarized as numbers, response paraphrased
+bd create --title "UAT: Plan acceptance" \
+  --description "Asked about verbose fields (1-4). User picked 1 and 2. Accepted."]]></code>
+      </example>
+    </constraint>
     <!-- Follow-up lifecycle -->
     <constraint id="C-followup-lifecycle" given="follow-up epic created" when="starting follow-up work" then="run same protocol phases with FOLLOWUP_* prefix: FOLLOWUP_URE → FOLLOWUP_URD → FOLLOWUP_PROPOSAL → FOLLOWUP_IMPL_PLAN → FOLLOWUP_SLICE" should-not="skip the follow-up lifecycle or treat the follow-up epic as a flat task list" role-ref="supervisor" phase-ref="p10" />
     <constraint id="C-followup-leaf-adoption" given="supervisor creates FOLLOWUP_SLICE-N" when="assigning original IMPORTANT/MINOR leaf tasks to follow-up slices" then="add leaf task as child of follow-up slice (dual-parent: leaf blocks both severity group AND follow-up slice)" should-not="remove the leaf task from its original severity group parent" role-ref="supervisor" phase-ref="p10" />
@@ -1109,9 +1208,9 @@
         <instruction>Read RATIFIED_PLAN and URD via bd show</instruction>
         <command>bd show &lt;ratified-plan-id&gt; &amp;&amp; bd show &lt;urd-id&gt;</command>
       </step>
-      <step order="3" id="S-supervisor-cartographers">
-        <instruction>Create standing explore team via TeamCreate before any codebase exploration</instruction>
-        <context>TeamCreate with /aura:explore role; minimum 3 agents</context>
+      <step order="3" id="S-supervisor-explore-ephemeral">
+        <instruction>Spawn ephemeral Explore subagents via Task tool for scoped codebase queries</instruction>
+        <context>Each subagent is short-lived and returns findings; no standing team overhead</context>
       </step>
       <step order="4" id="S-supervisor-decompose-slices" next-state="p8">
         <instruction>Decompose into vertical slices</instruction>
@@ -1120,6 +1219,17 @@
       <step order="5" id="S-supervisor-create-leaf-tasks">
         <instruction>Create leaf tasks (L1/L2/L3) for every slice</instruction>
         <command>bd create --labels aura:p9-impl:s9-slice --title "SLICE-{K}-L{1,2,3}: &lt;description&gt;" ...</command>
+        <example id="S-supervisor-create-leaf-tasks-frontmatter" lang="bash" label="template" also-illustrates="C-frontmatter-refs">
+          <code><![CDATA[bd create --labels aura:p9-impl:s9-slice \
+  --title "SLICE-1-L1: Types -- <slice name>" \
+  --description "---
+references:
+  slice: <slice-1-id>
+  impl_plan: <impl-plan-task-id>
+  urd: <urd-task-id>
+---
+Layer 1: types and interfaces for <slice name>."]]></code>
+        </example>
       </step>
       <step order="6" id="S-supervisor-spawn-workers" next-state="p9">
         <instruction>Spawn workers for leaf tasks</instruction>
@@ -1138,4 +1248,170 @@
       </step>
     </role>
   </procedure-steps>
+  <!-- ═══════════════════════════════════════════════════════════════════════
+     CHECKLISTS
+
+     Per-role quality gate checklists for slice completion, review readiness,
+     and landing.
+     ═══════════════════════════════════════════════════════════════════════ -->
+  <checklists>
+    <checklist id="worker-completion" role-ref="worker" gate="completion">
+      <item id="CL-worker-no-todos" required="true">No TODO placeholders in CLI/API actions</item>
+      <item id="CL-worker-real-deps" required="true">Real dependencies wired (not mocks in production code)</item>
+      <item id="CL-worker-test-import" required="true">Tests import production code (not test-only export)</item>
+      <item id="CL-worker-no-dual-export" required="true">No dual-export anti-pattern (one code path for tests and production)</item>
+      <item id="CL-worker-quality-gates" required="true">Quality gates pass (typecheck + tests)</item>
+      <item id="CL-worker-production-path" required="true">Production code path verified end-to-end via code inspection</item>
+    </checklist>
+    <checklist id="worker-slice-closure" role-ref="worker" gate="slice-closure">
+      <item id="CL-worker-notified-supervisor" required="true">Supervisor notified via bd comments add (not bd close)</item>
+      <item id="CL-worker-completion-done" required="true">All completion-gate items passed</item>
+      <item id="CL-worker-close-on-review-wave" required="true">Can only close on a review wave, not a worker wave</item>
+      <item id="CL-worker-review-eligible" required="true">Eligible to close only after review by independent agents with no BLOCKERS or IMPORTANT findings</item>
+    </checklist>
+    <checklist id="supervisor-review-ready" role-ref="supervisor" gate="review-ready">
+      <item id="CL-sup-all-slices-notified" required="true">All workers have notified completion via bd comments add</item>
+      <item id="CL-sup-reviewers-assigned" required="true">Ephemeral reviewers spawned for all slices</item>
+      <item id="CL-sup-severity-groups-created" required="true">Severity groups (BLOCKER/IMPORTANT/MINOR) eagerly created per slice</item>
+    </checklist>
+    <checklist id="supervisor-landing" role-ref="supervisor" gate="landing">
+      <item id="CL-sup-all-accept" required="true">All 3 reviewers ACCEPT, no open BLOCKERs</item>
+      <item id="CL-sup-followup-created" required="true">FOLLOWUP epic created if any IMPORTANT/MINOR findings exist</item>
+      <item id="CL-sup-agent-commit" required="true">git agent-commit used (not git commit -m)</item>
+      <item id="CL-sup-tasks-closed" required="true">All upstream tasks closed or dependency-resolved</item>
+      <item id="CL-sup-close-on-review-wave" required="true">Can only close on a review wave, not a worker wave</item>
+      <item id="CL-sup-review-eligible" required="true">Eligible to close only after review by independent agents with no BLOCKERS or IMPORTANT findings</item>
+    </checklist>
+  </checklists>
+  <!-- ═══════════════════════════════════════════════════════════════════════
+     COORDINATION COMMANDS
+
+     Beads coordination commands shared across roles and role-specific.
+     ═══════════════════════════════════════════════════════════════════════ -->
+  <coordination-commands>
+    <coord-cmd id="cmd-coord-show" action="Check task details" template="bd show &lt;task-id&gt;" shared="true" />
+    <coord-cmd id="cmd-coord-status" action="Update status" template="bd update &lt;task-id&gt; --status=in_progress" shared="true" />
+    <coord-cmd id="cmd-coord-comment" action="Add progress note" template="bd comments add &lt;task-id&gt; &quot;Progress: ...&quot;" shared="true" />
+    <coord-cmd id="cmd-coord-list" action="List in-progress" template="bd list --pretty --status=in_progress" shared="true" />
+    <coord-cmd id="cmd-coord-blocked" action="List blocked" template="bd blocked" shared="true" />
+    <coord-cmd id="cmd-coord-assign" action="Assign task" template="bd update &lt;task-id&gt; --assignee &quot;&lt;worker-name&gt;&quot;" role-ref="supervisor" />
+    <coord-cmd id="cmd-coord-label" action="Label completed slice" template="bd label add &lt;slice-id&gt; aura:p9-impl:slice-complete" role-ref="supervisor" />
+    <coord-cmd id="cmd-coord-dep-add" action="Chain dependency" template="bd dep add &lt;parent&gt; --blocked-by &lt;child&gt;" role-ref="supervisor" />
+    <coord-cmd id="cmd-coord-close" action="Report completion" template="bd close &lt;task-id&gt;" role-ref="worker" />
+    <coord-cmd id="cmd-coord-worker-notes" action="Add completion notes" template="bd update &lt;task-id&gt; --notes=&quot;Implementation complete. Production code verified.&quot;" role-ref="worker" />
+  </coordination-commands>
+  <!-- ═══════════════════════════════════════════════════════════════════════
+     WORKFLOWS
+
+     Named agent workflows: Ride the Wave (supervisor), Layer Cake (worker),
+     Architect State Flow (architect).
+     ═══════════════════════════════════════════════════════════════════════ -->
+  <workflows>
+    <workflow id="ride-the-wave" name="Ride the Wave" role-ref="supervisor" description="Coordinated Phase 8-10 execution pattern. The supervisor orchestrates the full cycle: plan slices, launch workers, spawn reviewers for per-slice review, workers fix, repeat max 3 cycles per slice.">
+      <stage id="rtw-plan" name="Plan" order="1" execution="sequential" phase-ref="p8">
+        <action id="rtw-plan-read" instruction="Read RATIFIED_PLAN and URD via bd show" command="bd show &lt;ratified-plan-id&gt; &amp;&amp; bd show &lt;urd-id&gt;" />
+        <action id="rtw-plan-explore" instruction="Spawn ephemeral Explore subagents via Task tool to map codebase areas" />
+        <action id="rtw-plan-decompose" instruction="Use Explore findings to decompose into vertical slices with integration points" />
+        <action id="rtw-plan-leaf-tasks" instruction="Create leaf tasks (L1/L2/L3) for every slice" command="bd dep add &lt;slice-id&gt; --blocked-by &lt;leaf-task-id&gt;" />
+        <exit-condition type="proceed" condition="All slices created with leaf tasks, dependency-chained, assigned" />
+      </stage>
+      <stage id="rtw-build" name="Build" order="2" execution="parallel" phase-ref="p9">
+        <action id="rtw-build-spawn" instruction="Spawn N workers for parallel slice implementation" command="aura-swarm start --epic &lt;epic-id&gt;" />
+        <action id="rtw-build-monitor" instruction="Monitor worker progress via bd list and bd show" command="bd list --labels=&quot;aura:p9-impl:s9-slice&quot; --status=in_progress" />
+        <exit-condition type="proceed" condition="All workers have notified completion via bd comments add" />
+      </stage>
+      <stage id="rtw-review-fix" name="Review + Fix Cycles" order="3" execution="conditional-loop" phase-ref="p10">
+        <action id="rtw-review-spawn" instruction="Spawn reviewers via Task tool for per-slice code review" />
+        <action id="rtw-review-severity" instruction="Reviewers create severity groups (BLOCKER/IMPORTANT/MINOR) per slice" />
+        <action id="rtw-review-followup" instruction="Create FOLLOWUP epic if any IMPORTANT/MINOR findings exist" />
+        <action id="rtw-review-fix" instruction="Workers fix BLOCKERs and IMPORTANT findings" />
+        <exit-condition type="success" condition="All reviewers ACCEPT, no open BLOCKERs — proceed to Phase 11 UAT" />
+        <exit-condition type="continue" condition="BLOCKERs or IMPORTANTs remain, cycles &lt; 3 per slice — workers fix, spawn new reviewers" />
+        <exit-condition type="proceed" condition="3 cycles exhausted, IMPORTANT remain — track in FOLLOWUP, proceed to Phase 11" />
+        <exit-condition type="escalate" condition="3 cycles exhausted per slice, BLOCKERs remain — escalate to architect for re-planning" />
+      </stage>
+    </workflow>
+    <workflow id="layer-cake" name="Layer Cake" role-ref="worker" description="TDD layer-by-layer implementation within a vertical slice. Worker implements types first, then tests (will fail), then production code to make tests pass.">
+      <stage id="lc-types" name="Types" order="1" execution="sequential" phase-ref="p9">
+        <action id="lc-types-read" instruction="Read slice task and identify required types" command="bd show &lt;slice-task-id&gt;" />
+        <action id="lc-types-define" instruction="Define types, interfaces, and schemas (no deps) — only types for YOUR slice" />
+        <exit-condition type="proceed" condition="All required types defined; file imports without error" />
+      </stage>
+      <stage id="lc-tests" name="Tests" order="2" execution="sequential" phase-ref="p9">
+        <action id="lc-tests-write" instruction="Write tests importing production code (CLI/API users will run) — tests WILL fail" />
+        <action id="lc-tests-verify-import" instruction="Verify tests import actual production code, not test-only export" />
+        <exit-condition type="proceed" condition="Tests written and import production code; typecheck passes; tests fail (expected)" />
+      </stage>
+      <stage id="lc-impl" name="Implementation + Wiring" order="3" execution="sequential" phase-ref="p9">
+        <action id="lc-impl-code" instruction="Implement production code to make Layer 2 tests pass" />
+        <action id="lc-impl-wire" instruction="Wire with real dependencies (not mocks in production code)" />
+        <action id="lc-impl-run-tests" instruction="Run tests — all Layer 2 tests must pass" />
+        <action id="lc-impl-commit" instruction="Commit completed work" command="git agent-commit -m ..." />
+        <action id="lc-impl-notify" instruction="Notify supervisor of completion via bd comments add" command="bd comments add &lt;slice-id&gt; &quot;Implementation complete&quot;" />
+        <exit-condition type="success" condition="All tests pass; no TODO placeholders; real deps wired; production code path verified via code inspection" />
+        <exit-condition type="escalate" condition="Blocker encountered — use /aura:worker-blocked with details" />
+      </stage>
+    </workflow>
+    <workflow id="architect-state-flow" name="Architect State Flow" role-ref="architect" description="Sequential planning phases 1-7. The architect captures requirements, writes proposals, coordinates review consensus, and hands off to supervisor.">
+      <stage id="asf-request" name="Request" order="1" execution="sequential" phase-ref="p1">
+        <action id="asf-request-capture" instruction="Capture user request verbatim via /aura:user-request" />
+        <action id="asf-request-classify" instruction="Classify request along 4 axes: scope, complexity, risk, domain novelty" />
+        <exit-condition type="proceed" condition="Classification confirmed, research and explore complete" />
+      </stage>
+      <stage id="asf-elicit" name="Elicit" order="2" execution="sequential" phase-ref="p2">
+        <action id="asf-elicit-ure" instruction="Run URE survey with user via /aura:user-elicit" />
+        <action id="asf-elicit-urd" instruction="Create URD as single source of truth for requirements" />
+        <exit-condition type="proceed" condition="URD created with structured requirements" />
+      </stage>
+      <stage id="asf-propose" name="Propose" order="3" execution="sequential" phase-ref="p3">
+        <action id="asf-propose-write" instruction="Write full technical proposal: interfaces, approach, validation checklist, BDD criteria" />
+        <action id="asf-propose-create" instruction="Create PROPOSAL-N task via /aura:architect:propose-plan" />
+        <exit-condition type="proceed" condition="Proposal created" />
+      </stage>
+      <stage id="asf-review" name="Review" order="4" execution="conditional-loop" phase-ref="p4">
+        <action id="asf-review-spawn" instruction="Spawn 3 axis-specific reviewers (A=Correctness, B=Test quality, C=Elegance)" />
+        <action id="asf-review-wait" instruction="Wait for all 3 reviewers to vote" />
+        <exit-condition type="proceed" condition="All 3 reviewers vote ACCEPT" />
+        <exit-condition type="continue" condition="Any reviewer votes REVISE — create PROPOSAL-N+1, mark old as superseded, re-spawn reviewers" />
+      </stage>
+      <stage id="asf-uat" name="Plan UAT" order="5" execution="sequential" phase-ref="p5">
+        <action id="asf-uat-present" instruction="Present plan to user with demonstrative examples via /aura:user-uat" />
+        <exit-condition type="proceed" condition="User accepts plan" />
+        <exit-condition type="continue" condition="User requests changes — create PROPOSAL-N+1" />
+      </stage>
+      <stage id="asf-ratify" name="Ratify" order="6" execution="sequential" phase-ref="p6">
+        <action id="asf-ratify-label" instruction="Add ratify label to accepted PROPOSAL-N" />
+        <action id="asf-ratify-supersede" instruction="Mark all prior proposals aura:superseded" />
+        <action id="asf-ratify-placeholder" instruction="Create placeholder IMPL_PLAN task" />
+        <exit-condition type="proceed" condition="Proposal ratified, IMPL_PLAN placeholder created" />
+      </stage>
+      <stage id="asf-handoff" name="Handoff" order="7" execution="sequential" phase-ref="p7">
+        <action id="asf-handoff-doc" instruction="Create handoff document with full inline provenance at .git/.aura/handoff/" />
+        <action id="asf-handoff-transfer" instruction="Transfer to supervisor via /aura:architect:handoff" />
+        <exit-condition type="success" condition="Handoff document stored at .git/.aura/handoff/, supervisor notified" />
+      </stage>
+    </workflow>
+  </workflows>
+  <!-- ═══════════════════════════════════════════════════════════════════════
+     FIGURES
+
+     ASCII diagram figures associated with roles and workflows.
+     Content stored in YAML files, not in schema.xml.
+     ═══════════════════════════════════════════════════════════════════════ -->
+  <figures>
+    <figure id="layer-cake" title="Layer Cake — TDD Parallelism Within Vertical Slices" type="ascii-diagram" section-ref="workflows">
+      <role-ref ref="worker" />
+      <workflow-ref ref="layer-cake" />
+      <command-ref ref="cmd-sup-plan" />
+    </figure>
+    <figure id="ride-the-wave" title="Ride the Wave — Coordinated Phase 8-10 Execution" type="ascii-diagram" section-ref="workflows">
+      <role-ref ref="supervisor" />
+      <workflow-ref ref="ride-the-wave" />
+      <command-ref ref="cmd-sup-spawn" />
+    </figure>
+    <figure id="architect-state-flow" title="Architect State Flow — Sequential Planning Phases 1-7" type="ascii-diagram" section-ref="workflows">
+      <role-ref ref="architect" />
+      <workflow-ref ref="architect-state-flow" />
+    </figure>
+  </figures>
 </aura-protocol>

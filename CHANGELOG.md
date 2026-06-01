@@ -1,13 +1,148 @@
 # Changelog
 
-## [0.8.0] - 2026-02-27
+## [0.10.2] - 2026-03-09
 
-### Added
-- feat: aura-release -- adds plugin/marketplace registry in user config
-- feat: aura-protocol v3 — EpochWorkflow, aurad daemon, protocol fixtures (aura-plugins-eocq)
+### Fixed
+- fix(aura-swarm): update enum references to PascalCase after SLICE-A migration
 
 ### Other
-- Merge branch 'aura-release-registry' into main
+- Merge branch 'fix--aura-swarm--intree'
+
+## [0.10.1] - 2026-03-09
+
+### Added
+- feat(aura-protocol): un-stub aurad + aura-msg with full protocol wiring
+
+### Other
+- Merge branch 'aura-protocol'
+
+## [0.10.0] - 2026-03-09
+
+### Added
+- feat(aura-protocol): un-stub aurad + aura-msg with full protocol wiring
+
+### Other
+- choere: beads backup
+- Merge branch 'aura-protocol'
+
+## [0.9.9] - 2026-03-09
+
+### Added
+- feat(protocol): remove Cartographers, add ephemeral subagents + agent definition generator
+
+### Other
+- Merge branch 'feat--agent-roles'
+- chore: beads backup
+
+## [0.9.8] - 2026-03-07
+
+### Fixed
+- fix(aura-swarm): intree mode defaults to window in current tmux session
+
+### Other
+- chore: beads backup
+- Merge branch 'fix--aura-swarm--intree'
+- chore: beads backup
+
+## [0.9.7] - 2026-03-07
+
+### Documentation
+- docs(hooks): add beads label flags reference to bd-prime
+
+### Other
+- Merge branch 'fix--hooks--bd-prime'
+
+## [0.9.6] - 2026-03-07
+
+### Fixed
+- fix(hooks): adds hook.json in plugin to utilize CLAUDE_PLUGIN_ROOT env vars
+
+### Other
+- Merge branch 'fix--hooks--bd-prime'
+
+## [0.9.5] - 2026-03-07
+
+### Added
+- feat(hooks): adds initial modified `bd prime` output optimized for aura workflows
+
+### Other
+- chore: beads backup
+- Merge branch 'fix--hooks--bd-prime'
+
+## [0.9.4] - 2026-03-06
+
+### Added
+- feat(schema): figures pipeline + CommandId StrEnum + sub-skill rendering
+
+### Other
+- Merge commit 'followup-schema-extensions'
+- chore: beads backup
+- chore: beads update
+
+## [0.9.3] - 2026-03-03
+
+### Fixed
+- fix(schema): address 15 code review findings + UAT revisions (FR1-FR15)
+
+### Other
+- chore: beads update
+- Merge branch 'followup-schema-extensions'
+
+## [0.9.2] - 2026-03-03
+
+### Added
+- feat(schema): extend schema to fully generate SKILL.md content (R1-R10)
+
+### Other
+- chore: release v0.9.1
+- Merge branch 'aura-protocol'
+- test: un-skip 24 tests — Temporal sandbox + constraint violation combinatorial
+- Merge branch 'mvp-fully-schematize-skills'
+- update: aura plugin
+- chore: beads backup
+
+## [0.9.1] - 2026-03-03
+
+### Added
+- feat(schema): extend schema to fully generate SKILL.md content (R1-R10)
+
+### Other
+- Merge branch 'aura-protocol'
+- test: un-skip 24 tests — Temporal sandbox + constraint violation combinatorial
+- Merge branch 'mvp-fully-schematize-skills'
+- update: aura plugin
+- chore: beads backup
+
+## [0.9.0] - 2026-03-02
+
+### Added
+- feat: unify aura-parallel into aura-swarm with dual-mode orchestration
+
+### Other
+- Merge branch 'refactor-parallel-swarm'
+- bd: backup 2026-03-02 07:11
+
+## [0.8.3] - 2026-03-02
+
+### Fixed
+- fix(nix): temporal-dev-server startup ordering + aurad dependency hardening
+- fix(gen-skills): template-owned frontmatter + v2 docs complete
+
+### Other
+- chore: ignores annoying ass bd dolt shit
+- bd: backup 2026-03-02 06:44
+- Merge branch 'aura-protocol'
+- chore: updates marketplace.json
+- chore: release aura v0.8.2
+- Merge commit 'aura-protocol'
+
+## [0.8.2] - 2026-02-28
+
+### Fixed
+- fix(gen-skills): template-owned frontmatter + v2 docs complete
+
+### Other
+- Merge commit 'aura-protocol'
 
 ## [0.9.0] - 2026-02-26
 
@@ -17,7 +152,14 @@
 - feat(nix): temporal-service.nix ExecStartPre resolves XDG_DATA_HOME at runtime when dbPath="" → writes TEMPORAL_DB_PATH to env file; ExecStart uses \${TEMPORAL_DB_PATH}
 - rename(tests): tests/test_worker.py → tests/test_aurad.py; WORKER_PATH→AURAD_PATH, _load_worker→_load_aurad
 
-## [0.8.0] - 2026-02-26
+## [0.8.0] - 2026-02-27
+
+### Added
+- feat: aura-release -- adds plugin/marketplace registry in user config
+- feat: aura-protocol v3 — EpochWorkflow, aurad daemon, protocol fixtures (aura-plugins-eocq)
+
+### Other
+- Merge branch 'aura-release-registry' into main
 
 ### Changed (UAT amendments)
 - fix(types): ReviewAxis enum values renamed from A/B/C to CORRECTNESS/TEST_QUALITY/ELEGANCE with wire-format values "correctness"/"test_quality"/"elegance" (UAT #7)

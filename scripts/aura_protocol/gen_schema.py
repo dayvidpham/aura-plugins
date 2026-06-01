@@ -23,8 +23,10 @@ from __future__ import annotations
 
 import difflib
 import io
+import re
 import sys
 import xml.etree.ElementTree as ET
+from html import unescape as html_unescape
 from pathlib import Path
 
 from aura_protocol.context_injection import (
@@ -33,8 +35,11 @@ from aura_protocol.context_injection import (
     _ROLE_CONSTRAINTS as _CI_ROLE_CONSTRAINTS,
 )
 from aura_protocol.types import (
+    CHECKLIST_SPECS,
     COMMAND_SPECS,
     CONSTRAINT_SPECS,
+    COORDINATION_COMMANDS,
+    FIGURE_SPECS,
     HANDOFF_SPECS,
     LABEL_SPECS,
     PHASE_SPECS,
@@ -43,6 +48,8 @@ from aura_protocol.types import (
     ROLE_SPECS,
     SUBSTEP_DATA,
     TITLE_CONVENTIONS,
+    WORKFLOW_SPECS,
+    CommandId,
     ContentLevel,
     ExecutionMode,
     PhaseId,
@@ -62,14 +69,14 @@ from aura_protocol.types import (
 # Constraints present in ALL phases (general) → None (omit phase-ref from XML).
 
 _ROLE_PRIORITY: tuple[RoleId, ...] = (
-    RoleId.EPOCH, RoleId.REVIEWER, RoleId.ARCHITECT, RoleId.SUPERVISOR, RoleId.WORKER,
+    RoleId.Epoch, RoleId.Reviewer, RoleId.Architect, RoleId.Supervisor, RoleId.Worker,
 )
 
 _PHASE_ORDER: tuple[PhaseId, ...] = (
-    PhaseId.P1_REQUEST, PhaseId.P2_ELICIT, PhaseId.P3_PROPOSE,
-    PhaseId.P4_REVIEW, PhaseId.P5_UAT, PhaseId.P6_RATIFY,
-    PhaseId.P7_HANDOFF, PhaseId.P8_IMPL_PLAN, PhaseId.P9_SLICE,
-    PhaseId.P10_CODE_REVIEW, PhaseId.P11_IMPL_UAT, PhaseId.P12_LANDING,
+    PhaseId.P1_Request, PhaseId.P2_Elicit, PhaseId.P3_Propose,
+    PhaseId.P4_Review, PhaseId.P5_Uat, PhaseId.P6_Ratify,
+    PhaseId.P7_Handoff, PhaseId.P8_ImplPlan, PhaseId.P9_Slice,
+    PhaseId.P10_CodeReview, PhaseId.P11_ImplUat, PhaseId.P12_Landing,
 )
 
 
@@ -96,7 +103,7 @@ def _build_constraint_phase_refs() -> dict[str, str | None]:
         in_all = all(
             cid in constraints
             for phase, constraints in _CI_PHASE_CONSTRAINTS.items()
-            if phase != PhaseId.COMPLETE  # terminal state has no constraints by design
+            if phase != PhaseId.Complete  # terminal state has no constraints by design
         )
         if in_all:
             result[cid] = None  # applies to all phases, omit
@@ -178,7 +185,7 @@ def _build_phase_transitions() -> dict[str, list[dict]]:
             if t.action is not None:
                 entry["action"] = t.action
             # Add skill-invocation supplement for p7→p8 (C-handoff-skill-invocation)
-            if phase_id == PhaseId.P7_HANDOFF and t.to_phase == PhaseId.P8_IMPL_PLAN:
+            if phase_id == PhaseId.P7_Handoff and t.to_phase == PhaseId.P8_ImplPlan:
                 entry["skill-invocation"] = _P7_SKILL_INVOCATION
             trans_list.append(entry)
         if trans_list:
@@ -221,7 +228,7 @@ _ROLE_LABEL_AWARENESS: dict[str, str] = {
 _ROLE_INVARIANTS: dict[str, list[str]] = {
     "supervisor": [
         "NEVER implements code — always spawns workers",
-        "NEVER explores codebase directly — delegates to standing explore team",
+        "NEVER explores codebase directly — delegates to ephemeral Explore subagents",
         "ALWAYS creates leaf tasks within each slice — no undecomposed slices",
         "Creates follow-up epic when code review has IMPORTANT or MINOR findings",
     ],
@@ -272,7 +279,7 @@ _HANDOFF_SKILL_INVOCATIONS: dict[str, dict] = {
         "directive": "Skill(/aura:supervisor)",
         "note": (
             "Supervisor launch prompt MUST start with this invocation. Without it, "
-            "supervisor skips explore team setup and leaf task creation."
+            "supervisor skips leaf task creation."
         ),
     },
     "h2": {
@@ -486,10 +493,10 @@ def _build_phases(root: ET.Element) -> None:
     # Phase ordering: p1 through p12 by number
     ordered_phase_ids = [
         pid for pid in [
-            PhaseId.P1_REQUEST, PhaseId.P2_ELICIT, PhaseId.P3_PROPOSE,
-            PhaseId.P4_REVIEW, PhaseId.P5_UAT, PhaseId.P6_RATIFY,
-            PhaseId.P7_HANDOFF, PhaseId.P8_IMPL_PLAN, PhaseId.P9_SLICE,
-            PhaseId.P10_CODE_REVIEW, PhaseId.P11_IMPL_UAT, PhaseId.P12_LANDING,
+            PhaseId.P1_Request, PhaseId.P2_Elicit, PhaseId.P3_Propose,
+            PhaseId.P4_Review, PhaseId.P5_Uat, PhaseId.P6_Ratify,
+            PhaseId.P7_Handoff, PhaseId.P8_ImplPlan, PhaseId.P9_Slice,
+            PhaseId.P10_CodeReview, PhaseId.P11_ImplUat, PhaseId.P12_Landing,
         ]
     ]
 
@@ -555,7 +562,7 @@ def _build_phases(root: ET.Element) -> None:
                 # Startup sequence for p8/s8 supervisor steps
                 if sd.get("startup-sequence"):
                     startup_el = ET.SubElement(substep_el, "startup-sequence")
-                    sup_steps = PROCEDURE_STEPS[RoleId.SUPERVISOR]
+                    sup_steps = PROCEDURE_STEPS[RoleId.Supervisor]
                     for step in sup_steps:
                         step_el = ET.SubElement(startup_el, "step",
                                                 order=str(step.order),
@@ -590,7 +597,7 @@ def _build_phases(root: ET.Element) -> None:
         elif pid == "p9":
             # TDD layers
             tdd_el = ET.SubElement(phase_el, "tdd-layers")
-            worker_steps = PROCEDURE_STEPS[RoleId.WORKER]
+            worker_steps = PROCEDURE_STEPS[RoleId.Worker]
             layer_names = ["Types", "Tests", "Implementation"]
             for step in worker_steps:
                 ET.SubElement(tdd_el, "layer",
@@ -661,8 +668,8 @@ def _build_roles(root: ET.Element) -> None:
     """Append <roles> section to root, derived from ROLE_SPECS."""
     roles_el = ET.SubElement(root, "roles")
 
-    role_order = [RoleId.EPOCH, RoleId.ARCHITECT, RoleId.REVIEWER,
-                  RoleId.SUPERVISOR, RoleId.WORKER]
+    role_order = [RoleId.Epoch, RoleId.Architect, RoleId.Reviewer,
+                  RoleId.Supervisor, RoleId.Worker]
 
     for role_id in role_order:
         spec = ROLE_SPECS[role_id]
@@ -707,43 +714,42 @@ def _build_roles(root: ET.Element) -> None:
                 inv_el = ET.SubElement(inv_parent, "invariant")
                 inv_el.text = inv_text
 
-        # Standing teams (supervisor)
-        if rid == "supervisor":
-            teams_el = ET.SubElement(role_el, "standing-teams")
-            team_el = ET.SubElement(teams_el, "team",
-                                    id="explore-team",
-                                    purpose="Context-cached codebase exploration agents")
-            desc_el = ET.SubElement(team_el, "description")
-            desc_el.text = (
-                "\n          Standing team of explore agents created via TeamCreate "
-                "at the start of Phase 8.\n"
-                "          Each agent is scoped to a specific codebase domain. "
-                "Agents retain context between\n"
-                "          queries, making follow-up questions on the same domain "
-                "near-zero-cost.\n"
-                "          Minimum 1 agent; scale based on feature complexity (1-4 agents).\n"
-                "        "
-            )
-            at_el = ET.SubElement(team_el, "agent-template",
-                                  role="explore",
-                                  **{"skill-ref": "cmd-explore",
-                                     "invocation": "Skill(/aura:explore)",
-                                     "min-count": "1",
-                                     "max-count": "4"})
-            scoping_el = ET.SubElement(at_el, "scoping")
-            scoping_el.text = (
-                "Each agent assigned a specific codebase domain "
-                "(e.g., CLI wiring, DB layer, build system)"
-            )
-            lc_el = ET.SubElement(at_el, "lifecycle")
-            lc_el.text = (
-                "Created before exploration, shut down after all slices have leaf tasks"
-            )
+        # Tools, model, thinking (from RoleSpec)
+        if spec.tools:
+            tools_el = ET.SubElement(role_el, "tools")
+            tools_el.text = ", ".join(spec.tools)
+        if spec.model:
+            model_el = ET.SubElement(role_el, "model")
+            model_el.text = spec.model
+        if spec.thinking:
+            thinking_el = ET.SubElement(role_el, "thinking")
+            thinking_el.text = spec.thinking
 
         # Ownership model (worker)
         if rid in _ROLE_OWNERSHIP_MODEL:
             om_el = ET.SubElement(role_el, "ownership-model")
             om_el.text = "\n      " + _ROLE_OWNERSHIP_MODEL[rid] + "\n    "
+
+        # Introduction (from RoleSpec.introduction)
+        if spec.introduction:
+            intro_el = ET.SubElement(role_el, "introduction")
+            intro_el.text = spec.introduction
+
+        # Ownership narrative (from RoleSpec.ownership_narrative)
+        if spec.ownership_narrative:
+            on_el = ET.SubElement(role_el, "ownership-narrative")
+            on_el.text = spec.ownership_narrative
+
+        # Behaviors (from RoleSpec.behaviors)
+        if spec.behaviors:
+            behaviors_el = ET.SubElement(role_el, "behaviors")
+            for b in spec.behaviors:
+                ET.SubElement(behaviors_el, "behavior",
+                              id=b.id,
+                              given=b.given,
+                              when=b.when,
+                              then=b.then,
+                              **{"should-not": b.should_not})
 
 
 def _build_commands(root: ET.Element) -> None:
@@ -828,7 +834,7 @@ def _build_commands(root: ET.Element) -> None:
             note_el = ET.SubElement(cmd_el, "note")
             note_el.text = (
                 "Used in Phase 1 (s1_3) by architect, and in Phase 8 by "
-                "supervisor's standing explore team."
+                "supervisor's ephemeral Explore subagents."
             )
 
 
@@ -933,7 +939,24 @@ def _build_constraints(root: ET.Element) -> None:
         if phase_ref is not None:
             c_attrs["phase-ref"] = phase_ref
 
-        ET.SubElement(constraints_el, "constraint", **c_attrs)
+        # command attribute (from ConstraintSpec.command)
+        if spec.command is not None:
+            c_attrs["command"] = spec.command
+
+        c_el = ET.SubElement(constraints_el, "constraint", **c_attrs)
+
+        # examples as children (from ConstraintSpec.examples)
+        for ex in spec.examples:
+            ex_attrs: dict[str, str] = {
+                "id": ex.id,
+                "lang": ex.lang.value,
+                "label": ex.label.value,
+            }
+            if ex.also_illustrates is not None:
+                ex_attrs["also-illustrates"] = ex.also_illustrates
+            ex_el = ET.SubElement(c_el, "example", **ex_attrs)
+            code_el = ET.SubElement(ex_el, "code")
+            code_el.text = ex.code
 
 
 def _build_task_titles(root: ET.Element) -> None:
@@ -1359,8 +1382,8 @@ def _build_procedure_steps(root: ET.Element) -> None:
     All attribute and text values are XML-escaped by ElementTree automatically.
     """
     # Role ordering for deterministic output
-    role_order = [RoleId.EPOCH, RoleId.ARCHITECT, RoleId.REVIEWER,
-                  RoleId.SUPERVISOR, RoleId.WORKER]
+    role_order = [RoleId.Epoch, RoleId.Architect, RoleId.Reviewer,
+                  RoleId.Supervisor, RoleId.Worker]
 
     proc_el = ET.SubElement(root, "procedure-steps")
 
@@ -1386,6 +1409,101 @@ def _build_procedure_steps(root: ET.Element) -> None:
             if step.next_state is not None:
                 step_el.set("next-state", step.next_state.value)
 
+            # examples as children (from ProcedureStep.examples)
+            for ex in step.examples:
+                ex_attrs: dict[str, str] = {
+                    "id": ex.id,
+                    "lang": ex.lang.value,
+                    "label": ex.label.value,
+                }
+                if ex.also_illustrates is not None:
+                    ex_attrs["also-illustrates"] = ex.also_illustrates
+                ex_el = ET.SubElement(step_el, "example", **ex_attrs)
+                code_el = ET.SubElement(ex_el, "code")
+                code_el.text = ex.code
+
+
+
+def _build_checklists(root: ET.Element) -> None:
+    """Append <checklists> section to root, derived from CHECKLIST_SPECS."""
+    checklists_el = ET.SubElement(root, "checklists")
+    for cl_id, cl in CHECKLIST_SPECS.items():
+        cl_el = ET.SubElement(checklists_el, "checklist",
+                              id=cl_id,
+                              **{"role-ref": cl.role_ref.value,
+                                 "gate": cl.gate.value})
+        for item in cl.items:
+            item_el = ET.SubElement(cl_el, "item",
+                                    id=item.id,
+                                    required="true" if item.required else "false")
+            item_el.text = item.text
+
+
+def _build_coordination_commands(root: ET.Element) -> None:
+    """Append <coordination-commands> section to root, derived from COORDINATION_COMMANDS."""
+    coord_el = ET.SubElement(root, "coordination-commands")
+    for cmd in COORDINATION_COMMANDS.values():
+        attrs: dict[str, str] = {
+            "id": cmd.id,
+            "action": cmd.action,
+            "template": cmd.template,
+        }
+        if cmd.role_ref is not None:
+            attrs["role-ref"] = cmd.role_ref.value
+        if cmd.shared:
+            attrs["shared"] = "true"
+        ET.SubElement(coord_el, "coord-cmd", **attrs)
+
+
+def _build_workflows(root: ET.Element) -> None:
+    """Append <workflows> section to root, derived from WORKFLOW_SPECS."""
+    workflows_el = ET.SubElement(root, "workflows")
+    for wf in WORKFLOW_SPECS.values():
+        wf_el = ET.SubElement(workflows_el, "workflow",
+                              id=wf.id,
+                              name=wf.name,
+                              **{"role-ref": wf.role_ref.value},
+                              description=wf.description)
+        for stage in wf.stages:
+            stage_attrs: dict[str, str] = {
+                "id": stage.id,
+                "name": stage.name,
+                "order": str(stage.order),
+                "execution": stage.execution.value,
+            }
+            if stage.phase_ref is not None:
+                stage_attrs["phase-ref"] = stage.phase_ref.value
+            stage_el = ET.SubElement(wf_el, "stage", **stage_attrs)
+            for action in stage.actions:
+                action_attrs: dict[str, str] = {
+                    "id": action.id,
+                    "instruction": action.instruction,
+                }
+                if action.command is not None:
+                    action_attrs["command"] = action.command
+                ET.SubElement(stage_el, "action", **action_attrs)
+            for ec in stage.exit_conditions:
+                ET.SubElement(stage_el, "exit-condition",
+                              type=ec.type.value,
+                              condition=ec.condition)
+
+
+def _build_figures(root: ET.Element) -> None:
+    """Append <figures> section to root, derived from FIGURE_SPECS."""
+    figures_el = ET.SubElement(root, "figures")
+    for fig in FIGURE_SPECS.values():
+        fig_el = ET.SubElement(figures_el, "figure",
+                               id=fig.id.value,
+                               title=fig.title,
+                               type=fig.type.value,
+                               **{"section-ref": fig.section_ref.value})
+        for role_ref in sorted(fig.role_refs, key=lambda r: r.value):
+            ET.SubElement(fig_el, "role-ref", ref=role_ref.value)
+        for wf_ref in sorted(fig.workflow_refs):
+            ET.SubElement(fig_el, "workflow-ref", ref=wf_ref)
+        for cmd_ref in sorted(fig.command_refs, key=lambda c: c.value):
+            ET.SubElement(fig_el, "command-ref", ref=cmd_ref.value)
+
 
 # ─── Section comment helper ────────────────────────────────────────────────────
 
@@ -1403,16 +1521,38 @@ def _section_comment(title: str) -> ET.Element:
 # ─── XML Serialization ────────────────────────────────────────────────────────
 
 
+def _wrap_code_elements_in_cdata(xml_str: str) -> str:
+    """Post-process serialized XML to wrap <code> element content in CDATA sections.
+
+    xml.etree.ElementTree does not natively support CDATA. This function finds
+    ``<code>escaped_content</code>`` patterns and replaces them with
+    ``<code><![CDATA[raw_content]]></code>``, unescaping any XML entities
+    (e.g. ``&lt;`` -> ``<``) so the CDATA body contains the original source code.
+
+    Empty ``<code />`` elements are left unchanged.
+    """
+
+    def _replace_code(match: re.Match[str]) -> str:
+        escaped_content = match.group(1)
+        raw_content = html_unescape(escaped_content)
+        return f"<code><![CDATA[{raw_content}]]></code>"
+
+    return re.sub(r"<code>(.*?)</code>", _replace_code, xml_str, flags=re.DOTALL)
+
+
 def _serialize_tree(root: ET.Element) -> str:
     """Serialize an ElementTree to a well-formatted XML string.
 
     Uses ET.indent (Python 3.9+) for indentation.
+    Wraps <code> element content in CDATA sections via post-processing.
     """
     tree = ET.ElementTree(root)
     ET.indent(tree, space="  ")
     buf = io.BytesIO()
     tree.write(buf, encoding="UTF-8", xml_declaration=True)
     content = buf.getvalue().decode("UTF-8")
+    # Post-process: wrap <code> content in CDATA sections
+    content = _wrap_code_elements_in_cdata(content)
     # Normalize declaration encoding to uppercase (ET writes uppercase already)
     return content + "\n"
 
@@ -1553,6 +1693,33 @@ def generate_schema(output: Path, diff: bool = True) -> str:
         "     TDD layers for worker). Only roles with non-empty steps are listed."
     ))
     _build_procedure_steps(root)
+
+    root.append(_section_comment(
+        "CHECKLISTS\n\n"
+        "     Per-role quality gate checklists for slice completion, review readiness,\n"
+        "     and landing."
+    ))
+    _build_checklists(root)
+
+    root.append(_section_comment(
+        "COORDINATION COMMANDS\n\n"
+        "     Beads coordination commands shared across roles and role-specific."
+    ))
+    _build_coordination_commands(root)
+
+    root.append(_section_comment(
+        "WORKFLOWS\n\n"
+        "     Named agent workflows: Ride the Wave (supervisor), Layer Cake (worker),\n"
+        "     Architect State Flow (architect)."
+    ))
+    _build_workflows(root)
+
+    root.append(_section_comment(
+        "FIGURES\n\n"
+        "     ASCII diagram figures associated with roles and workflows.\n"
+        "     Content stored in YAML files, not in schema.xml."
+    ))
+    _build_figures(root)
 
     # Serialize
     content = _serialize_tree(root)

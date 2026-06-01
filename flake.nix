@@ -38,19 +38,22 @@
     {
       # ── Packages ──────────────────────────────────────────────
       packages = forAllSystems ({ pkgs, system }: {
-        aura-parallel = pkgs.writeScriptBin "aura-parallel" (
-          builtins.replaceStrings
-            [ "#!/usr/bin/env python3" "__AURA_PACKAGE_SKILLS_DIR__" ]
-            [ "#!${pkgs.python3}/bin/python3" "${self}/skills" ]
-            (builtins.readFile ./bin/aura-parallel)
-        );
+        aura-parallel = pkgs.writeShellApplication {
+          name = "aura-parallel";
+          runtimeInputs = [ pkgs.python3 ];
+          text = ''
+            exec python3 "${self}/bin/aura-parallel" "$@"
+          '';
+        };
 
-        aura-swarm = pkgs.writeScriptBin "aura-swarm" (
-          builtins.replaceStrings
-            [ "#!/usr/bin/env python3" "__AURA_PACKAGE_SKILLS_DIR__" ]
-            [ "#!${pkgs.python3}/bin/python3" "${self}/skills" ]
-            (builtins.readFile ./bin/aura-swarm)
-        );
+        aura-swarm = pkgs.writeShellApplication {
+          name = "aura-swarm";
+          runtimeInputs = [ pkgs.python3 ];
+          text = ''
+            export AURA_PACKAGE_SKILLS_DIR="${self}/skills"
+            PYTHONPATH="${self}/scripts" exec python3 "${self}/bin/aura-swarm" "$@"
+          '';
+        };
 
         aura-release = pkgs.writeScriptBin "aura-release" (
           builtins.replaceStrings
@@ -62,7 +65,7 @@
         aurad = pkgs.writeShellApplication {
           name = "aurad";
           runtimeInputs = [
-            (pkgs.python3.withPackages (ps: [ ps.temporalio ]))
+            (pkgs.python3.withPackages (ps: [ ps.temporalio ps.pyyaml ps.aiosqlite ]))
           ];
           text = ''
             PYTHONPATH="${self}/scripts" exec python3 "${self}/bin/aurad.py" "$@"
@@ -72,10 +75,10 @@
         aura-msg = pkgs.writeShellApplication {
           name = "aura-msg";
           runtimeInputs = [
-            pkgs.python3
+            (pkgs.python3.withPackages (ps: [ ps.temporalio ps.pyyaml ]))
           ];
           text = ''
-            exec python3 "${self}/bin/aura-msg.py" "$@"
+            PYTHONPATH="${self}/scripts" exec python3 "${self}/bin/aura-msg" "$@"
           '';
         };
 
@@ -99,13 +102,25 @@
       };
 
       # ── Dev Shell (for working on aura-plugins itself) ───────
-      devShells = forAllSystems ({ pkgs, ... }: {
+      devShells = forAllSystems ({ pkgs, ... }: let
+        devPython = pkgs.python3.withPackages (ps: [
+          ps.temporalio
+          ps.pyyaml
+          ps.aiosqlite
+          ps.jinja2
+          ps.pytest
+          ps.pytest-asyncio
+        ]);
+      in {
         default = pkgs.mkShell {
           name = "aura-plugins-dev";
-          packages = with pkgs; [
-            python3
-            tmux
+          packages = [
+            devPython
+            pkgs.tmux
+            pkgs.uv
           ];
+          shellHook = ''
+          '';
         };
       });
     };

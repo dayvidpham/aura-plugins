@@ -362,21 +362,21 @@ class TestBuildVoteDict:
     def test_all_accept_returns_typed_dict(self, fixture: ProtocolFixture) -> None:
         votes = fixture.build_vote_dict("all_accept")
         assert isinstance(votes, dict)
-        assert votes[ReviewAxis.CORRECTNESS] == VoteType.ACCEPT
-        assert votes[ReviewAxis.TEST_QUALITY] == VoteType.ACCEPT
-        assert votes[ReviewAxis.ELEGANCE] == VoteType.ACCEPT
+        assert votes[ReviewAxis.Correctness] == VoteType.Accept
+        assert votes[ReviewAxis.TestQuality] == VoteType.Accept
+        assert votes[ReviewAxis.Elegance] == VoteType.Accept
 
     def test_all_revise_returns_typed_dict(self, fixture: ProtocolFixture) -> None:
         votes = fixture.build_vote_dict("all_revise")
-        assert votes[ReviewAxis.CORRECTNESS] == VoteType.REVISE
-        assert votes[ReviewAxis.TEST_QUALITY] == VoteType.REVISE
-        assert votes[ReviewAxis.ELEGANCE] == VoteType.REVISE
+        assert votes[ReviewAxis.Correctness] == VoteType.Revise
+        assert votes[ReviewAxis.TestQuality] == VoteType.Revise
+        assert votes[ReviewAxis.Elegance] == VoteType.Revise
 
     def test_partial_one_axis_returns_partial_dict(self, fixture: ProtocolFixture) -> None:
         votes = fixture.build_vote_dict("partial_one_axis")
-        assert ReviewAxis.CORRECTNESS in votes
-        assert ReviewAxis.TEST_QUALITY not in votes
-        assert ReviewAxis.ELEGANCE not in votes
+        assert ReviewAxis.Correctness in votes
+        assert ReviewAxis.TestQuality not in votes
+        assert ReviewAxis.Elegance not in votes
 
     def test_empty_returns_empty_dict(self, fixture: ProtocolFixture) -> None:
         votes = fixture.build_vote_dict("empty")
@@ -448,14 +448,15 @@ class TestConstraintViolationAxis:
             assert entry["description"], f"{constraint_id}: description is empty"
 
     def test_runnable_entries_have_violation_data(self, fixture: ProtocolFixture) -> None:
-        """Each runnable entry has either violation_state or violation_transition."""
+        """Each runnable entry has violation_state, violation_transition, or violation_method."""
         for constraint_id, entry in fixture.constraint_violations.items():
             if not entry.get("skip_reason"):
                 has_state = "violation_state" in entry
                 has_transition = "violation_transition" in entry
-                assert has_state or has_transition, (
-                    f"{constraint_id}: runnable entry must have violation_state "
-                    "or violation_transition"
+                has_method = "violation_method" in entry
+                assert has_state or has_transition or has_method, (
+                    f"{constraint_id}: runnable entry must have violation_state, "
+                    "violation_transition, or violation_method"
                 )
 
     def test_skipped_entries_have_no_violation_data(
@@ -529,7 +530,7 @@ class TestConstraintViolationTestCaseGenerator:
     def test_runnable_cases_have_at_least_one_violation_field(
         self, runnable: list[ConstraintViolationTestCase]
     ) -> None:
-        """Each runnable case has either violation_state or both violation phase fields."""
+        """Each runnable case has violation_state, both violation phase fields, or violation_method."""
         assert len(runnable) > 0, "Need at least one runnable case"
         for tc in runnable:
             has_state = tc.violation_state is not None
@@ -537,9 +538,10 @@ class TestConstraintViolationTestCaseGenerator:
                 tc.violation_from_phase is not None
                 and tc.violation_to_phase is not None
             )
-            assert has_state or has_transition, (
-                f"{tc.id}: runnable case must have violation_state OR "
-                "violation_from_phase+violation_to_phase"
+            has_method = tc.violation_method is not None
+            assert has_state or has_transition or has_method, (
+                f"{tc.id}: runnable case must have violation_state, "
+                "violation_from_phase+violation_to_phase, or violation_method"
             )
 
     def test_runnable_state_cases_have_epoch_state(
@@ -586,29 +588,56 @@ class TestConstraintViolationTestCaseGenerator:
                 f"{tc.id}: skipped case must have violation_state=None"
             )
 
-    def test_exactly_five_runnable_cases(
+    def test_exactly_twenty_five_runnable_cases(
         self, runnable: list[ConstraintViolationTestCase]
     ) -> None:
-        """The 5 constraints testable via EpochState + check_state() are runnable."""
-        assert len(runnable) == 5, (
-            f"Expected exactly 5 runnable constraint cases, got {len(runnable)}: "
+        """27 constraints are runnable: 4 state-based + 1 transition-based + 2 audit + 16 structural + 4 naming."""
+        assert len(runnable) == 27, (
+            f"Expected exactly 27 runnable constraint cases, got {len(runnable)}: "
             f"{[tc.constraint_id for tc in runnable]}"
         )
 
     def test_runnable_constraint_ids_are_expected(
         self, runnable: list[ConstraintViolationTestCase]
     ) -> None:
-        """The 5 runnable constraints: 4 state-based + 1 transition-based."""
+        """All 27 runnable constraints are present."""
         expected = {
+            # State-based (4)
             "C-review-consensus",
             "C-severity-not-plan",
             "C-severity-eager",
             "C-worker-gates",
+            # Transition-based (1)
             "C-handoff-skill-invocation",
+            # Audit with transition_history (2)
+            "C-audit-never-delete",
+            "C-audit-dep-chain",
+            # Structural via violation_method (16)
+            "C-review-binary",
+            "C-dep-direction",
+            "C-blocker-dual-parent",
+            "C-followup-timing",
+            "C-vertical-slices",
+            "C-supervisor-no-impl",
+            "C-clean-review-exit",
+            "C-autonomous-progression",
+            "C-supervisor-explore-ephemeral",
+            "C-integration-points",
+            "C-slice-review-before-close",
+            "C-max-review-cycles",
+            "C-slice-leaf-tasks",
+            "C-ure-verbatim",
+            "C-frontmatter-refs",
+            "C-followup-leaf-adoption",
+            # Naming via violation_method (4)
+            "C-agent-commit",
+            "C-proposal-naming",
+            "C-review-naming",
+            "C-followup-lifecycle",
         }
         actual = {tc.constraint_id for tc in runnable}
         assert actual == expected, (
-            f"Runnable constraint IDs mismatch.\nExpected: {expected}\nActual:   {actual}"
+            f"Runnable constraint IDs mismatch.\nExpected: {sorted(expected)}\nActual:   {sorted(actual)}"
         )
 
     def test_handoff_case_is_transition_based(

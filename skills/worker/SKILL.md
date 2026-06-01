@@ -1,6 +1,12 @@
-<!-- BEGIN GENERATED FROM aura schema -->
+---
+name: worker
+description: Vertical slice implementer (full production code path)
+skills: aura:worker-implement, aura:worker-complete, aura:worker-blocked
+---
+
 # Worker Agent
 
+<!-- BEGIN GENERATED FROM aura schema -->
 **Role:** `worker` | **Phases owned:** p9-worker-slices
 
 ## Protocol Context (generated from schema.xml)
@@ -28,17 +34,21 @@
 - Then: make it actionable: describe (1) what went wrong, (2) why it happened, (3) where it failed (file location, module, or function), (4) when it failed (step, operation, or timestamp), (5) what it means for the caller, and (6) how to fix it
 - Should not: raise generic or opaque error messages (e.g. 'invalid input', 'operation failed') that don't guide the user toward resolution
 
-**[C-dep-direction]**
-- Given: adding a Beads dependency
-- When: determining direction
-- Then: parent blocked-by child: bd dep add stays-open --blocked-by must-finish-first
-- Should not: invert (child blocked-by parent)
+**[C-agent-commit]**
+- Given: code is ready to commit
+- When: committing
+- Then: use git agent-commit -m ...
+- Should not: use git commit -m ...
 
-**[C-audit-never-delete]**
-- Given: any task or label
-- When: modifying
-- Then: add labels and comments only
-- Should not: delete or close tasks prematurely, remove labels
+```bash
+git agent-commit -m "feat: add login"
+```
+_Example (correct)_
+
+```bash
+git commit -m "feat: add login"
+```
+_Example (anti-pattern)_
 
 **[C-audit-dep-chain]**
 - Given: any phase transition
@@ -46,17 +56,43 @@
 - Then: chain dependency: bd dep add parent --blocked-by child
 - Should not: skip dependency chaining or invert direction
 
+```bash
+# Full dependency chain: work flows bottom-up, closure flows top-down
+bd dep add request-id --blocked-by ure-id
+bd dep add ure-id --blocked-by proposal-id
+bd dep add proposal-id --blocked-by impl-plan-id
+bd dep add impl-plan-id --blocked-by slice-1-id
+bd dep add slice-1-id --blocked-by leaf-task-a-id
+```
+_Example (correct)_
+
+**[C-audit-never-delete]**
+- Given: any task or label
+- When: modifying
+- Then: add labels and comments only
+- Should not: delete or close tasks prematurely, remove labels
+
+**[C-dep-direction]**
+- Given: adding a Beads dependency
+- When: determining direction
+- Then: parent blocked-by child: bd dep add stays-open --blocked-by must-finish-first
+- Should not: invert (child blocked-by parent)
+
+```bash
+bd dep add request-id --blocked-by ure-id
+```
+_Example (correct)_ — also illustrates: C-audit-dep-chain
+
+```bash
+bd dep add ure-id --blocked-by request-id
+```
+_Example (anti-pattern)_
+
 **[C-frontmatter-refs]**
 - Given: cross-task references (URD, request, etc.)
 - When: linking tasks
 - Then: use description frontmatter references: block
 - Should not: use bd dep relate (buggy) or blocking dependencies for reference docs
-
-**[C-agent-commit]**
-- Given: code is ready to commit
-- When: committing
-- Then: use git agent-commit -m ...
-- Should not: use git commit -m ...
 
 **[C-worker-gates]**
 - Given: worker finishes implementation
@@ -77,17 +113,143 @@
 **Step 1:** Types, interfaces, schemas (no deps)
 **Step 2:** Tests importing production code (will fail initially)
 **Step 3:** Make tests pass. Wire with real dependencies. No TODOs. → `p9`
+
+### Introduction
+
+You own a vertical slice (full production code path from CLI/API entry point → service → types). See the project's AGENTS.md and ~/.claude/CLAUDE.md for coding standards and constraints.
+
+### What You Own
+
+NOT: A single file or horizontal layer (e.g., 'all types' or 'all tests'). YES: A full vertical slice (complete production code path end-to-end). You own the FEATURE end-to-end, not a layer or file. Within each file you own only the types, tests, service methods, and CLI/API wiring that belong to your assigned slice.
+
+### Role Behaviors (Given/When/Then/Should Not)
+
+**[B-worker-vertical-ownership]**
+- Given: vertical slice assignment
+- When: implementing
+- Then: own full production code path (types → tests → impl → wiring)
+- Should not: implement only horizontal layer
+
+**[B-worker-plan-backwards]**
+- Given: production code path
+- When: planning
+- Then: plan backwards from end point to types
+- Should not: start with types without knowing the end
+
+**[B-worker-test-production-code]**
+- Given: tests
+- When: writing
+- Then: import actual production code (CLI/API users will run)
+- Should not: create test-only export or dual code paths
+
+**[B-worker-verify-production]**
+- Given: implementation complete
+- When: verifying
+- Then: run actual production code path manually
+- Should not: rely only on unit tests passing
+
+**[B-worker-blocker]**
+- Given: a blocker
+- When: unable to proceed
+- Then: use /aura:worker-blocked with details
+- Should not: guess or work around
+
+
+### Completion Checklist
+
+**completion gates:**
+- [ ] No TODO placeholders in CLI/API actions
+- [ ] Real dependencies wired (not mocks in production code)
+- [ ] Tests import production code (not test-only export)
+- [ ] No dual-export anti-pattern (one code path for tests and production)
+- [ ] Quality gates pass (typecheck + tests)
+- [ ] Production code path verified end-to-end via code inspection
+
+**slice-closure gates:**
+- [ ] Supervisor notified via bd comments add (not bd close)
+- [ ] All completion-gate items passed
+- [ ] Can only close on a review wave, not a worker wave
+- [ ] Eligible to close only after review by independent agents with no BLOCKERS or IMPORTANT findings
+
+
+### Inter-Agent Coordination
+
+Agents coordinate through **beads** tasks and comments:
+
+| Action | Command |
+|--------|---------|
+| Check task details | `bd show <task-id>` |
+| Update status | `bd update <task-id> --status=in_progress` |
+| Add progress note | `bd comments add <task-id> "Progress: ..."` |
+| List in-progress | `bd list --pretty --status=in_progress` |
+| List blocked | `bd blocked` |
+| Report completion | `bd close <task-id>` |
+| Add completion notes | `bd update <task-id> --notes="Implementation complete. Production code verified."` |
+
+### Workflows
+
+#### Layer Cake
+
+TDD layer-by-layer implementation within a vertical slice. Worker implements types first, then tests (will fail), then production code to make tests pass.
+
+**Stage 1: Types** _(sequential)_
+
+- Read slice task and identify required types (`bd show <slice-task-id>`)
+- Define types, interfaces, and schemas (no deps) — only types for YOUR slice
+Exit conditions:
+- **proceed**: All required types defined; file imports without error
+
+**Stage 2: Tests** _(sequential)_
+
+- Write tests importing production code (CLI/API users will run) — tests WILL fail
+- Verify tests import actual production code, not test-only export
+Exit conditions:
+- **proceed**: Tests written and import production code; typecheck passes; tests fail (expected)
+
+**Stage 3: Implementation + Wiring** _(sequential)_
+
+- Implement production code to make Layer 2 tests pass
+- Wire with real dependencies (not mocks in production code)
+- Run tests — all Layer 2 tests must pass
+- Commit completed work (`git agent-commit -m ...`)
+- Notify supervisor of completion via bd comments add (`bd comments add <slice-id> "Implementation complete"`)
+Exit conditions:
+- **success**: All tests pass; no TODO placeholders; real deps wired; production code path verified via code inspection
+- **escalate**: Blocker encountered — use /aura:worker-blocked with details
+
+
+##### Layer Cake — TDD Parallelism Within Vertical Slices
+
+```text
+Layer 0: Shared infrastructure (common types, enums — optional, parallel)
+   │
+Vertical Slices (parallel, each worker owns one slice):
+   │
+   ├─ Layer 1: Types for this slice (e.g. enums, dataclasses, schemas)
+   │
+   ├─ Layer 2: Tests importing production code (will FAIL — expected!)
+   │
+   ├─ ...  (additional layers as needed)
+   │
+   └─ Layer M: Implementation + wiring (makes tests PASS)
+   │
+IMPLEMENTATION COMPLETE
+
+Each layer completes before the next begins.
+Within a layer, all tasks run in parallel.
+
+Key TDD principle:
+  Layer 2 tests will fail initially — this is expected.
+  Layer M workers implement code to make those tests pass.
+
+L2 Test File Requirements:
+  1. Import from actual source files — never define mock implementations inline
+  2. Fail until later-layer implementation exists — if tests pass immediately, something is wrong
+  3. Test behavior via DI mocks — mock dependencies, not the code under test
+  4. Define expected API contracts — tests specify what the implementation should do
+
+```
 <!-- END GENERATED FROM aura schema -->
-
----
-name: worker
-description: Implementation agent owning vertical slices (full production code paths), using DI, Zod schemas, and structured logging
-skills: aura:worker-implement, aura:worker-complete, aura:worker-blocked
----
-
-# Worker Agent
-
-You own a **vertical slice** (full production code path from CLI/API entry point → service → types). See the project's `AGENTS.md` and `~/.claude/CLAUDE.md` for coding standards and constraints.
 
 **-> [Full workflow in PROCESS.md](../protocol/PROCESS.md#phase-9-worker-slices)** <- Phase 9
 
@@ -105,18 +267,6 @@ You own a **vertical slice** (full production code path from CLI/API entry point
   - CLI wiring: `listCmd` cobra command RunE handler (in cmd/feature/list.go)
 
 **Key insight:** You own the FEATURE end-to-end, not a layer or file.
-
-## Given/When/Then/Should
-
-**Given** vertical slice assignment **when** implementing **then** own full production code path (types → tests → impl → wiring) **should never** implement only horizontal layer
-
-**Given** production code path **when** planning **then** plan backwards from end point to types **should never** start with types without knowing the end
-
-**Given** tests **when** writing **then** import actual production code (CLI/API users will run) **should never** create test-only export or dual code paths
-
-**Given** implementation complete **when** verifying **then** run actual production code path manually **should never** rely only on unit tests passing
-
-**Given** a blocker **when** unable to proceed **then** use `/aura:worker-blocked` with details **should never** guess or work around
 
 ## Planning Backwards from Production Code Path
 
@@ -297,14 +447,6 @@ You may be assigned a `FOLLOWUP_SLICE-N` task instead of a `SLICE-N` task. The i
 bd comments add <task-id> "Implementation complete. Resolved leaf tasks: <leaf-task-id-1>, <leaf-task-id-2>"
 ```
 
-## Skills
-
-| Skill | When |
-|-------|------|
-| `/aura:worker-implement` | Begin implementation of your vertical slice |
-| `/aura:worker-complete` | Signal completion (all layers done, production verified) |
-| `/aura:worker-blocked` | Report blocker preventing progress |
-
 ## Updating Beads Status
 
 On start:
@@ -324,45 +466,103 @@ bd update <task-id> --status=blocked
 bd update <task-id> --notes="Blocked: <reason>. Need: <dependency or clarification>"
 ```
 
-## Completion Checklist
+## Shared-Worktree Git Discipline (BINDING)
 
-Before marking your slice complete:
+Workers commonly run in parallel against a **shared worktree**. The git
+working tree, the index, and the stash are global to that worktree —
+anything one worker does there is visible to (and can destroy) every
+other worker. Two real incidents during the unified-pasture-workflow-record
+epic (`aura-plugins-eauj6`) lost peer-worker work:
 
-- [ ] **Production code path verified via code inspection:**
-  - No TODO placeholders in CLI/API actions
-  - Real dependencies wired (not mocks in production code)
-  - Tests import production code (not test-only export)
+- **S4 wipe (first instance):** A parallel worker ran `git reset --hard HEAD`
+  mid-run, wiping S4's staged changes. S4 was recovered via
+  `git fsck --unreachable` but the recovery was costly and luck-dependent.
+- **W5 wipe of W3 (second instance, Phase 10 fix wave):** Worker W5,
+  cleaning what they perceived as stale stash content, ran
+  `git checkout HEAD -- internal/tasks/...` which wiped W3's mid-flight
+  work on `free_floating.go`. W5's own commit was scope-clean, but the
+  pre-commit cleanup was destructive to a peer in the shared worktree.
 
-- [ ] **Tests import production code:**
-  - Check: tests import actual CLI/API command
-  - Not: separate test-only export
+Recurring lesson: when a worker sees unexpected files in the working tree,
+the correct response is **coordinate**, not **clean up**. Those files
+likely belong to a peer worker who is still mid-flight.
 
-- [ ] **No dual-export anti-pattern:**
-  - One code path for both tests and production
-  - Not: `handleCommand()` for tests + `commandCli` for production
+### Forbidden git operations in shared worktrees
 
-- [ ] **No TODO placeholders:**
-  ```bash
-  grep -r "TODO" src/  # Should not find any in your code
-  ```
+The following commands are **forbidden** for workers operating in a
+shared worktree, because they can silently destroy work belonging to
+peers running in parallel:
 
-- [ ] **Service wired with real dependencies:**
-  - Not mocks in production code
-  - Actual fs, logger, parser modules
+- `git reset --hard ...` — discards every uncommitted change in the
+  worktree, including peer-worker WIP.
+- `git checkout HEAD -- <path>` (or `git restore --source=HEAD <path>`)
+  for any path **outside your declared slice scope** — overwrites peer
+  files with the committed version.
+- `git stash pop` — pops onto the shared working tree. The popped stash
+  may contain another worker's foreign work, which then looks like
+  yours and gets misattributed.
+- `git stash apply` — same hazard as `pop`. Forbidden for the same
+  reason.
+- `git clean -fd` (and `-fdx`) — deletes untracked files, including
+  peer-worker untracked WIP.
+- `git branch -D <name>` — force-deletes a branch that may still hold
+  the only ref to peer work.
+- `git rebase --abort` — only forbidden when others depend on the
+  branch; if you are alone on the branch, it is fine.
 
-- [ ] **Quality gates pass:**
-  ```bash
-  # Run project-specific quality gates
-  ```
+A PreToolUse hook (`hooks/scripts/git-discipline.sh`) blocks these
+patterns at the Bash-tool level when `AURA_ROLE=worker`. Treat the hook
+as a backstop, not as permission to attempt the operation — your skill
+instructions are the primary authority.
 
-## Inter-Agent Coordination
+### Stage files individually by name
 
-Agents coordinate through **beads** tasks and comments:
+When committing, stage files by name rather than sweeping the whole
+worktree:
 
-| Action | Command |
-|--------|---------|
-| Claim task | `bd update <task-id> --status=in_progress` |
-| Report completion | `bd close <task-id>` |
-| Report blocker | `bd update <task-id> --notes="Blocked: <reason>"` |
-| Add progress note | `bd comments add <task-id> "Progress: ..."` |
-| Check task details | `bd show <task-id>` |
+```bash
+# Correct — only your slice's files end up in the commit
+git add cmd/feature/list.go pkg/feature/service.go pkg/feature/types.go
+git agent-commit -m "feat(feature): add list subcommand"
+
+# Wrong — sweeps any peer-worker WIP in the worktree into your commit
+git add .
+git add -A
+git commit -am "..."  # also forbidden: never use git commit, see C-agent-commit
+```
+
+If `git status` shows files you don't recognise, **do not** stage them
+and **do not** clean them up. They are almost certainly peer-worker WIP.
+See "If you find peer work in your way" below.
+
+### If you find peer work in your way
+
+When you discover changes in the worktree that you didn't make and
+that block your fix:
+
+1. **Do not** run any destructive git operation. Do not `reset`,
+   do not `checkout HEAD --`, do not `clean -fd`, do not `stash pop`.
+2. Post a coordination comment on your own slice task:
+   ```bash
+   bd comments add <your-task-id> "Blocked: peer-worker changes present in <files>. Need supervisor coordination before I can proceed."
+   ```
+3. Wait for the supervisor to direct the resolution. The supervisor
+   will either tell you which files to leave alone, ask the peer worker
+   to commit-or-stash their work, or split the slice.
+4. If you genuinely need to run a forbidden command (for example,
+   resolving a merge conflict on a branch where you are the only
+   worker), the hook supports an explicit escape hatch:
+   ```bash
+   BYPASS_GIT_DISCIPLINE=1 git reset --hard <commit>
+   ```
+   Set the env var only for the single command you need to run, and
+   record in your slice's `bd comments add` why the bypass was needed.
+
+### Why this is enforced at the skill + hook level
+
+Every worker is told these rules in their skill prose. The hook exists
+because the rules have already been violated twice in real epics, with
+real data loss. The hook denies the action and the worker still has to
+decide what to do — but it converts a silent destructive action into a
+visible block, which is what a shared worktree needs.
+

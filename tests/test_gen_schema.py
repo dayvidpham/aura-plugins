@@ -11,6 +11,7 @@ Acceptance criteria covered:
 from __future__ import annotations
 
 import io
+import re
 import sys
 import tempfile
 import xml.etree.ElementTree as ET
@@ -233,9 +234,9 @@ class TestProcedureStepsSection:
         )
         sup_role = roles["supervisor"]
         steps = sup_role.findall("step")
-        assert len(steps) == len(PROCEDURE_STEPS[RoleId.SUPERVISOR]), (
+        assert len(steps) == len(PROCEDURE_STEPS[RoleId.Supervisor]), (
             f"Supervisor step count mismatch: "
-            f"XML={len(steps)}, Python={len(PROCEDURE_STEPS[RoleId.SUPERVISOR])}"
+            f"XML={len(steps)}, Python={len(PROCEDURE_STEPS[RoleId.Supervisor])}"
         )
         # Verify first step has id and order attributes, and <instruction> child element
         first_step = steps[0]
@@ -263,9 +264,9 @@ class TestProcedureStepsSection:
         )
         worker_role = roles["worker"]
         steps = worker_role.findall("step")
-        assert len(steps) == len(PROCEDURE_STEPS[RoleId.WORKER]), (
+        assert len(steps) == len(PROCEDURE_STEPS[RoleId.Worker]), (
             f"Worker step count mismatch: "
-            f"XML={len(steps)}, Python={len(PROCEDURE_STEPS[RoleId.WORKER])}"
+            f"XML={len(steps)}, Python={len(PROCEDURE_STEPS[RoleId.Worker])}"
         )
 
     def test_empty_roles_excluded(
@@ -298,7 +299,7 @@ class TestProcedureStepsSection:
         assert sup_role is not None
 
         xml_steps = sup_role.findall("step")
-        python_steps = PROCEDURE_STEPS[RoleId.SUPERVISOR]
+        python_steps = PROCEDURE_STEPS[RoleId.Supervisor]
         for xml_step, py_step in zip(xml_steps, python_steps):
             # id and order are XML attributes
             assert xml_step.get("id") == py_step.id, (
@@ -508,7 +509,7 @@ class TestConstraintRolePhaseRefs:
 
         # Ride the Wave constraints shared between epoch and supervisor
         ride_the_wave_constraints = [
-            "C-supervisor-cartographers",
+            "C-supervisor-explore-ephemeral",
             "C-integration-points",
             "C-slice-review-before-close",
             "C-max-review-cycles",
@@ -817,8 +818,8 @@ class TestRoundTripConsistency:
         the parser round-trips id, order, instruction, command, context, and
         next_state for each step.
         """
-        python_steps = PROCEDURE_STEPS[RoleId.SUPERVISOR]
-        parsed_steps = parsed_spec.procedure_steps.get(RoleId.SUPERVISOR, ())
+        python_steps = PROCEDURE_STEPS[RoleId.Supervisor]
+        parsed_steps = parsed_spec.procedure_steps.get(RoleId.Supervisor, ())
         assert len(parsed_steps) == len(python_steps), (
             f"Supervisor procedure step count mismatch: "
             f"parsed={len(parsed_steps)}, python={len(python_steps)}"
@@ -857,8 +858,8 @@ class TestRoundTripConsistency:
         intentionally does not set command, context, or next_state for worker steps
         (those fields are not present in <tdd-layers>), so each must be None.
         """
-        python_steps = PROCEDURE_STEPS[RoleId.WORKER]
-        parsed_steps = parsed_spec.procedure_steps.get(RoleId.WORKER, ())
+        python_steps = PROCEDURE_STEPS[RoleId.Worker]
+        parsed_steps = parsed_spec.procedure_steps.get(RoleId.Worker, ())
         assert len(parsed_steps) == len(python_steps), (
             f"Worker procedure step count mismatch: "
             f"parsed={len(parsed_steps)}, python={len(python_steps)}"
@@ -993,7 +994,7 @@ class TestAC10Pipeline:
         )
         from aura_protocol.types import RoleId
         skill_result = generate_skill(
-            RoleId.WORKER,
+            RoleId.Worker,
             skill_path,
             diff=False,
             write=False,
@@ -1042,21 +1043,316 @@ class TestSlugPinLiterals:
 
     def test_supervisor_call_skill_slug(self) -> None:
         """StepSlug.Supervisor.CallSkill must exist as a supervisor procedure step."""
-        assert any(s.id == StepSlug.Supervisor.CallSkill for s in PROCEDURE_STEPS[RoleId.SUPERVISOR]), (
+        assert any(s.id == StepSlug.Supervisor.CallSkill for s in PROCEDURE_STEPS[RoleId.Supervisor]), (
             f"Expected step {StepSlug.Supervisor.CallSkill!r} in PROCEDURE_STEPS[SUPERVISOR]. "
             "If this step was renamed, update StepSlug.Supervisor.CallSkill to reflect the new name."
         )
 
-    def test_supervisor_cartographers_slug(self) -> None:
-        """StepSlug.Supervisor.Cartographers must exist as a supervisor procedure step."""
-        assert any(s.id == StepSlug.Supervisor.Cartographers for s in PROCEDURE_STEPS[RoleId.SUPERVISOR]), (
-            f"Expected step {StepSlug.Supervisor.Cartographers!r} in PROCEDURE_STEPS[SUPERVISOR]. "
-            "If this step was renamed, update StepSlug.Supervisor.Cartographers to reflect the new name."
+    def test_supervisor_explore_ephemeral_slug(self) -> None:
+        """StepSlug.Supervisor.ExploreEphemeral must exist as a supervisor procedure step."""
+        assert any(s.id == StepSlug.Supervisor.ExploreEphemeral for s in PROCEDURE_STEPS[RoleId.Supervisor]), (
+            f"Expected step {StepSlug.Supervisor.ExploreEphemeral!r} in PROCEDURE_STEPS[SUPERVISOR]. "
+            "If this step was renamed, update StepSlug.Supervisor.ExploreEphemeral to reflect the new name."
         )
 
     def test_worker_types_slug(self) -> None:
         """StepSlug.Worker.Types must exist as a worker procedure step."""
-        assert any(s.id == StepSlug.Worker.Types for s in PROCEDURE_STEPS[RoleId.WORKER]), (
+        assert any(s.id == StepSlug.Worker.Types for s in PROCEDURE_STEPS[RoleId.Worker]), (
             f"Expected step {StepSlug.Worker.Types!r} in PROCEDURE_STEPS[WORKER]. "
             "If this step was renamed, update StepSlug.Worker.Types to reflect the new name."
         )
+
+
+# ─── SLICE-2: XML Round-trip for New Sections ─────────────────────────────────
+
+
+from aura_protocol.types import (
+    CHECKLIST_SPECS,
+    COORDINATION_COMMANDS,
+    WORKFLOW_SPECS,
+)
+
+
+class TestNewTopLevelSections:
+    """New top-level sections are present in generated XML."""
+
+    def test_checklists_section_present(
+        self, generated_xml_root: "ET.Element"
+    ) -> None:
+        assert generated_xml_root.find("checklists") is not None, (
+            "Missing <checklists> top-level section in generated schema.xml."
+        )
+
+    def test_coordination_commands_section_present(
+        self, generated_xml_root: "ET.Element"
+    ) -> None:
+        assert generated_xml_root.find("coordination-commands") is not None, (
+            "Missing <coordination-commands> section in generated schema.xml."
+        )
+
+    def test_workflows_section_present(
+        self, generated_xml_root: "ET.Element"
+    ) -> None:
+        assert generated_xml_root.find("workflows") is not None, (
+            "Missing <workflows> section in generated schema.xml."
+        )
+
+
+class TestChecklistRoundTrip:
+    """Round-trip: gen_schema emits checklists, schema_parser parses them back."""
+
+    def test_checklist_count(self, parsed_spec) -> None:
+        assert len(parsed_spec.checklists) == len(CHECKLIST_SPECS)
+
+    def test_checklist_keys_match(self, parsed_spec) -> None:
+        assert set(parsed_spec.checklists.keys()) == set(CHECKLIST_SPECS.keys())
+
+    def test_checklist_role_ref(self, parsed_spec) -> None:
+        for cl_id, orig in CHECKLIST_SPECS.items():
+            parsed = parsed_spec.checklists[cl_id]
+            assert parsed.role_ref == orig.role_ref, (
+                f"role_ref mismatch for checklist {cl_id!r}"
+            )
+
+    def test_checklist_gate(self, parsed_spec) -> None:
+        for cl_id, orig in CHECKLIST_SPECS.items():
+            parsed = parsed_spec.checklists[cl_id]
+            assert parsed.gate == orig.gate, (
+                f"gate mismatch for checklist {cl_id!r}"
+            )
+
+    def test_checklist_items(self, parsed_spec) -> None:
+        for cl_id, orig in CHECKLIST_SPECS.items():
+            parsed = parsed_spec.checklists[cl_id]
+            assert len(parsed.items) == len(orig.items), (
+                f"items count mismatch for checklist {cl_id!r}"
+            )
+            for orig_item, parsed_item in zip(orig.items, parsed.items):
+                assert parsed_item.id == orig_item.id
+                assert parsed_item.text == orig_item.text
+                assert parsed_item.required == orig_item.required
+
+
+class TestCoordinationCommandRoundTrip:
+    """Round-trip: gen_schema emits coord commands, schema_parser parses them back."""
+
+    def test_coordination_command_count(self, parsed_spec) -> None:
+        assert len(parsed_spec.coordination_commands) == len(COORDINATION_COMMANDS)
+
+    def test_coordination_command_keys_match(self, parsed_spec) -> None:
+        assert set(parsed_spec.coordination_commands.keys()) == set(COORDINATION_COMMANDS.keys())
+
+    def test_coordination_command_fields(self, parsed_spec) -> None:
+        for cid, orig in COORDINATION_COMMANDS.items():
+            parsed = parsed_spec.coordination_commands[cid]
+            assert parsed.id == orig.id
+            assert parsed.action == orig.action
+            assert parsed.template == orig.template, (
+                f"template mismatch for {cid!r}: expected {orig.template!r}, got {parsed.template!r}"
+            )
+            assert parsed.role_ref == orig.role_ref
+            assert parsed.shared == orig.shared
+
+    def test_shared_commands_have_no_role_ref(self, parsed_spec) -> None:
+        for cid, cmd in parsed_spec.coordination_commands.items():
+            if cmd.shared:
+                assert cmd.role_ref is None, (
+                    f"Shared coord-cmd {cid!r} must have role_ref=None"
+                )
+
+
+class TestWorkflowRoundTrip:
+    """Round-trip: gen_schema emits workflows, schema_parser parses them back."""
+
+    def test_workflow_count(self, parsed_spec) -> None:
+        assert len(parsed_spec.workflows) == len(WORKFLOW_SPECS)
+
+    def test_workflow_keys_match(self, parsed_spec) -> None:
+        assert set(parsed_spec.workflows.keys()) == set(WORKFLOW_SPECS.keys())
+
+    def test_workflow_metadata(self, parsed_spec) -> None:
+        for wid, orig in WORKFLOW_SPECS.items():
+            parsed = parsed_spec.workflows[wid]
+            assert parsed.id == orig.id
+            assert parsed.name == orig.name
+            assert parsed.role_ref == orig.role_ref
+            assert parsed.description == orig.description
+
+    def test_workflow_stage_count(self, parsed_spec) -> None:
+        for wid, orig in WORKFLOW_SPECS.items():
+            parsed = parsed_spec.workflows[wid]
+            assert len(parsed.stages) == len(orig.stages), (
+                f"stage count mismatch for workflow {wid!r}"
+            )
+
+    def test_workflow_stage_fields(self, parsed_spec) -> None:
+        for wid, orig in WORKFLOW_SPECS.items():
+            parsed = parsed_spec.workflows[wid]
+            for orig_stage, parsed_stage in zip(orig.stages, parsed.stages):
+                assert parsed_stage.id == orig_stage.id
+                assert parsed_stage.name == orig_stage.name
+                assert parsed_stage.order == orig_stage.order
+                assert parsed_stage.execution == orig_stage.execution
+                assert parsed_stage.phase_ref == orig_stage.phase_ref
+
+    def test_workflow_action_fields(self, parsed_spec) -> None:
+        for wid, orig in WORKFLOW_SPECS.items():
+            parsed = parsed_spec.workflows[wid]
+            for orig_stage, parsed_stage in zip(orig.stages, parsed.stages):
+                assert len(parsed_stage.actions) == len(orig_stage.actions), (
+                    f"action count mismatch in workflow {wid!r} stage {orig_stage.id!r}"
+                )
+                for orig_action, parsed_action in zip(orig_stage.actions, parsed_stage.actions):
+                    assert parsed_action.id == orig_action.id
+                    assert parsed_action.instruction == orig_action.instruction
+                    assert parsed_action.command == orig_action.command
+
+    def test_workflow_exit_conditions(self, parsed_spec) -> None:
+        for wid, orig in WORKFLOW_SPECS.items():
+            parsed = parsed_spec.workflows[wid]
+            for orig_stage, parsed_stage in zip(orig.stages, parsed.stages):
+                assert len(parsed_stage.exit_conditions) == len(orig_stage.exit_conditions), (
+                    f"exit_condition count mismatch in {wid!r} stage {orig_stage.id!r}"
+                )
+                for orig_ec, parsed_ec in zip(orig_stage.exit_conditions, parsed_stage.exit_conditions):
+                    assert parsed_ec.type == orig_ec.type
+                    assert parsed_ec.condition == orig_ec.condition
+
+
+class TestRoleBehaviorRoundTrip:
+    """Round-trip: role introduction, ownership_narrative, behaviors survive XML."""
+
+    def test_role_introduction(self, parsed_spec) -> None:
+        for rid, orig in ROLE_SPECS.items():
+            parsed = parsed_spec.roles[rid]
+            assert parsed.introduction == orig.introduction, (
+                f"introduction mismatch for role {rid.value!r}"
+            )
+
+    def test_role_ownership_narrative(self, parsed_spec) -> None:
+        for rid, orig in ROLE_SPECS.items():
+            parsed = parsed_spec.roles[rid]
+            assert parsed.ownership_narrative == orig.ownership_narrative, (
+                f"ownership_narrative mismatch for role {rid.value!r}"
+            )
+
+    def test_role_behavior_count(self, parsed_spec) -> None:
+        for rid, orig in ROLE_SPECS.items():
+            parsed = parsed_spec.roles[rid]
+            assert len(parsed.behaviors) == len(orig.behaviors), (
+                f"behaviors count mismatch for role {rid.value!r}: "
+                f"expected {len(orig.behaviors)}, got {len(parsed.behaviors)}"
+            )
+
+    def test_role_behavior_fields(self, parsed_spec) -> None:
+        for rid, orig in ROLE_SPECS.items():
+            parsed = parsed_spec.roles[rid]
+            for orig_b, parsed_b in zip(orig.behaviors, parsed.behaviors):
+                assert parsed_b.id == orig_b.id
+                assert parsed_b.given == orig_b.given
+                assert parsed_b.when == orig_b.when
+                assert parsed_b.then == orig_b.then
+                assert parsed_b.should_not == orig_b.should_not
+
+    def test_roles_with_behaviors_have_xml_behaviors_element(
+        self, generated_xml_root: "ET.Element"
+    ) -> None:
+        roles_el = generated_xml_root.find("roles")
+        assert roles_el is not None
+        from aura_protocol.types import RoleId as _RoleId
+        for role_el in roles_el.findall("role"):
+            rid_str = role_el.get("id", "")
+            try:
+                rid = _RoleId(rid_str)
+            except ValueError:
+                continue
+            orig = ROLE_SPECS.get(rid)
+            if orig and orig.behaviors:
+                behaviors_xml = role_el.find("behaviors")
+                assert behaviors_xml is not None, (
+                    f"Role {rid_str!r} has {len(orig.behaviors)} behaviors "
+                    "but no <behaviors> element in generated XML."
+                )
+                assert len(behaviors_xml.findall("behavior")) == len(orig.behaviors)
+
+
+class TestConstraintCommandRoundTrip:
+    """Round-trip: constraint command attribute survives XML."""
+
+    def test_constraint_command_attribute(self, parsed_spec) -> None:
+        from aura_protocol.types import CONSTRAINT_SPECS as _CS
+        for cid, orig in _CS.items():
+            parsed = parsed_spec.constraints.get(cid)
+            assert parsed is not None, f"Constraint {cid!r} missing from parsed spec"
+            assert parsed.command == orig.command, (
+                f"command mismatch for constraint {cid!r}: "
+                f"expected {orig.command!r}, got {parsed.command!r}"
+            )
+
+    def test_c_audit_dep_chain_has_command(
+        self, generated_xml_root: "ET.Element"
+    ) -> None:
+        constraints_el = generated_xml_root.find("constraints")
+        assert constraints_el is not None
+        c_el = constraints_el.find(".//constraint[@id='C-audit-dep-chain']")
+        assert c_el is not None
+        assert c_el.get("command") is not None, (
+            "C-audit-dep-chain must have 'command' attribute in generated XML"
+        )
+
+    def test_c_agent_commit_has_command(
+        self, generated_xml_root: "ET.Element"
+    ) -> None:
+        constraints_el = generated_xml_root.find("constraints")
+        assert constraints_el is not None
+        c_el = constraints_el.find(".//constraint[@id='C-agent-commit']")
+        assert c_el is not None
+        assert c_el.get("command") is not None, (
+            "C-agent-commit must have 'command' attribute in generated XML"
+        )
+
+
+# ─── CDATA wrapping tests (FR12) ──────────────────────────────────────────────
+
+
+class TestCdataWrapping:
+    """FR12: <code> element content wrapped in CDATA sections."""
+
+    def test_wrap_code_elements_in_cdata_basic(self) -> None:
+        """_wrap_code_elements_in_cdata replaces escaped content with CDATA."""
+        from aura_protocol.gen_schema import _wrap_code_elements_in_cdata
+
+        xml_input = "<code>git agent-commit -m &amp;quot;msg&amp;quot;</code>"
+        result = _wrap_code_elements_in_cdata(xml_input)
+        assert "<![CDATA[" in result
+        assert "]]>" in result
+        # CDATA body should contain unescaped content
+        assert '&amp;quot;' not in result.split("<![CDATA[")[1].split("]]>")[0]
+
+    def test_wrap_code_elements_in_cdata_empty(self) -> None:
+        """Empty <code /> elements are left unchanged."""
+        from aura_protocol.gen_schema import _wrap_code_elements_in_cdata
+
+        xml_input = '<code />'
+        result = _wrap_code_elements_in_cdata(xml_input)
+        assert "<![CDATA[" not in result
+
+    def test_wrap_code_elements_in_cdata_multiline(self) -> None:
+        """Multiline code content is properly wrapped."""
+        from aura_protocol.gen_schema import _wrap_code_elements_in_cdata
+
+        xml_input = "<code>line1\nline2\nline3</code>"
+        result = _wrap_code_elements_in_cdata(xml_input)
+        assert "<code><![CDATA[line1\nline2\nline3]]></code>" == result
+
+    def test_generated_schema_code_elements_use_cdata(
+        self, generated_schema_path: Path,
+    ) -> None:
+        """If any <code> elements exist in generated XML, they must use CDATA."""
+        content = generated_schema_path.read_text(encoding="utf-8")
+        # Find all <code>...</code> occurrences
+        code_matches = re.findall(r"<code>(.*?)</code>", content, re.DOTALL)
+        for match in code_matches:
+            assert match.startswith("<![CDATA[") and match.endswith("]]>"), (
+                f"<code> element content not wrapped in CDATA: {match[:80]!r}..."
+            )

@@ -12,7 +12,7 @@ Plan ratified and user has approved proceeding with implementation.
 
 **Given** ratified PROPOSAL-N task **when** handing off **then** create handoff document and HANDOFF task **should never** hand off without linking to ratified proposal
 
-**Given** handoff **when** spawning supervisor **then** use `aura-parallel --role supervisor` or `aura-swarm start --epic <id>` **should never** spawn supervisor as Task tool subagent
+**Given** handoff **when** spawning supervisor **then** use `aura-swarm start --swarm-mode intree --role supervisor` or `aura-swarm start --epic <id>` **should never** spawn supervisor as Task tool subagent
 
 **Given** implementation planning **when** handing off **then** let supervisor create vertical slice tasks **should never** create implementation tasks as architect
 
@@ -25,7 +25,7 @@ Storage: `.git/.aura/handoff/{request-task-id}/architect-to-supervisor.md`
 
 ## Supervisor Startup
 1. Call `Skill(/aura:supervisor)` to load your role instructions
-2. Create a standing explore team via TeamCreate before any codebase exploration
+2. Spawn ephemeral Explore subagents via Task tool when codebase exploration is needed
 3. Read the RATIFIED PROPOSAL and URD with `bd show` commands below
 4. Every vertical slice MUST have leaf tasks (L1: types, L2: tests, L3: impl)
 
@@ -77,10 +77,10 @@ Storage: `.git/.aura/handoff/{request-task-id}/architect-to-supervisor.md`
 
 3. Launch supervisor:
    ```bash
-   # Using aura-parallel (for long-running supervisor in tmux session)
-   aura-parallel --role supervisor -n 1 --prompt "..."
+   # In-place mode (long-running supervisor in tmux session)
+   aura-swarm start --swarm-mode intree --role supervisor -n 1 --prompt "..."
 
-   # Or using aura-swarm (for epic-based worktree workflow)
+   # Or worktree mode (epic-based workflow)
    aura-swarm start --epic <id>
    ```
 
@@ -89,13 +89,13 @@ Storage: `.git/.aura/handoff/{request-task-id}/architect-to-supervisor.md`
    # Check beads status
    bd list --status=in_progress
 
-   # Or attach to supervisor session (if using aura-parallel)
-   tmux attach -t supervisor--1-<hex4>
+   # Attach to supervisor session
+   aura-swarm attach <epic-id-or-session-id>
    ```
 
 ## Example Prompt
 
-**CRITICAL:** The prompt MUST instruct the supervisor to invoke `/aura:supervisor` as its first action. Without this, the supervisor agent starts without its role instructions and skips leaf task creation, explore team setup, and other critical procedures.
+**CRITICAL:** The prompt MUST instruct the supervisor to invoke `/aura:supervisor` as its first action. Without this, the supervisor agent starts without its role instructions and skips leaf task creation, ephemeral exploration, and other critical procedures.
 
 ```
 Start by calling `Skill(/aura:supervisor)` to load your role instructions.
@@ -120,7 +120,7 @@ Implement the ratified plan for <feature name>.
 
 ## Reminders
 1. Call `Skill(/aura:supervisor)` FIRST — do not proceed without loading your role
-2. Create a standing explore team via TeamCreate BEFORE doing any codebase exploration
+2. Spawn ephemeral Explore subagents via Task tool when codebase exploration is needed
 3. Every vertical slice MUST have leaf tasks (L1: types, L2: tests, L3: impl) — a slice without leaf tasks is undecomposed
 4. Read the ratified plan with `bd show <ratified-proposal-id>` and the URD with `bd show <urd-id>`
 ```
@@ -128,7 +128,7 @@ Implement the ratified plan for <feature name>.
 Pass the prompt to the script:
 
 ```bash
-aura-parallel --role supervisor -n 1 --prompt "$(cat <<'EOF'
+aura-swarm start --swarm-mode intree --role supervisor -n 1 --prompt "$(cat <<'EOF'
 Start by calling Skill(/aura:supervisor) to load your role instructions.
 
 Implement the ratified plan for User Authentication.
@@ -153,7 +153,7 @@ Given an expired token when accessing protected routes then return 401
 
 ## Reminders
 1. Call Skill(/aura:supervisor) FIRST
-2. Create standing explore team via TeamCreate before codebase exploration
+2. Spawn ephemeral Explore subagents via Task tool when codebase exploration is needed
 3. Every slice MUST have leaf tasks (L1/L2/L3)
 4. Read ratified plan: bd show project-prop1 and URD: bd show project-xyz
 EOF
@@ -163,14 +163,14 @@ EOF
 ## Script Options
 
 ```bash
-aura-parallel --role supervisor -n 1 --prompt "..."             # Launch supervisor
-aura-parallel --role supervisor -n 1 --prompt "..." --dry-run   # Preview without launching
-aura-parallel --role supervisor -n 1 --prompt-file prompt.md    # Read prompt from file
+aura-swarm start --swarm-mode intree --role supervisor -n 1 --prompt "..."             # Launch supervisor
+aura-swarm start --swarm-mode intree --role supervisor -n 1 --prompt "..." --dry-run   # Preview without launching
+aura-swarm start --swarm-mode intree --role supervisor -n 1 --prompt-file prompt.md    # Read prompt from file
 ```
 
 ## IMPORTANT
 
-- **DO NOT** spawn supervisor as a Task tool subagent - use `aura-parallel` or `aura-swarm`
+- **DO NOT** spawn supervisor as a Task tool subagent - use `aura-swarm start`
 - **DO NOT** create implementation tasks yourself - the supervisor creates vertical slice tasks
 - **DO NOT** implement the plan yourself - your role is handoff and monitoring
 - The supervisor reads the ratified plan and determines vertical slice structure

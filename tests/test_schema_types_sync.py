@@ -27,6 +27,7 @@ from aura_protocol import (
     REVIEW_AXIS_SPECS,
     ROLE_SPECS,
     TITLE_CONVENTIONS,
+    CommandId,
     Domain,
     HandoffSpec,
     PhaseId,
@@ -35,6 +36,19 @@ from aura_protocol import (
     SkillRef,
     Transition,
     VoteType,
+)
+from aura_protocol.types import (
+    CHECKLIST_SPECS,
+    COORDINATION_COMMANDS,
+    FIGURE_SPECS,
+    WORKFLOW_SPECS,
+    ExampleLabel,
+    ExampleLang,
+    ExitConditionType,
+    FigureId,
+    FigureType,
+    GateType,
+    WorkflowExecution,
 )
 
 # ─── Schema Path ──────────────────────────────────────────────────────────────
@@ -59,7 +73,7 @@ class TestPhaseIdMatchesSchema:
     def test_all_phase_ids_in_schema(self, schema_root: ET.Element) -> None:
         schema_phase_ids = {p.get("id") for p in schema_root.iter("phase") if p.get("id")}
         # COMPLETE is a terminal sentinel not defined as a <phase> element
-        python_phase_ids = {p.value for p in PhaseId if p != PhaseId.COMPLETE}
+        python_phase_ids = {p.value for p in PhaseId if p != PhaseId.Complete}
         assert python_phase_ids == schema_phase_ids, (
             f"Python PhaseId values not matching schema.xml phases.\n"
             f"In Python only: {python_phase_ids - schema_phase_ids}\n"
@@ -68,7 +82,7 @@ class TestPhaseIdMatchesSchema:
 
     def test_phase_count_matches(self, schema_root: ET.Element) -> None:
         schema_count = len({p.get("id") for p in schema_root.iter("phase") if p.get("id")})
-        python_count = len([p for p in PhaseId if p != PhaseId.COMPLETE])
+        python_count = len([p for p in PhaseId if p != PhaseId.Complete])
         assert python_count == schema_count, (
             f"Phase count mismatch: Python has {python_count}, schema.xml has {schema_count}"
         )
@@ -610,12 +624,12 @@ class TestProcedureStepsMatchSchema:
 
     def test_supervisor_has_procedure_steps(self) -> None:
         """Supervisor role has non-empty procedure steps (UAT-6)."""
-        steps = PROCEDURE_STEPS[RoleId.SUPERVISOR]
+        steps = PROCEDURE_STEPS[RoleId.Supervisor]
         assert len(steps) > 0, "PROCEDURE_STEPS[supervisor] must be non-empty (UAT-6)"
 
     def test_worker_has_procedure_steps(self) -> None:
         """Worker role has non-empty procedure steps (UAT-6)."""
-        steps = PROCEDURE_STEPS[RoleId.WORKER]
+        steps = PROCEDURE_STEPS[RoleId.Worker]
         assert len(steps) > 0, "PROCEDURE_STEPS[worker] must be non-empty (UAT-6)"
 
     def test_supervisor_steps_from_schema(self, schema_root: ET.Element) -> None:
@@ -628,7 +642,7 @@ class TestProcedureStepsMatchSchema:
         Steps carry 'order' and 'id' as XML attributes; instruction/command/context/
         next-state are child elements (only present when non-None).
         """
-        steps = PROCEDURE_STEPS[RoleId.SUPERVISOR]
+        steps = PROCEDURE_STEPS[RoleId.Supervisor]
         # Collect the raw <step> XML elements from phase p8 startup-sequence
         xml_steps: list[ET.Element] = []
         phases_el = schema_root.find("phases")
@@ -666,14 +680,14 @@ class TestProcedureStepsMatchSchema:
         """At least one supervisor step has a known command value and at least one
         has a non-None context value.
 
-        AC-B1-1: Given PROCEDURE_STEPS[RoleId.SUPERVISOR], when values are
-        inspected directly, then at least one step has .command == SkillRef.SUPERVISOR
+        AC-B1-1: Given PROCEDURE_STEPS[RoleId.Supervisor], when values are
+        inspected directly, then at least one step has .command == SkillRef.Supervisor
         and at least one step has non-None .context string.
         """
-        steps = PROCEDURE_STEPS[RoleId.SUPERVISOR]
-        assert any(s.command == SkillRef.SUPERVISOR for s in steps), (
+        steps = PROCEDURE_STEPS[RoleId.Supervisor]
+        assert any(s.command == SkillRef.Supervisor for s in steps), (
             "Expected at least one supervisor step with "
-            f".command == {SkillRef.SUPERVISOR!r} in PROCEDURE_STEPS"
+            f".command == {SkillRef.Supervisor!r} in PROCEDURE_STEPS"
         )
         assert any(s.context is not None for s in steps), (
             "Expected at least one supervisor step with non-None .context "
@@ -700,28 +714,478 @@ class TestProcedureStepsMatchSchema:
                 )
 
     def test_supervisor_step4_next_state_is_p8(self) -> None:
-        """Supervisor step 4 (decompose into slices) must have next_state=PhaseId.P8_IMPL_PLAN."""
-        steps = PROCEDURE_STEPS[RoleId.SUPERVISOR]
+        """Supervisor step 4 (decompose into slices) must have next_state=PhaseId.P8_ImplPlan."""
+        steps = PROCEDURE_STEPS[RoleId.Supervisor]
         step4 = next((s for s in steps if s.order == 4), None)
         assert step4 is not None, "Supervisor must have a step 4"
-        assert step4.next_state == PhaseId.P8_IMPL_PLAN, (
+        assert step4.next_state == PhaseId.P8_ImplPlan, (
             f"Supervisor step 4 next_state expected P8_IMPL_PLAN, got {step4.next_state!r}"
         )
 
     def test_supervisor_step6_next_state_is_p9(self) -> None:
-        """Supervisor step 6 (spawn workers) must have next_state=PhaseId.P9_SLICE."""
-        steps = PROCEDURE_STEPS[RoleId.SUPERVISOR]
+        """Supervisor step 6 (spawn workers) must have next_state=PhaseId.P9_Slice."""
+        steps = PROCEDURE_STEPS[RoleId.Supervisor]
         step6 = next((s for s in steps if s.order == 6), None)
         assert step6 is not None, "Supervisor must have a step 6"
-        assert step6.next_state == PhaseId.P9_SLICE, (
+        assert step6.next_state == PhaseId.P9_Slice, (
             f"Supervisor step 6 next_state expected P9_SLICE, got {step6.next_state!r}"
         )
 
     def test_worker_step3_next_state_is_p9(self) -> None:
-        """Worker step 3 (make tests pass) must have next_state=PhaseId.P9_SLICE."""
-        steps = PROCEDURE_STEPS[RoleId.WORKER]
+        """Worker step 3 (make tests pass) must have next_state=PhaseId.P9_Slice."""
+        steps = PROCEDURE_STEPS[RoleId.Worker]
         step3 = next((s for s in steps if s.order == 3), None)
         assert step3 is not None, "Worker must have a step 3"
-        assert step3.next_state == PhaseId.P9_SLICE, (
+        assert step3.next_state == PhaseId.P9_Slice, (
             f"Worker step 3 next_state expected P9_SLICE, got {step3.next_state!r}"
+        )
+
+
+# ─── New enum sync tests (R10) ────────────────────────────────────────────────
+
+
+class TestNewEnumsSyncVsSchema:
+    """Sync tests for new enums: ExampleLabel, ExampleLang, GateType,
+    WorkflowExecution, ExitConditionType vs schema.xml usage."""
+
+    def test_gate_type_values_match_schema_checklist_attrs(
+        self, schema_root: ET.Element
+    ) -> None:
+        """Every gate= attribute on <checklist> elements must be a valid GateType value."""
+        schema_gate_values = {
+            cl.get("gate")
+            for cl in schema_root.iter("checklist")
+            if cl.get("gate")
+        }
+        python_gate_values = {g.value for g in GateType}
+        assert schema_gate_values == python_gate_values, (
+            f"GateType values must exactly match schema.xml gate= attributes.\n"
+            f"In schema only: {schema_gate_values - python_gate_values}\n"
+            f"In Python only: {python_gate_values - schema_gate_values}"
+        )
+
+    def test_workflow_execution_values_match_schema_stage_attrs(
+        self, schema_root: ET.Element
+    ) -> None:
+        """Every execution= attribute on <stage> elements must be a valid WorkflowExecution."""
+        schema_execution_values = {
+            s.get("execution")
+            for s in schema_root.iter("stage")
+            if s.get("execution")
+        }
+        python_execution_values = {e.value for e in WorkflowExecution}
+        assert schema_execution_values == python_execution_values, (
+            f"WorkflowExecution values must exactly match schema.xml execution= attributes.\n"
+            f"In schema only: {schema_execution_values - python_execution_values}\n"
+            f"In Python only: {python_execution_values - schema_execution_values}"
+        )
+
+    def test_exit_condition_type_values_match_schema_attrs(
+        self, schema_root: ET.Element
+    ) -> None:
+        """Every type= attribute on <exit-condition> elements must be in ExitConditionType."""
+        schema_type_values = {
+            ec.get("type")
+            for ec in schema_root.iter("exit-condition")
+            if ec.get("type")
+        }
+        python_type_values = {t.value for t in ExitConditionType}
+        assert schema_type_values == python_type_values, (
+            f"ExitConditionType values must exactly match schema.xml type= attributes.\n"
+            f"In schema only: {schema_type_values - python_type_values}\n"
+            f"In Python only: {python_type_values - schema_type_values}"
+        )
+
+    def test_example_label_has_expected_values(self) -> None:
+        """ExampleLabel enum has all expected values: correct, anti-pattern, context, template."""
+        expected = {"correct", "anti-pattern", "context", "template"}
+        python_values = {v.value for v in ExampleLabel}
+        assert expected == python_values, (
+            f"ExampleLabel mismatch.\n"
+            f"Expected: {expected}\nGot: {python_values}"
+        )
+
+    def test_example_lang_has_expected_values(self) -> None:
+        """ExampleLang enum has all expected values: bash, go, python, pseudo, xml, json, markdown."""
+        expected = {"bash", "go", "python", "pseudo", "xml", "json", "markdown"}
+        python_values = {v.value for v in ExampleLang}
+        assert expected == python_values, (
+            f"ExampleLang mismatch.\n"
+            f"Expected: {expected}\nGot: {python_values}"
+        )
+
+
+# ─── CHECKLIST_SPECS sync tests ───────────────────────────────────────────────
+
+
+class TestChecklistSpecsMatchSchema:
+    """CHECKLIST_SPECS must cover all <checklist> elements in schema.xml."""
+
+    def test_all_schema_checklists_in_python(self, schema_root: ET.Element) -> None:
+        checklists_el = schema_root.find("checklists")
+        if checklists_el is None:
+            pytest.skip("No <checklists> section in schema.xml")
+        schema_checklist_ids = {
+            cl.get("id") for cl in checklists_el.findall("checklist") if cl.get("id")
+        }
+        python_checklist_ids = set(CHECKLIST_SPECS.keys())
+        assert python_checklist_ids == schema_checklist_ids, (
+            f"Checklist mismatch.\n"
+            f"In Python only: {python_checklist_ids - schema_checklist_ids}\n"
+            f"In schema only: {schema_checklist_ids - python_checklist_ids}"
+        )
+
+    def test_checklist_role_refs_match_schema(self, schema_root: ET.Element) -> None:
+        checklists_el = schema_root.find("checklists")
+        if checklists_el is None:
+            return
+        for cl in checklists_el.findall("checklist"):
+            cl_id = cl.get("id")
+            if not cl_id or cl_id not in CHECKLIST_SPECS:
+                continue
+            spec = CHECKLIST_SPECS[cl_id]
+            assert spec.role_ref.value == cl.get("role-ref"), (
+                f"Checklist {cl_id} role_ref mismatch: "
+                f"Python={spec.role_ref.value!r}, schema={cl.get('role-ref')!r}"
+            )
+
+    def test_checklist_gate_matches_schema(self, schema_root: ET.Element) -> None:
+        checklists_el = schema_root.find("checklists")
+        if checklists_el is None:
+            return
+        for cl in checklists_el.findall("checklist"):
+            cl_id = cl.get("id")
+            if not cl_id or cl_id not in CHECKLIST_SPECS:
+                continue
+            spec = CHECKLIST_SPECS[cl_id]
+            assert spec.gate.value == cl.get("gate"), (
+                f"Checklist {cl_id} gate mismatch: "
+                f"Python={spec.gate.value!r}, schema={cl.get('gate')!r}"
+            )
+
+    def test_checklist_item_counts_match_schema(self, schema_root: ET.Element) -> None:
+        checklists_el = schema_root.find("checklists")
+        if checklists_el is None:
+            return
+        for cl in checklists_el.findall("checklist"):
+            cl_id = cl.get("id")
+            if not cl_id or cl_id not in CHECKLIST_SPECS:
+                continue
+            schema_count = len(cl.findall("item"))
+            python_count = len(CHECKLIST_SPECS[cl_id].items)
+            assert python_count == schema_count, (
+                f"Checklist {cl_id} item count mismatch: "
+                f"Python={python_count}, schema={schema_count}"
+            )
+
+
+# ─── COORDINATION_COMMANDS sync tests ─────────────────────────────────────────
+
+
+class TestCoordinationCommandsMatchSchema:
+    """COORDINATION_COMMANDS must cover all <coord-cmd> elements in schema.xml."""
+
+    def test_all_schema_coord_cmds_in_python(self, schema_root: ET.Element) -> None:
+        coord_el = schema_root.find("coordination-commands")
+        if coord_el is None:
+            pytest.skip("No <coordination-commands> section in schema.xml")
+        schema_cmd_ids = {
+            cmd.get("id") for cmd in coord_el.findall("coord-cmd") if cmd.get("id")
+        }
+        python_cmd_ids = set(COORDINATION_COMMANDS.keys())
+        assert python_cmd_ids == schema_cmd_ids, (
+            f"Coordination command mismatch.\n"
+            f"In Python only: {python_cmd_ids - schema_cmd_ids}\n"
+            f"In schema only: {schema_cmd_ids - python_cmd_ids}"
+        )
+
+    def test_shared_flag_matches_schema(self, schema_root: ET.Element) -> None:
+        coord_el = schema_root.find("coordination-commands")
+        if coord_el is None:
+            return
+        for cmd in coord_el.findall("coord-cmd"):
+            cid = cmd.get("id")
+            if not cid or cid not in COORDINATION_COMMANDS:
+                continue
+            spec = COORDINATION_COMMANDS[cid]
+            schema_shared = cmd.get("shared", "false").lower() == "true"
+            assert spec.shared == schema_shared, (
+                f"Coordination command {cid} shared flag mismatch: "
+                f"Python={spec.shared!r}, schema={schema_shared!r}"
+            )
+
+    def test_action_matches_schema(self, schema_root: ET.Element) -> None:
+        coord_el = schema_root.find("coordination-commands")
+        if coord_el is None:
+            return
+        for cmd in coord_el.findall("coord-cmd"):
+            cid = cmd.get("id")
+            if not cid or cid not in COORDINATION_COMMANDS:
+                continue
+            spec = COORDINATION_COMMANDS[cid]
+            assert spec.action == cmd.get("action"), (
+                f"Coordination command {cid} action mismatch: "
+                f"Python={spec.action!r}, schema={cmd.get('action')!r}"
+            )
+
+
+# ─── WORKFLOW_SPECS sync tests ─────────────────────────────────────────────────
+
+
+class TestWorkflowSpecsMatchSchema:
+    """WORKFLOW_SPECS must cover all <workflow> elements in schema.xml."""
+
+    def test_all_schema_workflows_in_python(self, schema_root: ET.Element) -> None:
+        workflows_el = schema_root.find("workflows")
+        if workflows_el is None:
+            pytest.skip("No <workflows> section in schema.xml")
+        schema_wf_ids = {
+            wf.get("id") for wf in workflows_el.findall("workflow") if wf.get("id")
+        }
+        python_wf_ids = set(WORKFLOW_SPECS.keys())
+        assert python_wf_ids == schema_wf_ids, (
+            f"Workflow mismatch.\n"
+            f"In Python only: {python_wf_ids - schema_wf_ids}\n"
+            f"In schema only: {schema_wf_ids - python_wf_ids}"
+        )
+
+    def test_workflow_role_refs_match_schema(self, schema_root: ET.Element) -> None:
+        workflows_el = schema_root.find("workflows")
+        if workflows_el is None:
+            return
+        for wf in workflows_el.findall("workflow"):
+            wid = wf.get("id")
+            if not wid or wid not in WORKFLOW_SPECS:
+                continue
+            spec = WORKFLOW_SPECS[wid]
+            assert spec.role_ref.value == wf.get("role-ref"), (
+                f"Workflow {wid} role_ref mismatch: "
+                f"Python={spec.role_ref.value!r}, schema={wf.get('role-ref')!r}"
+            )
+
+    def test_workflow_stage_counts_match_schema(self, schema_root: ET.Element) -> None:
+        workflows_el = schema_root.find("workflows")
+        if workflows_el is None:
+            return
+        for wf in workflows_el.findall("workflow"):
+            wid = wf.get("id")
+            if not wid or wid not in WORKFLOW_SPECS:
+                continue
+            schema_stage_count = len(wf.findall("stage"))
+            python_stage_count = len(WORKFLOW_SPECS[wid].stages)
+            assert python_stage_count == schema_stage_count, (
+                f"Workflow {wid} stage count mismatch: "
+                f"Python={python_stage_count}, schema={schema_stage_count}"
+            )
+
+
+# ─── ConstraintSpec.command sync tests ────────────────────────────────────────
+
+
+class TestConstraintSpecCommandSync:
+    """ConstraintSpec.command field must match schema.xml constraint command= attribute."""
+
+    def test_constraints_with_command_match_schema(
+        self, schema_root: ET.Element
+    ) -> None:
+        """For constraints with command= attribute in schema.xml, verify Python has it."""
+        for c in schema_root.iter("constraint"):
+            cid = c.get("id")
+            schema_command = c.get("command")
+            if not cid or cid not in CONSTRAINT_SPECS:
+                continue
+            spec = CONSTRAINT_SPECS[cid]
+            assert spec.command == schema_command, (
+                f"Constraint {cid} command mismatch: "
+                f"Python={spec.command!r}, schema={schema_command!r}"
+            )
+
+    def test_constraint_without_command_is_none(
+        self, schema_root: ET.Element
+    ) -> None:
+        """Constraints without command= attribute in schema.xml have command=None."""
+        for c in schema_root.iter("constraint"):
+            cid = c.get("id")
+            if not cid or c.get("command") is not None:
+                continue
+            if cid not in CONSTRAINT_SPECS:
+                continue
+            spec = CONSTRAINT_SPECS[cid]
+            assert spec.command is None, (
+                f"Constraint {cid} should have command=None "
+                f"(no command= in schema.xml), got {spec.command!r}"
+            )
+
+
+# ─── RoleSpec new fields sync tests ───────────────────────────────────────────
+
+
+class TestRoleSpecNewFieldsSync:
+    """RoleSpec.introduction, ownership_narrative, and behaviors must match schema.xml."""
+
+    def test_roles_with_introduction_have_text(self) -> None:
+        """All 5 roles should have introduction text set (non-None, non-empty)."""
+        roles_without = [
+            role_id
+            for role_id, spec in ROLE_SPECS.items()
+            if not spec.introduction
+        ]
+        assert not roles_without, (
+            f"These roles are missing introduction text: {roles_without}"
+        )
+
+    def test_roles_with_ownership_narrative(self) -> None:
+        """All 5 roles should have ownership_narrative set."""
+        roles_without = [
+            role_id
+            for role_id, spec in ROLE_SPECS.items()
+            if not spec.ownership_narrative
+        ]
+        assert not roles_without, (
+            f"These roles are missing ownership_narrative: {roles_without}"
+        )
+
+    def test_role_introduction_matches_schema(
+        self, schema_root: ET.Element
+    ) -> None:
+        """RoleSpec.introduction matches <introduction> child element text in schema.xml."""
+        for role in schema_root.find("roles").findall("role"):  # type: ignore[union-attr]
+            rid_str = role.get("id")
+            if not rid_str:
+                continue
+            try:
+                rid = RoleId(rid_str)
+            except ValueError:
+                continue
+            if rid not in ROLE_SPECS:
+                continue
+            intro_el = role.find("introduction")
+            schema_intro = intro_el.text.strip() if intro_el is not None and intro_el.text else None
+            spec = ROLE_SPECS[rid]
+            assert spec.introduction == schema_intro, (
+                f"Role {rid_str} introduction mismatch: "
+                f"Python={spec.introduction!r}, schema={schema_intro!r}"
+            )
+
+    def test_role_behaviors_count_matches_schema(
+        self, schema_root: ET.Element
+    ) -> None:
+        """RoleSpec.behaviors count matches number of <behavior> children in schema.xml."""
+        for role in schema_root.find("roles").findall("role"):  # type: ignore[union-attr]
+            rid_str = role.get("id")
+            if not rid_str:
+                continue
+            try:
+                rid = RoleId(rid_str)
+            except ValueError:
+                continue
+            if rid not in ROLE_SPECS:
+                continue
+            behaviors_el = role.find("behaviors")
+            schema_count = (
+                len(behaviors_el.findall("behavior"))
+                if behaviors_el is not None
+                else 0
+            )
+            python_count = len(ROLE_SPECS[rid].behaviors)
+            assert python_count == schema_count, (
+                f"Role {rid_str} behaviors count mismatch: "
+                f"Python={python_count}, schema={schema_count}"
+            )
+
+
+# ─── Figure Sync ─────────────────────────────────────────────────────────────
+
+
+class TestFigureSpecsSync:
+    """FIGURE_SPECS must stay in sync with FigureId enum and schema.xml."""
+
+    def test_all_figure_workflow_refs_valid(self) -> None:
+        """Every workflow_ref in FIGURE_SPECS must exist as a key in WORKFLOW_SPECS."""
+        for fig_id, fig in FIGURE_SPECS.items():
+            for wref in fig.workflow_refs:
+                assert wref in WORKFLOW_SPECS, (
+                    f"Figure {fig_id.value} references workflow '{wref}' "
+                    f"which is not a key in WORKFLOW_SPECS"
+                )
+
+    def test_all_figure_role_refs_valid(self) -> None:
+        """Every role_ref in FIGURE_SPECS must be a valid RoleId member."""
+        for fig_id, fig in FIGURE_SPECS.items():
+            for rref in fig.role_refs:
+                assert isinstance(rref, RoleId), (
+                    f"Figure {fig_id.value} has role_ref {rref!r} "
+                    f"which is not a RoleId member"
+                )
+
+    def test_figure_type_values_in_schema(self, schema_root: ET.Element) -> None:
+        """Each <figure type='...'> value in schema.xml must be a valid FigureType."""
+        for fig_el in schema_root.iter("figure"):
+            fig_type = fig_el.get("type")
+            if fig_type is None:
+                continue
+            assert fig_type in {ft.value for ft in FigureType}, (
+                f"schema.xml <figure> has type='{fig_type}' "
+                f"which is not a valid FigureType member"
+            )
+
+    def test_figure_count_matches_schema(self, schema_root: ET.Element) -> None:
+        """Count of <figure> elements in schema.xml must equal len(FIGURE_SPECS)."""
+        schema_count = len(list(schema_root.iter("figure")))
+        python_count = len(FIGURE_SPECS)
+        assert python_count == schema_count, (
+            f"Figure count mismatch: Python has {python_count}, "
+            f"schema.xml has {schema_count}"
+        )
+
+    def test_figure_id_enum_matches_specs(self) -> None:
+        """Set of FigureId members must equal set of FIGURE_SPECS keys."""
+        enum_members = set(FigureId)
+        spec_keys = set(FIGURE_SPECS.keys())
+        assert enum_members == spec_keys, (
+            f"FigureId enum members do not match FIGURE_SPECS keys.\n"
+            f"In enum only: {enum_members - spec_keys}\n"
+            f"In specs only: {spec_keys - enum_members}"
+        )
+
+    def test_all_figure_command_refs_valid(self) -> None:
+        """Every command_ref in FIGURE_SPECS must be a valid CommandId member."""
+        for fig_id, fig in FIGURE_SPECS.items():
+            for cref in fig.command_refs:
+                assert isinstance(cref, CommandId), (
+                    f"Figure {fig_id.value} has command_ref {cref!r} "
+                    f"which is not a CommandId member"
+                )
+
+
+# ─── CommandId + COMMAND_SPECS Sync ──────────────────────────────────────────
+
+
+class TestCommandIdSync:
+    """CommandId enum must stay in sync with COMMAND_SPECS keys."""
+
+    def test_command_id_values_match_command_specs_keys(self) -> None:
+        """Set of CommandId values must equal set of COMMAND_SPECS keys."""
+        enum_values = {c.value for c in CommandId}
+        spec_keys = set(COMMAND_SPECS.keys())
+        assert enum_values == spec_keys, (
+            f"CommandId values do not match COMMAND_SPECS keys.\n"
+            f"In enum only: {enum_values - spec_keys}\n"
+            f"In specs only: {spec_keys - enum_values}"
+        )
+
+    def test_command_specs_keys_are_command_id_instances(self) -> None:
+        """Every key in COMMAND_SPECS must be a CommandId instance (not bare str)."""
+        for key in COMMAND_SPECS:
+            assert isinstance(key, CommandId), (
+                f"COMMAND_SPECS key {key!r} is {type(key).__name__}, "
+                f"expected CommandId instance"
+            )
+
+    def test_command_id_count_matches_specs(self) -> None:
+        """Number of CommandId members must equal number of COMMAND_SPECS entries."""
+        enum_count = len(CommandId)
+        spec_count = len(COMMAND_SPECS)
+        assert enum_count == spec_count, (
+            f"CommandId has {enum_count} members but COMMAND_SPECS has {spec_count} entries"
         )

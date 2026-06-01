@@ -74,19 +74,25 @@ bd dep add ure-id --blocked-by request-id
 ```
 aura-plugins/
 ├── bin/                    # Operational tooling (add to PATH)
-│   ├── aura-parallel       # Parallel agent launcher for tmux sessions (Python)
+│   ├── aura-parallel       # Deprecated wrapper → aura-swarm start --swarm-mode intree
 │   ├── aura-release        # Version bump, changelog, and git tag (Python)
-│   └── aura-swarm          # Epic-based worktree agent launcher (Python)
+│   └── aura-swarm          # Unified agent orchestration (worktree + intree modes)
 ├── scripts/                # Python packages
 │   ├── aura_protocol/      # Protocol engine (see Protocol Engine section below)
 │   │   ├── types.py        # Typed enums, frozen dataclass specs, canonical dicts
 │   │   ├── state_machine.py # 12-phase EpochStateMachine
-│   │   ├── constraints.py  # RuntimeConstraintChecker — all 23 C-* validators
+│   │   ├── constraints.py  # RuntimeConstraintChecker — all 26 C-* validators
+│   │   ├── context_injection.py # Role/phase context builders + prompt renderers
+│   │   ├── schema_parser.py # XML → Python spec parser (SchemaParseError)
+│   │   ├── gen_schema.py   # Python → schema.xml code generator (diff mode)
+│   │   ├── gen_skills.py   # SKILL.md header generator (Jinja2, diff mode)
+│   │   ├── gen_types.py    # Bootstrap codegen for types.py
+│   │   ├── audit_activities.py # Temporal search attribute definitions
 │   │   ├── workflow.py     # Temporal workflow wrapper
 │   │   ├── interfaces.py   # Protocol interfaces + A2A content types
 │   │   └── __init__.py     # Public API re-exports
 │   └── validate_schema.py  # 3-layer schema.xml validation
-├── tests/                  # Test suite (554+ tests)
+├── tests/                  # Test suite (1370+ tests)
 │   ├── test_aura_types.py
 │   ├── test_schema_types_sync.py
 │   ├── test_state_machine.py
@@ -122,32 +128,56 @@ transitions, constraint validation, and Temporal-backed durable execution.
 
 | Version | Scope | Status |
 |---------|-------|--------|
-| v1 (v0.4.3) | State machine + Temporal workflow + 23 C-* constraint validators | Done |
-| v2 | Schema-driven code generation + runtime context injection (Python as SoT) | In progress |
+| v1 (v0.4.3) | State machine + Temporal workflow + 26 C-* constraint validators | Done |
+| v2 | Schema-driven code generation + runtime context injection (Python as SoT) | Done |
 | v3 | Full Temporal workflow engine (phases as workflows, handoffs as signals) | Future |
 
 ### Modules
 
 | Module | Purpose |
 |--------|---------|
-| `types.py` | 5 enums, 10 frozen dataclasses, 4 canonical dicts. Source of truth for protocol type definitions. |
+| `types.py` | All enums (StrEnum), frozen dataclasses, canonical dicts. Source of truth for protocol type definitions. Includes `StepSlug`, `SkillRef`, 26 `ConstraintContext` entries. |
 | `state_machine.py` | `EpochStateMachine` — pure Python 12-phase lifecycle with consensus gates, blocker gates, and review vote tracking. No Temporal dependency. |
-| `constraints.py` | `RuntimeConstraintChecker` — all 23 C-* constraint validators from schema.xml. DI-friendly (accepts optional specs dicts). Returns `list[ConstraintViolation]`. |
+| `constraints.py` | `RuntimeConstraintChecker` — all 26 C-* constraint validators from schema.xml. DI-friendly (accepts optional specs dicts). Returns `list[ConstraintViolation]`. |
+| `context_injection.py` | `get_role_context()`, `get_phase_context()` — build typed context objects from canonical dicts. `render_role_context_as_text()` / `render_role_context_as_xml()` for prompt injection. |
+| `schema_parser.py` | Parses `schema.xml` → Python spec objects. Raises `SchemaParseError` on missing `<instruction>` elements. |
+| `gen_schema.py` | Generates `skills/protocol/schema.xml` from `types.py`. Prints unified diff before writing. Run with `PYTHONPATH=scripts uv run python -m aura_protocol.gen_schema`. |
+| `gen_skills.py` | Generates SKILL.md headers for role skills from `skill_header.j2` template. Prints unified diff before writing. Run with `PYTHONPATH=scripts uv run python -m aura_protocol.gen_skills`. |
+| `gen_types.py` | Bootstrap codegen for `types.py` (one-time use). |
+| `audit_activities.py` | Temporal search attribute definitions for forensic workflow lookup. |
 | `workflow.py` | Temporal workflow wrapping `EpochStateMachine`. Signals for phase advances and votes, queries for state inspection, search attributes for forensic lookup. |
 | `interfaces.py` | `typing.Protocol` interfaces for cross-project integration: `ConstraintValidatorInterface`, `TranscriptRecorder`, `SecurityGate`, `AuditTrail`. Plus A2A content types and `ModelId`. |
 
 ### Running Tests
 
 ```bash
-# Full suite (554+ tests)
-.venv/bin/pytest tests/ --tb=short -q
+# Full suite (1370+ tests)
+uv run pytest tests/ --tb=short -q
 
 # With Temporal sandbox tests (requires Temporal test server)
-TEMPORAL_REQUIRED=1 .venv/bin/pytest tests/ --tb=short -q
+TEMPORAL_REQUIRED=1 uv run pytest tests/ --tb=short -q
 
 # Schema validation
-python scripts/validate_schema.py skills/protocol/schema.xml
+PYTHONPATH=scripts uv run python scripts/validate_schema.py skills/protocol/schema.xml
 ```
+
+### Regenerating Skill Headers
+
+Role SKILL.md files (`supervisor`, `worker`, `reviewer`, `architect`) have a
+generated section between `<!-- BEGIN GENERATED FROM aura schema -->` and
+`<!-- END GENERATED FROM aura schema -->` markers. After editing `types.py`,
+`context_injection.py`, `schema.xml`, or `skill_header.j2`, regenerate with:
+
+```bash
+# Regenerate all role SKILL.md headers (shows diff, writes in-place)
+PYTHONPATH=scripts uv run python -m aura_protocol.gen_skills
+
+# Also regenerate schema.xml from types.py if types changed
+PYTHONPATH=scripts uv run python -m aura_protocol.gen_schema
+```
+
+The generators print a unified diff before writing. If there are no changes,
+they print nothing. The hand-authored body below the END marker is preserved.
 
 ## Validation
 
@@ -157,13 +187,11 @@ Before committing changes to this project:
 # Ensure Nix flake evaluates cleanly
 nix flake check --no-build 2>&1
 
-# Build the packages (aura-parallel, aura-swarm)
-nix build .#aura-parallel --no-link
+# Build the packages
 nix build .#aura-swarm --no-link
 
 # Test CLI help output
 nix run .#aura-swarm -- --help
-nix run .#aura-parallel -- --help
 
 # Check version consistency across manifests
 bin/aura-release --check
@@ -217,21 +245,21 @@ main
        └── agent/<task-id-3>
 ```
 
-### aura-parallel — Supervisor/Architect launches
+### aura-swarm intree mode — Supervisor/Architect launches
 
-Launches parallel Claude agents in tmux sessions with role-based instructions.
+Launches parallel Claude agents in tmux sessions with role-based instructions (replaces `aura-parallel`).
 
 **Use for:** Spawning a separate supervisor or architect to plan and coordinate a new epic. These are long-running agents that need their own tmux session and persistent context.
 
 ```bash
 # Launch supervisor to coordinate an epic
-aura-parallel --role supervisor -n 1 --prompt "Coordinate implementation of..."
+aura-swarm start --swarm-mode intree --role supervisor -n 1 --prompt "Coordinate implementation of..."
 
 # Launch architect to propose a plan
-aura-parallel --role architect -n 1 --prompt "Propose plan for..."
+aura-swarm start --swarm-mode intree --role architect -n 1 --prompt "Propose plan for..."
 
 # Dry run (show commands without executing)
-aura-parallel --role supervisor -n 1 --prompt "..." --dry-run
+aura-swarm start --swarm-mode intree --role supervisor -n 1 --prompt "..." --dry-run
 ```
 
 **DO NOT use for reviewer rounds.** Reviewers are short-lived and should use subagents or TeamCreate instead.
@@ -265,7 +293,7 @@ Task(subagent_type: "reviewer", prompt: "Review PROPOSAL-1...")
 | Scenario | Tool | Why |
 |----------|------|-----|
 | Epic implementation with worktree isolation | `aura-swarm` | Needs isolated branch + worktree |
-| New supervisor/architect for epic planning | `aura-parallel` | Long-running, needs own tmux session |
+| New supervisor/architect for epic planning | `aura-swarm start --swarm-mode intree` | Long-running, needs own tmux session |
 | Plan review (3 reviewers) | `general-purpose` subagents | Short-lived, invoke `/aura:reviewer` skill |
 | Code review (3 reviewers) | `general-purpose` subagents | Short-lived, invoke `/aura:reviewer` skill |
 | Ad-hoc research or exploration | Task tool (Explore agent) | Quick, no orchestration needed |

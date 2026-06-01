@@ -21,10 +21,24 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from aura_protocol.types import (
+    BehaviorSpec,
+    Checklist,
+    ChecklistItem,
+    CodeExample,
+    CommandId,
     CommandSpec,
     ConstraintSpec,
     ContentLevel,
+    CoordinationCommand,
     ExecutionMode,
+    ExitCondition,
+    ExitConditionType,
+    ExampleLabel,
+    ExampleLang,
+    Figure,
+    FigureId,
+    FigureType,
+    GateType,
     HandoffSpec,
     LabelSpec,
     PhaseId,
@@ -33,9 +47,14 @@ from aura_protocol.types import (
     ReviewAxisSpec,
     RoleId,
     RoleSpec,
+    SectionRef,
     SubstepSpec,
     SubstepType,
     TitleConvention,
+    Workflow,
+    WorkflowAction,
+    WorkflowExecution,
+    WorkflowStage,
 )
 
 
@@ -81,6 +100,10 @@ class SchemaSpec:
     title_conventions: list[TitleConvention]
     substep_specs: dict[str, SubstepSpec]  # keyed by substep id
     procedure_steps: dict[RoleId, tuple[ProcedureStep, ...]]  # from startup-sequence
+    checklists: dict[str, Checklist]
+    coordination_commands: dict[str, CoordinationCommand]
+    workflows: dict[str, Workflow]
+    figures: dict[FigureId, Figure]
 
 
 # ─── Internal helpers ─────────────────────────────────────────────────────────
@@ -268,7 +291,7 @@ def _parse_procedure_steps(
                     next_state=next_state,
                 ))
             sup_steps.sort(key=lambda s: s.order)
-            steps[RoleId.SUPERVISOR] = tuple(sup_steps)
+            steps[RoleId.Supervisor] = tuple(sup_steps)
         break
 
     # Worker: TDD layer descriptions from phase p9 <tdd-layers>
@@ -292,7 +315,7 @@ def _parse_procedure_steps(
             step_id = _worker_ids[num - 1] if 1 <= num <= len(_worker_ids) else f"S-worker-step{num}"
             worker_steps.append(ProcedureStep(id=step_id, order=num, instruction=desc))
         worker_steps.sort(key=lambda s: s.order)
-        steps[RoleId.WORKER] = tuple(worker_steps)
+        steps[RoleId.Worker] = tuple(worker_steps)
         break
 
     return steps
@@ -335,11 +358,37 @@ def _parse_roles(root: ET.Element, path: Path) -> dict[RoleId, RoleSpec]:
                             f"Valid phase ids: {[p.value for p in PhaseId]}. "
                             f"Fix: correct the 'ref' attribute or add the phase to PhaseId enum."
                         )
+        intro_el = role.find("introduction")
+        introduction = intro_el.text.strip() if intro_el is not None and intro_el.text else None
+        on_el = role.find("ownership-narrative")
+        ownership_narrative = (
+            on_el.text.strip() if on_el is not None and on_el.text else None
+        )
+        behaviors = _parse_behaviors(role, path)
+
+        # Parse <tools>, <model>, <thinking> elements (optional)
+        tools_el = role.find("tools")
+        tools: tuple[str, ...] = ()
+        if tools_el is not None and tools_el.text:
+            tools = tuple(t.strip() for t in tools_el.text.split(",") if t.strip())
+        model_el = role.find("model")
+        model: str | None = model_el.text.strip() if model_el is not None and model_el.text else None
+        thinking_el = role.find("thinking")
+        thinking: str | None = (
+            thinking_el.text.strip() if thinking_el is not None and thinking_el.text else None
+        )
+
         result[rid] = RoleSpec(
             id=rid,
             name=name,
             description=description,
             owned_phases=frozenset(owned_phases),
+            introduction=introduction,
+            ownership_narrative=ownership_narrative,
+            behaviors=behaviors,
+            tools=tools,
+            model=model,
+            thinking=thinking,
         )
     return result
 
@@ -429,7 +478,12 @@ def _parse_constraints(
         should_not = _require(
             c.get("should-not"), "should-not", f"<constraint id='{cid}'>", path
         )
-        result[cid] = ConstraintSpec(id=cid, given=given, when=when, then=then, should_not=should_not)
+        command = c.get("command")
+        examples = _parse_examples(c, path)
+        result[cid] = ConstraintSpec(
+            id=cid, given=given, when=when, then=then, should_not=should_not,
+            command=command, examples=examples,
+        )
     return result
 
 
@@ -608,6 +662,341 @@ def _parse_title_conventions(root: ET.Element, path: Path) -> list[TitleConventi
     return result
 
 
+def _parse_examples(parent_elem: ET.Element, path: Path) -> tuple[CodeExample, ...]:
+    """Parse <example> child elements of a constraint or step element.
+
+    Returns empty tuple when no <example> children are present.
+    """
+    examples: list[CodeExample] = []
+    for ex_el in parent_elem.findall("example"):
+        eid = _require(ex_el.get("id"), "id", "<example>", path)
+        lang_str = _require(ex_el.get("lang"), "lang", f"<example id='{eid}'>", path)
+        label_str = _require(ex_el.get("label"), "label", f"<example id='{eid}'>", path)
+        try:
+            lang = ExampleLang(lang_str)
+        except ValueError:
+            raise SchemaParseError(
+                f"Unknown example lang '{lang_str}' on <example id='{eid}'> in {path}. "
+                f"Valid langs: {[l.value for l in ExampleLang]}. "
+                f"Fix: correct the 'lang' attribute."
+            )
+        try:
+            label = ExampleLabel(label_str)
+        except ValueError:
+            raise SchemaParseError(
+                f"Unknown example label '{label_str}' on <example id='{eid}'> in {path}. "
+                f"Valid labels: {[l.value for l in ExampleLabel]}. "
+                f"Fix: correct the 'label' attribute."
+            )
+        code_el = ex_el.find("code")
+        code = code_el.text.strip() if code_el is not None and code_el.text else ""
+        examples.append(CodeExample(
+            id=eid,
+            lang=lang,
+            label=label,
+            code=code,
+            also_illustrates=ex_el.get("also-illustrates"),
+        ))
+    return tuple(examples)
+
+
+def _parse_behaviors(role_elem: ET.Element, path: Path) -> tuple[BehaviorSpec, ...]:
+    """Parse <behaviors>/<behavior> child elements of a role element.
+
+    Returns empty tuple when no <behaviors> section is present.
+    """
+    behaviors_el = role_elem.find("behaviors")
+    if behaviors_el is None:
+        return ()
+    behaviors: list[BehaviorSpec] = []
+    for b_el in behaviors_el.findall("behavior"):
+        bid = _require(b_el.get("id"), "id", "<behavior>", path)
+        given = _require(b_el.get("given"), "given", f"<behavior id='{bid}'>", path)
+        when = _require(b_el.get("when"), "when", f"<behavior id='{bid}'>", path)
+        then = _require(b_el.get("then"), "then", f"<behavior id='{bid}'>", path)
+        should_not = _require(
+            b_el.get("should-not"), "should-not", f"<behavior id='{bid}'>", path
+        )
+        behaviors.append(BehaviorSpec(
+            id=bid, given=given, when=when, then=then, should_not=should_not,
+        ))
+    return tuple(behaviors)
+
+
+def _parse_checklists(root: ET.Element, path: Path) -> dict[str, Checklist]:
+    """Extract all checklists from <checklists> section.
+
+    Returns empty dict when <checklists> section is absent (backward-compatible).
+    """
+    checklists_el = root.find("checklists")
+    if checklists_el is None:
+        return {}
+    result: dict[str, Checklist] = {}
+    for cl_el in checklists_el.findall("checklist"):
+        cl_id = _require(cl_el.get("id"), "id", "<checklist>", path)
+        role_ref_str = _require(
+            cl_el.get("role-ref"), "role-ref", f"<checklist id='{cl_id}'>", path
+        )
+        gate_str = _require(
+            cl_el.get("gate"), "gate", f"<checklist id='{cl_id}'>", path
+        )
+        try:
+            role_ref = RoleId(role_ref_str)
+        except ValueError:
+            raise SchemaParseError(
+                f"Unknown role-ref '{role_ref_str}' on <checklist id='{cl_id}'> in {path}. "
+                f"Valid roles: {[r.value for r in RoleId]}. "
+                f"Fix: correct the 'role-ref' attribute."
+            )
+        try:
+            gate = GateType(gate_str)
+        except ValueError:
+            raise SchemaParseError(
+                f"Unknown gate '{gate_str}' on <checklist id='{cl_id}'> in {path}. "
+                f"Valid gates: {[g.value for g in GateType]}. "
+                f"Fix: correct the 'gate' attribute."
+            )
+        items: list[ChecklistItem] = []
+        for item_el in cl_el.findall("item"):
+            item_id = _require(
+                item_el.get("id"), "id", f"<item> in checklist '{cl_id}'", path
+            )
+            required_str = item_el.get("required", "true")
+            required = required_str.lower() != "false"
+            text = item_el.text.strip() if item_el.text else ""
+            items.append(ChecklistItem(id=item_id, text=text, required=required))
+        result[cl_id] = Checklist(role_ref=role_ref, gate=gate, items=tuple(items))
+    return result
+
+
+def _parse_coordination_commands(
+    root: ET.Element, path: Path
+) -> dict[str, CoordinationCommand]:
+    """Extract all coordination commands from <coordination-commands> section.
+
+    Returns empty dict when <coordination-commands> section is absent.
+    """
+    coord_el = root.find("coordination-commands")
+    if coord_el is None:
+        return {}
+    result: dict[str, CoordinationCommand] = {}
+    for cmd_el in coord_el.findall("coord-cmd"):
+        cid = _require(cmd_el.get("id"), "id", "<coord-cmd>", path)
+        action = _require(cmd_el.get("action"), "action", f"<coord-cmd id='{cid}'>", path)
+        template = _require(
+            cmd_el.get("template"), "template", f"<coord-cmd id='{cid}'>", path
+        )
+        role_ref: RoleId | None = None
+        role_ref_str = cmd_el.get("role-ref")
+        if role_ref_str:
+            try:
+                role_ref = RoleId(role_ref_str)
+            except ValueError:
+                raise SchemaParseError(
+                    f"Unknown role-ref '{role_ref_str}' on <coord-cmd id='{cid}'> in {path}. "
+                    f"Valid roles: {[r.value for r in RoleId]}. "
+                    f"Fix: correct the 'role-ref' attribute."
+                )
+        shared = cmd_el.get("shared", "false").lower() == "true"
+        result[cid] = CoordinationCommand(
+            id=cid, action=action, template=template, role_ref=role_ref, shared=shared,
+        )
+    return result
+
+
+def _parse_workflows(root: ET.Element, path: Path) -> dict[str, Workflow]:
+    """Extract all workflows from <workflows> section.
+
+    Returns empty dict when <workflows> section is absent.
+    """
+    workflows_el = root.find("workflows")
+    if workflows_el is None:
+        return {}
+    result: dict[str, Workflow] = {}
+    for wf_el in workflows_el.findall("workflow"):
+        wid = _require(wf_el.get("id"), "id", "<workflow>", path)
+        name = _require(wf_el.get("name"), "name", f"<workflow id='{wid}'>", path)
+        role_ref_str = _require(
+            wf_el.get("role-ref"), "role-ref", f"<workflow id='{wid}'>", path
+        )
+        description = wf_el.get("description") or ""
+        try:
+            role_ref = RoleId(role_ref_str)
+        except ValueError:
+            raise SchemaParseError(
+                f"Unknown role-ref '{role_ref_str}' on <workflow id='{wid}'> in {path}. "
+                f"Valid roles: {[r.value for r in RoleId]}. "
+                f"Fix: correct the 'role-ref' attribute."
+            )
+        stages: list[WorkflowStage] = []
+        for stage_el in wf_el.findall("stage"):
+            stage_id = _require(stage_el.get("id"), "id", "<stage>", path)
+            stage_name = _require(
+                stage_el.get("name"), "name", f"<stage id='{stage_id}'>", path
+            )
+            order_str = _require(
+                stage_el.get("order"), "order", f"<stage id='{stage_id}'>", path
+            )
+            execution_str = _require(
+                stage_el.get("execution"), "execution", f"<stage id='{stage_id}'>", path
+            )
+            try:
+                order = int(order_str)
+            except ValueError:
+                raise SchemaParseError(
+                    f"Invalid stage order '{order_str}' on <stage id='{stage_id}'> in {path}. "
+                    f"Order must be an integer. "
+                    f"Fix: correct the 'order' attribute."
+                )
+            try:
+                execution = WorkflowExecution(execution_str)
+            except ValueError:
+                raise SchemaParseError(
+                    f"Unknown execution '{execution_str}' on <stage id='{stage_id}'> in {path}. "
+                    f"Valid values: {[e.value for e in WorkflowExecution]}. "
+                    f"Fix: correct the 'execution' attribute."
+                )
+            phase_ref: PhaseId | None = None
+            phase_ref_str = stage_el.get("phase-ref")
+            if phase_ref_str:
+                try:
+                    phase_ref = PhaseId(phase_ref_str)
+                except ValueError:
+                    raise SchemaParseError(
+                        f"Unknown phase-ref '{phase_ref_str}' on <stage id='{stage_id}'> in {path}. "
+                        f"Valid phases: {[p.value for p in PhaseId]}. "
+                        f"Fix: correct the 'phase-ref' attribute."
+                    )
+            actions: list[WorkflowAction] = []
+            for action_el in stage_el.findall("action"):
+                action_id = _require(action_el.get("id"), "id", "<action>", path)
+                instruction = _require(
+                    action_el.get("instruction"), "instruction",
+                    f"<action id='{action_id}'>", path,
+                )
+                actions.append(WorkflowAction(
+                    id=action_id,
+                    instruction=instruction,
+                    command=action_el.get("command"),
+                ))
+            exit_conditions: list[ExitCondition] = []
+            for ec_el in stage_el.findall("exit-condition"):
+                type_str = _require(ec_el.get("type"), "type", "<exit-condition>", path)
+                condition = _require(
+                    ec_el.get("condition"), "condition", "<exit-condition>", path
+                )
+                try:
+                    ec_type = ExitConditionType(type_str)
+                except ValueError:
+                    raise SchemaParseError(
+                        f"Unknown exit-condition type '{type_str}' in {path}. "
+                        f"Valid types: {[t.value for t in ExitConditionType]}. "
+                        f"Fix: correct the 'type' attribute."
+                    )
+                exit_conditions.append(ExitCondition(type=ec_type, condition=condition))
+            stages.append(WorkflowStage(
+                id=stage_id,
+                name=stage_name,
+                order=order,
+                execution=execution,
+                phase_ref=phase_ref,
+                actions=tuple(actions),
+                exit_conditions=tuple(exit_conditions),
+            ))
+        result[wid] = Workflow(
+            id=wid,
+            name=name,
+            role_ref=role_ref,
+            description=description,
+            stages=tuple(stages),
+        )
+    return result
+
+
+def _parse_figures(root: ET.Element, path: Path) -> dict[FigureId, Figure]:
+    """Extract all figures from <figures> section.
+
+    Returns empty dict when <figures> section is absent.
+    """
+    figures_el = root.find("figures")
+    if figures_el is None:
+        return {}
+    result: dict[FigureId, Figure] = {}
+    for fig_el in figures_el.findall("figure"):
+        fid_str = _require(fig_el.get("id"), "id", "<figure>", path)
+        title = _require(fig_el.get("title"), "title", f"<figure id='{fid_str}'>", path)
+        type_str = _require(fig_el.get("type"), "type", f"<figure id='{fid_str}'>", path)
+        section_ref_str = _require(
+            fig_el.get("section-ref"), "section-ref", f"<figure id='{fid_str}'>", path
+        )
+        try:
+            fid = FigureId(fid_str)
+        except ValueError:
+            raise SchemaParseError(
+                f"Unknown figure id '{fid_str}' in {path}. "
+                f"Valid ids: {[f.value for f in FigureId]}. "
+                f"Fix: correct the 'id' attribute or add to FigureId enum."
+            )
+        try:
+            fig_type = FigureType(type_str)
+        except ValueError:
+            raise SchemaParseError(
+                f"Unknown figure type '{type_str}' on <figure id='{fid_str}'> in {path}. "
+                f"Valid types: {[t.value for t in FigureType]}. "
+                f"Fix: correct the 'type' attribute."
+            )
+        try:
+            section_ref = SectionRef(section_ref_str)
+        except ValueError:
+            raise SchemaParseError(
+                f"Unknown section-ref '{section_ref_str}' on <figure id='{fid_str}'> in {path}. "
+                f"Valid refs: {[s.value for s in SectionRef]}. "
+                f"Fix: correct the 'section-ref' attribute."
+            )
+        role_refs: set[RoleId] = set()
+        for rr_el in fig_el.findall("role-ref"):
+            rr_str = _require(
+                rr_el.get("ref"), "ref", f"<role-ref> in <figure id='{fid_str}'>", path
+            )
+            try:
+                role_refs.add(RoleId(rr_str))
+            except ValueError:
+                raise SchemaParseError(
+                    f"Unknown role-ref '{rr_str}' on <figure id='{fid_str}'> in {path}. "
+                    f"Valid roles: {[r.value for r in RoleId]}. "
+                    f"Fix: correct the 'ref' attribute."
+                )
+        workflow_refs: set[str] = set()
+        for wr_el in fig_el.findall("workflow-ref"):
+            wr_str = _require(
+                wr_el.get("ref"), "ref", f"<workflow-ref> in <figure id='{fid_str}'>", path
+            )
+            workflow_refs.add(wr_str)
+        command_refs: set[CommandId] = set()
+        for cr_el in fig_el.findall("command-ref"):
+            cr_str = _require(
+                cr_el.get("ref"), "ref", f"<command-ref> in <figure id='{fid_str}'>", path
+            )
+            try:
+                command_refs.add(CommandId(cr_str))
+            except ValueError:
+                raise SchemaParseError(
+                    f"Unknown command-ref '{cr_str}' on <figure id='{fid_str}'> in {path}. "
+                    f"Valid command ids: {[c.value for c in CommandId]}. "
+                    f"Fix: correct the 'ref' attribute."
+                )
+        result[fid] = Figure(
+            id=fid,
+            title=title,
+            type=fig_type,
+            role_refs=frozenset(role_refs),
+            section_ref=section_ref,
+            workflow_refs=frozenset(workflow_refs),
+            command_refs=frozenset(command_refs),
+        )
+    return result
+
+
 # ─── Public API ───────────────────────────────────────────────────────────────
 
 
@@ -619,7 +1008,9 @@ def parse_schema(path: Path) -> SchemaSpec:
 
     Returns:
         SchemaSpec with all 12 phases, 5 roles, 35 commands, 23 constraints,
-        6 handoffs, 21 labels, 3 review axes, and 16 title conventions.
+        6 handoffs, 21 labels, 3 review axes, 16 title conventions,
+        4 checklists, 10 coordination commands, 3 workflows, and procedure
+        steps with substep specs.
 
     Raises:
         SchemaParseError: If the file does not exist, is not valid XML, or is
@@ -671,6 +1062,10 @@ def parse_schema(path: Path) -> SchemaSpec:
     labels = _parse_labels(root, path)
     review_axes = _parse_review_axes(root, path)
     title_conventions = _parse_title_conventions(root, path)
+    checklists = _parse_checklists(root, path)
+    coordination_commands = _parse_coordination_commands(root, path)
+    workflows = _parse_workflows(root, path)
+    figures = _parse_figures(root, path)
 
     return SchemaSpec(
         phases=phases,
@@ -683,4 +1078,8 @@ def parse_schema(path: Path) -> SchemaSpec:
         title_conventions=title_conventions,
         substep_specs=substep_specs,
         procedure_steps=procedure_steps,
+        checklists=checklists,
+        coordination_commands=coordination_commands,
+        workflows=workflows,
+        figures=figures,
     )
