@@ -257,9 +257,7 @@ _COMMAND_COMMENTS: dict[str, str] = {
     "cmd-worker":            "Worker",
     "cmd-reviewer":          "Reviewer",
     "cmd-impl-slice":        "Implementation coordination",
-    "cmd-msg-send":          "Messaging (Beads-based IPC)",
     "cmd-explore":           "Exploration",
-    "cmd-test":              "Utilities",
 }
 
 
@@ -759,7 +757,7 @@ def _build_commands(root: ET.Element) -> None:
     # Ordered command IDs matching schema.xml order
     command_order = [
         # Orchestration
-        "cmd-epoch", "cmd-plan", "cmd-status",
+        "cmd-epoch", "cmd-status",
         # User interaction
         "cmd-user-request", "cmd-user-elicit", "cmd-user-uat",
         # Architect
@@ -775,12 +773,8 @@ def _build_commands(root: ET.Element) -> None:
         "cmd-rev-comment", "cmd-rev-vote",
         # Implementation coordination
         "cmd-impl-slice", "cmd-impl-review",
-        # Messaging
-        "cmd-msg-send", "cmd-msg-receive", "cmd-msg-broadcast", "cmd-msg-ack",
         # Exploration
         "cmd-explore", "cmd-research",
-        # Utilities
-        "cmd-test", "cmd-feedback",
     ]
 
     # Group comment markers
@@ -792,9 +786,7 @@ def _build_commands(root: ET.Element) -> None:
         "cmd-worker": " ── Worker ─────────────────────────────────────────────────────── ",
         "cmd-reviewer": " ── Reviewer ───────────────────────────────────────────────────── ",
         "cmd-impl-slice": " ── Implementation coordination ────────────────────────────────── ",
-        "cmd-msg-send": " ── Messaging (Beads-based IPC) ────────────────────────────────── ",
         "cmd-explore": " ── Exploration ────────────────────────────────────────────────── ",
-        "cmd-test": " ── Utilities ──────────────────────────────────────────────────── ",
     }
 
     for cid in command_order:

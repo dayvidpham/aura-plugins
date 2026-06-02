@@ -238,7 +238,6 @@ class CommandId(StrEnum):
     """
 
     Epoch = "cmd-epoch"
-    Plan = "cmd-plan"
     Status = "cmd-status"
     UserRequest = "cmd-user-request"
     UserElicit = "cmd-user-elicit"
@@ -264,14 +263,8 @@ class CommandId(StrEnum):
     RevVote = "cmd-rev-vote"
     ImplSlice = "cmd-impl-slice"
     ImplReview = "cmd-impl-review"
-    MsgSend = "cmd-msg-send"
-    MsgReceive = "cmd-msg-receive"
-    MsgBroadcast = "cmd-msg-broadcast"
-    MsgAck = "cmd-msg-ack"
     Explore = "cmd-explore"
     Research = "cmd-research"
-    Test = "cmd-test"
-    Feedback = "cmd-feedback"
 
 
 # ─── Step Slug + Skill Ref Namespaces ─────────────────────────────────────────
@@ -701,6 +694,8 @@ class SubCommand(StrEnum):
     Complete = "complete"
     Advance = "advance"
     Register = "register"
+    Cancel = "cancel"
+    Terminate = "terminate"
 
 
 class SliceMode(StrEnum):
@@ -1995,15 +1990,6 @@ COMMAND_SPECS: dict[CommandId, CommandSpec] = {
         file="skills/epoch/SKILL.md",
         creates_labels=(),
     ),
-    CommandId.Plan: CommandSpec(
-        id=CommandId.Plan,
-        name="aura:plan",
-        description="Plan coordination across phases 1-6",
-        role_ref=RoleId.Architect,
-        phases=("p1", "p2", "p3", "p4", "p5", "p6"),
-        file="skills/plan/SKILL.md",
-        creates_labels=(),
-    ),
     CommandId.Status: CommandSpec(
         id=CommandId.Status,
         name="aura:status",
@@ -2229,42 +2215,6 @@ COMMAND_SPECS: dict[CommandId, CommandSpec] = {
         file="skills/impl-review/SKILL.md",
         creates_labels=("L-p10s10", "L-sev-blocker", "L-sev-import", "L-sev-minor"),
     ),
-    CommandId.MsgSend: CommandSpec(
-        id=CommandId.MsgSend,
-        name="aura:msg:send",
-        description="Send a message to another agent via Beads comment",
-        role_ref=None,
-        phases=(),
-        file="skills/msg-send/SKILL.md",
-        creates_labels=(),
-    ),
-    CommandId.MsgReceive: CommandSpec(
-        id=CommandId.MsgReceive,
-        name="aura:msg:receive",
-        description="Check inbox for messages from other agents",
-        role_ref=None,
-        phases=(),
-        file="skills/msg-receive/SKILL.md",
-        creates_labels=(),
-    ),
-    CommandId.MsgBroadcast: CommandSpec(
-        id=CommandId.MsgBroadcast,
-        name="aura:msg:broadcast",
-        description="Broadcast a message to multiple agents",
-        role_ref=None,
-        phases=(),
-        file="skills/msg-broadcast/SKILL.md",
-        creates_labels=(),
-    ),
-    CommandId.MsgAck: CommandSpec(
-        id=CommandId.MsgAck,
-        name="aura:msg:ack",
-        description="Acknowledge received messages",
-        role_ref=None,
-        phases=(),
-        file="skills/msg-ack/SKILL.md",
-        creates_labels=(),
-    ),
     CommandId.Explore: CommandSpec(
         id=CommandId.Explore,
         name="aura:explore",
@@ -2284,24 +2234,6 @@ COMMAND_SPECS: dict[CommandId, CommandSpec] = {
         phases=("p1",),
         file="skills/research/SKILL.md",
         creates_labels=("L-p1s1_2",),
-    ),
-    CommandId.Test: CommandSpec(
-        id=CommandId.Test,
-        name="aura:test",
-        description="Run tests using BDD patterns",
-        role_ref=None,
-        phases=(),
-        file="skills/test/SKILL.md",
-        creates_labels=(),
-    ),
-    CommandId.Feedback: CommandSpec(
-        id=CommandId.Feedback,
-        name="aura:feedback",
-        description="Leave structured feedback on any Beads task",
-        role_ref=None,
-        phases=(),
-        file="skills/feedback/SKILL.md",
-        creates_labels=(),
     ),
 }
 
@@ -2627,8 +2559,11 @@ PROCEDURE_STEPS: dict[RoleId, tuple[ProcedureStep, ...]] = {
         ProcedureStep(
             id=StepSlug.Supervisor.ReadPlan,
             order=2,
-            instruction="Read RATIFIED_PLAN and URD via bd show",
-            command="bd show <ratified-plan-id> && bd show <urd-id>",
+            instruction="Read RATIFIED_PLAN, URD, UAT, and elicit tasks via bd show for full context",
+            command=(
+                "bd show <ratified-plan-id> && bd show <urd-id> "
+                "&& bd show <uat-id> && bd show <elicit-id>"
+            ),
         ),
         ProcedureStep(
             id=StepSlug.Supervisor.ExploreEphemeral,
@@ -2677,8 +2612,13 @@ PROCEDURE_STEPS: dict[RoleId, tuple[ProcedureStep, ...]] = {
         ProcedureStep(
             id=StepSlug.Supervisor.SpawnWorkers,
             order=6,
-            instruction="Spawn workers for leaf tasks",
-            command="aura-swarm start --epic <epic-id>",
+            instruction=(
+                "Spawn workers via the Agent tool — "
+                "set `name` for a named teammate, leave `name` empty for a backgrounded subagent "
+                "(NOT aura-swarm). "
+                "Choose model: sonnet for non-trivial slices, haiku for trivial changes. "
+                "Set thinking effort to match slice complexity."
+            ),
             next_state=PhaseId.P9_Slice,
         ),
     ),
@@ -3079,8 +3019,13 @@ WORKFLOW_SPECS: dict[str, Workflow] = {
                 actions=(
                     WorkflowAction(
                         id="rtw-build-spawn",
-                        instruction="Spawn N workers for parallel slice implementation",
-                        command="aura-swarm start --epic <epic-id>",
+                        instruction=(
+                            "Spawn workers via the Agent tool — "
+                            "set `name` for a named teammate, leave `name` empty for a backgrounded subagent "
+                            "(NOT aura-swarm). "
+                            "Choose model: sonnet for non-trivial slices, haiku for trivial changes. "
+                            "Set thinking effort to match slice complexity."
+                        ),
                     ),
                     WorkflowAction(
                         id="rtw-build-monitor",

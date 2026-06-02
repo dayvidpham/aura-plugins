@@ -55,9 +55,9 @@ class TestSchemaParserEntityCounts:
         )
 
     def test_command_count(self, parsed_spec: SchemaSpec) -> None:
-        """AC1: 35 commands extracted."""
-        assert len(parsed_spec.commands) == 35, (
-            f"Expected 35 commands, got {len(parsed_spec.commands)}: {list(parsed_spec.commands.keys())}"
+        """AC1: 28 commands extracted."""
+        assert len(parsed_spec.commands) == 28, (
+            f"Expected 28 commands, got {len(parsed_spec.commands)}: {list(parsed_spec.commands.keys())}"
         )
 
     def test_constraint_count(self, parsed_spec: SchemaSpec) -> None:

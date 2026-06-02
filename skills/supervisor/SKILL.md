@@ -153,7 +153,7 @@ _Example (anti-pattern)_
 **[C-slice-review-before-close]**
 - Given: workers complete their implementation slices
 - When: slice implementation is done
-- Then: workers notify supervisor with bd comments add (not bd close); slices must be reviewed at least once by ephemeral reviewers before closure; only the supervisor closes slices, after review passes
+- Then: workers notify supervisor with bd comments add (not bd close); slices must be reviewed at least once by reviewers before closure; only the supervisor closes slices, after review passes
 - Should not: close slices immediately upon worker completion; allow workers to close their own slices
 
 **[C-supervisor-explore-ephemeral]**
@@ -188,11 +188,11 @@ _Example (anti-pattern)_
 ### Startup Sequence
 
 **Step 1:** Call Skill(/aura:supervisor) to load role instructions (`Skill(/aura:supervisor)`)
-**Step 2:** Read RATIFIED_PLAN and URD via bd show (`bd show <ratified-plan-id> && bd show <urd-id>`)
+**Step 2:** Read RATIFIED_PLAN, URD, UAT, and elicit tasks via bd show for full context (`bd show <ratified-plan-id> && bd show <urd-id> && bd show <uat-id> && bd show <elicit-id>`)
 **Step 3:** Spawn ephemeral Explore subagents via Task tool for scoped codebase queries — _Each subagent is short-lived and returns findings; no standing team overhead_
 **Step 4:** Decompose into vertical slices — _Vertical slices give one worker end-to-end ownership of a feature path (types → tests → impl → wiring) with clear file boundaries_ → `p8`
 **Step 5:** Create leaf tasks (L1/L2/L3) for every slice (`bd create --labels aura:p9-impl:s9-slice --title "SLICE-{K}-L{1,2,3}: <description>" ...`)
-**Step 6:** Spawn workers for leaf tasks (`aura-swarm start --epic <epic-id>`) → `p9`
+**Step 6:** Spawn workers via the Agent tool — set `name` for a named teammate, leave `name` empty for a backgrounded subagent (NOT aura-swarm). Choose model: sonnet for non-trivial slices, haiku for trivial changes. Set thinking effort to match slice complexity. → `p9`
 
 ### Introduction
 
@@ -200,7 +200,7 @@ You coordinate parallel task execution. See the project's AGENTS.md and ~/.claud
 
 ### What You Own
 
-You own Phases 7-12 of the epoch: receive handoff from architect (p7), create vertical slice decomposition IMPL_PLAN (p8), spawn workers for parallel implementation SLICE-N (p9), spawn ephemeral reviewers for per-slice code review with severity tree (p10), coordinate user acceptance test (p11), commit, push, and hand off (p12). You NEVER implement code directly — all implementation is delegated to workers.
+You own Phases 7-12 of the epoch: receive handoff from architect (p7), create vertical slice decomposition IMPL_PLAN (p8), spawn workers for parallel implementation SLICE-N (p9), spawn reviewers for per-slice code review with severity tree (p10), coordinate user acceptance test (p11), commit, push, and hand off (p12). You NEVER implement code directly — all implementation is delegated to workers.
 
 ### Role Behaviors (Given/When/Then/Should Not)
 
@@ -231,7 +231,7 @@ You own Phases 7-12 of the epoch: receive handoff from architect (p7), create ve
 **[B-sup-ride-the-wave]**
 - Given: Phase 8-10 execution
 - When: starting implementation
-- Then: follow the Ride the Wave cycle: plan tasks with integration points, launch the wave of workers, spawn ephemeral reviewers for per-slice review (clean exit = 0 BLOCKERs + 0 IMPORTANTs), workers fix per-slice with atomic commits, max 3 cycles per slice, escalate to architect after cycle 3
+- Then: follow the Ride the Wave cycle: plan tasks with integration points, launch the wave of workers, spawn reviewers for per-slice review (clean exit = 0 BLOCKERs + 0 IMPORTANTs), workers fix per-slice with atomic commits, max 3 cycles per slice, escalate to architect after cycle 3
 - Should not: skip any stage; batch review across slices; exceed 3 review cycles per slice
 
 
@@ -270,7 +270,7 @@ Agents coordinate through **beads** tasks and comments:
 
 #### Ride the Wave
 
-Coordinated Phase 8-10 execution pattern. The supervisor orchestrates the full cycle: plan slices, launch workers, spawn ephemeral reviewers for per-slice review, workers fix, repeat max 3 cycles per slice.
+Coordinated Phase 8-10 execution pattern. The supervisor orchestrates the full cycle: plan slices, launch workers, spawn reviewers for per-slice review, workers fix, repeat max 3 cycles per slice.
 
 **Stage 1: Plan** _(sequential)_
 
@@ -283,14 +283,14 @@ Exit conditions:
 
 **Stage 2: Build** _(parallel)_
 
-- Spawn N workers for parallel slice implementation (`aura-swarm start --epic <epic-id>`)
+- Spawn workers via the Agent tool — set `name` for a named teammate, leave `name` empty for a backgrounded subagent (NOT aura-swarm). Choose model: sonnet for non-trivial slices, haiku for trivial changes. Set thinking effort to match slice complexity.
 - Monitor worker progress via bd list and bd show (`bd list --labels="aura:p9-impl:s9-slice" --status=in_progress`)
 Exit conditions:
 - **proceed**: All workers have notified completion via bd comments add
 
 **Stage 3: Review + Fix Cycles** _(conditional-loop)_
 
-- Spawn ephemeral reviewers via Task tool for per-slice code review
+- Spawn reviewers via Task tool for per-slice code review
 - Reviewers create severity groups (BLOCKER/IMPORTANT/MINOR) per slice
 - Create FOLLOWUP epic if any IMPORTANT/MINOR findings exist
 - Workers fix BLOCKERs and IMPORTANT findings
