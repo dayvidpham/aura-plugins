@@ -26,7 +26,7 @@
     {
       "name": "pasture",
       "description": "Pasture — the 12-phase protocol as Claude Code skills and agents, Go-generated; structured multi-agent development with beads tracking and vertical-slice TDD",
-      "version": "0.0.1",
+      "version": "0.0.2",
       "source": {
         "source": "github",
         "repo": "dayvidpham/pasture"
