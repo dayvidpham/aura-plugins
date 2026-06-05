@@ -1,36 +1,36 @@
 {
-  "name": "aura-plugins",
-  "owner": {
-    "name": "David Pham"
-  },
   "metadata": {
     "description": "Multi-agent orchestration toolkit for structured software development using the Aura 12-phase protocol",
     "version": "0.10.2"
   },
+  "name": "aura-plugins",
+  "owner": {
+    "name": "David Pham"
+  },
   "plugins": [
     {
+      "description": "Aura protocol — 12-phase audit-trail workflow for structured software development with agent coordination, beads task tracking, and vertical slice implementation",
       "name": "aura",
-      "description": "Aura protocol \u2014 12-phase audit-trail workflow for structured software development with agent coordination, beads task tracking, and vertical slice implementation",
-      "version": "0.8.2",
-      "source": "./"
+      "source": "./",
+      "version": "0.10.2"
     },
     {
-      "name": "agentfilter",
       "description": "Security filter that blocks Claude Code from accessing sensitive files (SSH keys, credentials, env files)",
-      "version": "0.4.0",
+      "name": "agentfilter",
       "source": {
-        "source": "github",
-        "repo": "dayvidpham/agentfilter"
-      }
+        "repo": "dayvidpham/agentfilter",
+        "source": "github"
+      },
+      "version": "0.4.0"
     },
     {
-      "name": "pasture",
       "description": "Pasture — the 12-phase protocol as Claude Code skills and agents, Go-generated; structured multi-agent development with beads tracking and vertical-slice TDD",
-      "version": "0.0.2",
+      "name": "pasture",
       "source": {
-        "source": "github",
-        "repo": "dayvidpham/pasture"
-      }
+        "repo": "dayvidpham/pasture",
+        "source": "github"
+      },
+      "version": "0.0.3"
     }
   ]
 }
