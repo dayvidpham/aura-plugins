@@ -491,6 +491,7 @@
 {"issue_id":"aura-plugins-54c8","label":"aura:severity:minor"}
 {"issue_id":"aura-plugins-54j2","label":"aura:p5-user:s5-uat"}
 {"issue_id":"aura-plugins-55bi5","label":"aura:p4-plan:s4-review"}
+{"issue_id":"aura-plugins-55wqk","label":"pasture:p10-impl:s10-review"}
 {"issue_id":"aura-plugins-57s4q","label":"aura:p10-impl:s10-review"}
 {"issue_id":"aura-plugins-57s4q","label":"aura:severity:minor"}
 {"issue_id":"aura-plugins-58p","label":"aura:p10-impl:s10-review"}
@@ -1245,6 +1246,7 @@
 {"issue_id":"aura-plugins-ddkg","label":"aura:severity:minor"}
 {"issue_id":"aura-plugins-ddocq","label":"aura:p9-impl:s9-slice"}
 {"issue_id":"aura-plugins-de173","label":"aura:p9-impl:s9-slice"}
+{"issue_id":"aura-plugins-deqko","label":"pasture:p10-impl:s10-review"}
 {"issue_id":"aura-plugins-dflki","label":"aura:p11-user:s11-uat"}
 {"issue_id":"aura-plugins-dgor","label":"aura:p10-impl:s10-review"}
 {"issue_id":"aura-plugins-dgor","label":"aura:severity:blocker"}
@@ -1703,6 +1705,9 @@
 {"issue_id":"aura-plugins-iamf","label":"aura:severity:important"}
 {"issue_id":"aura-plugins-ibw","label":"aura:p10-impl:s10-review"}
 {"issue_id":"aura-plugins-ibw","label":"aura:severity:important"}
+{"issue_id":"aura-plugins-icrfz","label":"ci"}
+{"issue_id":"aura-plugins-icrfz","label":"pasture"}
+{"issue_id":"aura-plugins-icrfz","label":"release"}
 {"issue_id":"aura-plugins-icvxn","label":"aura:p3-plan:s3-propose"}
 {"issue_id":"aura-plugins-icvxn","label":"aura:p6-plan:s6-ratify"}
 {"issue_id":"aura-plugins-idy12","label":"aura:p9-impl:s9-slice"}
@@ -1829,6 +1834,7 @@
 {"issue_id":"aura-plugins-jpucr","label":"aura:severity:important"}
 {"issue_id":"aura-plugins-jpyf4","label":"pasture:p4-plan:s4-review"}
 {"issue_id":"aura-plugins-jr9n2","label":"aura:p10-review"}
+{"issue_id":"aura-plugins-jrqdy","label":"pasture:p10-impl:s10-review"}
 {"issue_id":"aura-plugins-js1e8","label":"aura:p10-impl:s10-review"}
 {"issue_id":"aura-plugins-js1e8","label":"aura:severity:minor"}
 {"issue_id":"aura-plugins-jtame","label":"aura:epic:providence"}
@@ -2441,6 +2447,8 @@
 {"issue_id":"aura-plugins-qrgx","label":"aura:p10-impl:s10-review"}
 {"issue_id":"aura-plugins-qrm4","label":"aura:p4-plan:s4-review"}
 {"issue_id":"aura-plugins-qt1p","label":"aura:p4-plan:s4-review"}
+{"issue_id":"aura-plugins-qt23k","label":"pasture"}
+{"issue_id":"aura-plugins-qt23k","label":"release"}
 {"issue_id":"aura-plugins-qtbl9","label":"aura:p9-impl:s9-slice"}
 {"issue_id":"aura-plugins-quz1","label":"aura:p10-impl:s10-review"}
 {"issue_id":"aura-plugins-quz1","label":"aura:severity:important"}
