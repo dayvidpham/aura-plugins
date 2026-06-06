@@ -1,6 +1,6 @@
 # REQUEST-level pre-move triage
 
-- **Generated:** 2026-06-06T01:35:44-07:00
+- **Generated:** 2026-06-06T01:44:51-07:00
 - **Method:** dynamic Workflow — 1 Opus agent per open REQUEST; each traced the full bd chain (ELICIT→URD→PROPOSALs→IMPL_PLAN→slices→reviews), identified the **ratified PROPOSAL**, and judged delivered-status against the **Go `pasture` source of truth** + verified claims in code.
 - **Premise:** Python is being removed wholesale ([`aura-plugins-4s5zt`](beads://aura-plugins-4s5zt)); Go `pasture` is the SoT and development is moving to the standalone `~/codebases/dayvidpham/pasture`. The question per REQUEST is *"does Go cover it / did the design move on"* — not *"is the Python done"*.
 - **Why REQUEST-level:** a closeable REQUEST cascades its whole subtree (the way `j2k` closed 10 nodes in one decision), instead of triaging hundreds of leaf review-tasks individually. Supersedes the 205-leaf close-list in `qzr8a-stale-work-triage.md`.
@@ -13,19 +13,19 @@
 
 | REQUEST | Status | Ratified proposal | Disposition | Go equivalence (short) |
 |---|---|---|---|---|
-| `cgwc1` REQUEST: Port hand-authored skill body | **SUPERSEDED_BY_GO** | aura-plugins-ygkp0 | close-chain | pasture/skills/ — bodies present: architect/SKILL.md (530L, was 313L w/0 hand-au… |
+| `cgwc1` REQUEST: Port hand-authored skill body | **DONE** | aura-plugins-ygkp0 | close-chain | pasture/skills/ — bodies present: architect/SKILL.md (530L, was 313L w/0 hand-au… |
 | `18zp` REQUEST: Un-skip 25 skipped tests (4 T | **DONE** | aura-plugins-fl5p | close-chain | none / N/A — this is pure Python test-infrastructure work in scripts/aura_protoc… |
 | `v3yv` REQUEST: Fix intree mode creating new  | **DONE** | none ratified | close-chain | none / N/A — this is Python CLI orchestration tooling in bin/aura-swarm (tmux se… |
-| `kqtf` REQUEST: Refactor aura-parallel + aura | **SUPERSEDED_BY_GO** | none ratified | close-chain | The unified design landed: bin/aura-swarm (Python) implements --swarm-mode, --tm… |
-| `ckg0` REQUEST: auractl rename + daemon conce | **SUPERSEDED_BY_GO** | aura-plugins-r75e | close-chain | All 8 covered by Go pasture SoT: R1 worker→aurad daemon → pasture/cmd/pastured; … |
-| `ai2x` REQUEST: Package aura-release as Nix f | **SUPERSEDED_BY_GO** | none ratified | close-chain | pasture/cmd/pasture-release + pasture/internal/release (Cobra-based Go release t… |
+| `kqtf` REQUEST: Refactor aura-parallel + aura | **DONE** | none ratified | close-chain | The unified design landed: bin/aura-swarm (Python) implements --swarm-mode, --tm… |
+| `ckg0` REQUEST: auractl rename + daemon conce | **DONE** | aura-plugins-r75e | close-chain | All 8 covered by Go pasture SoT: R1 worker→aurad daemon → pasture/cmd/pastured; … |
+| `ai2x` REQUEST: Package aura-release as Nix f | **DONE** | none ratified | close-chain | pasture/cmd/pasture-release + pasture/internal/release (Cobra-based Go release t… |
 | `220` REQUEST: Multi-agent orchestration sch | **SUPERSEDED_BY_GO** | aura-plugins-mg6h | close-chain | pasture/internal/codegen/{schema.go,skills.go,context.go,agents.go,markers.go,va… |
 
 ## Per-REQUEST detail
 
 ### `cgwc1` — REQUEST: Port hand-authored skill body content from Python to Go SKILL.md files
 
-- **Status:** SUPERSEDED_BY_GO → **close-chain**
+- **Status:** DONE → **close-chain**
 - **Ratified proposal:** aura-plugins-ygkp0 — PROPOSAL-3: Port skill bodies + protocol docs to Go SKILL.md files (supersedes PROPOSAL-2 yiela / PROPOSAL-1 dukw0; RATIFIED per its comment: all 3 reviewers ACCEPT round 3)
 - **Asked:** Port the ~1,621 lines of hand-authored body content (Beads 12-phase templates, phase/stage hierarchy, /aura:* invocation, reviewer-spawning, handoff templates) plus the 17 protocol docs from the Python SKILL.md files into their Go pasture counterparts, and fix the generated Workflows section conflation of phases vs stages.
 - **Go equivalence:** pasture/skills/ — bodies present: architect/SKILL.md (530L, was 313L w/0 hand-authored), supervisor/SKILL.md (990L incl 'Ride the Wave — Operational Detail' + severity groups + handoff template), worker/SKILL.md (473L), reviewer/SKILL.md (297L), supervisor-plan-tasks/SKILL.md (462L), supervisor-spawn-worker/SKILL.md (304L), impl-review/SKILL.md (418L). All 17 protocol docs present in pasture/skills/protocol/ (PROCESS.md, HANDOFF_TEMPLATE.md, CONSTRAINTS.md, etc.). Phase/stage hierarchy resolved (distinct phase tables + 'Stage 7: Handoff' sections). Go went further: renamespaced aura:->pasture: (commit 6288681) and EPIC x5071 ported all ~30 skills.
@@ -52,7 +52,7 @@
 
 ### `kqtf` — REQUEST: Refactor aura-parallel + aura-swarm into unified aura-swarm
 
-- **Status:** SUPERSEDED_BY_GO → **close-chain**
+- **Status:** DONE → **close-chain**
 - **Ratified proposal:** none ratified — chain never progressed past ELICIT (aura-plugins-mvfw); no PROPOSAL-N or IMPL_PLAN task was ever created. The unified aura-swarm was implemented ad-hoc and shipped outside the formal protocol chain.
 - **Asked:** Merge bin/aura-parallel and bin/aura-swarm into a single unified aura-swarm script with --swarm-mode {worktree,intree}, --tmux-dest {session,window} (window default), XDG state dir, bypassPermissions inheritance to children, merged skills/parallel into skills/swarm, updated Nix/HM/CLAUDE.md, and removal of aura-parallel.
 - **Go equivalence:** The unified design landed: bin/aura-swarm (Python) implements --swarm-mode, --tmux-dest with window default, bypassPermissions inheritance, and ~/.local/state-style state dir; bin/aura-parallel is now a thin deprecation wrapper delegating to `aura-swarm start --swarm-mode intree`; skills consolidated to a single skills/swarm/. The design is carried forward canonically in pasture/skills/swarm/SKILL.md (documents --swarm-mode worktree|intree, "replaces aura-parallel"). The aura-swarm orchestration script itself is host-side tooling not ported to a Go binary by design (Go pasture covers daemon/CLI/release, not the swarm launcher). Since Python is being deleted wholesale (aura-plugins-4s5zt) and pasture is SoT, the Python deliverable's fate is governed by the Python-removal epic; the unified concept is preserved in the pasture swarm skill.
@@ -61,7 +61,7 @@
 
 ### `ckg0` — REQUEST: auractl rename + daemon concept + UAT follow-ups
 
-- **Status:** SUPERSEDED_BY_GO → **close-chain**
+- **Status:** DONE → **close-chain**
 - **Ratified proposal:** aura-plugins-r75e — PROPOSAL-2: aurad rename + aura-msg stub (review fixes). Ratified at plan-UAT aura-plugins-qm3u (ACCEPT with dbPath-option amendment); supersedes PROPOSAL-1 aura-plugins-oz82. Impl-UAT aura-plugins-6kl3 also ACCEPT.
 - **Asked:** New epoch for 8 Impl-UAT follow-ups: rename worker→aurad + daemon concept, persistent SQLite default, aurad in packages.default, doc restructure, aura-msg stub (4 subcommands), signal-based slice progress, ReviewAxis/VoteType-typed review votes, and constraint-violation test fixtures. (Title says auractl but the ratified plan and delivery used aurad.)
 - **Go equivalence:** All 8 covered by Go pasture SoT: R1 worker→aurad daemon → pasture/cmd/pastured; R5 aura-msg stub → pasture/cmd/pasture-msg fully implemented (epoch/start, signal/vote, query/state, phase/advance, session/register) — surpasses the Python stub; R7 signal slice progress → internal/types/signals.go SliceProgressSignal + internal/temporal/workflow_slice.go (signals parent EpochWorkflow via slice_progress using input.ParentWorkflowId); R8 ReviewAxis/VoteType typing → internal/temporal/workflow_review.go votes map[types.ReviewAxis]types.VoteType + internal/types/enums.go; R9 constraint-violation fixtures → internal/temporal/{workflow.go,activities.go} + internal/types/queries.go; R2/R3/R4/R6 packaging+docs → pasture Nix packaging + docs. Python artifacts removed wholesale via aura-plugins-4s5zt.
@@ -70,7 +70,7 @@
 
 ### `ai2x` — REQUEST: Package aura-release as Nix flake output
 
-- **Status:** SUPERSEDED_BY_GO → **close-chain**
+- **Status:** DONE → **close-chain**
 - **Ratified proposal:** none ratified — standalone REQUEST with no URE/PROPOSAL/IMPL_PLAN subtree (bd dep tree shows ai2x alone, no children); delivered directly per the two completion comments dated 2026-02-23.
 - **Asked:** Expose the existing Python bin/aura-release tool (version bump, changelog, git tag) as a Nix flake package output so it can be installed via Nix alongside the other aura CLI tools.
 - **Go equivalence:** pasture/cmd/pasture-release + pasture/internal/release (Cobra-based Go release tool) packaged as a Nix flake output via pasture/flake.nix:49-51 (pasture-release = pkgs.buildGoModule, subPackages = ["cmd/pasture-release"]). This is the Go equivalent of the Python aura-release.
