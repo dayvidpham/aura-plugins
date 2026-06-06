@@ -71,6 +71,7 @@
 {"issue_id":"aura-plugins-0v6n","label":"aura:severity:blocker"}
 {"issue_id":"aura-plugins-0veo","label":"aura:p9-impl:s9-slice"}
 {"issue_id":"aura-plugins-0vhr7","label":"aura:p9-impl:s9-slice"}
+{"issue_id":"aura-plugins-0wtgv","label":"pasture:p4-plan:s4-review"}
 {"issue_id":"aura-plugins-0yd","label":"aura:p10-impl:s10-review"}
 {"issue_id":"aura-plugins-0yd","label":"aura:severity:minor"}
 {"issue_id":"aura-plugins-0yuk","label":"aura:epic-followup"}
@@ -89,6 +90,7 @@
 {"issue_id":"aura-plugins-13n","label":"aura:severity:blocker"}
 {"issue_id":"aura-plugins-147m","label":"aura:p8-impl:s8-plan"}
 {"issue_id":"aura-plugins-14lr","label":"aura:p4-plan:s4-review"}
+{"issue_id":"aura-plugins-1541h","label":"pasture:p4-plan:s4-review"}
 {"issue_id":"aura-plugins-1589","label":"aura:p10-impl:s10-review"}
 {"issue_id":"aura-plugins-1589","label":"aura:severity:blocker"}
 {"issue_id":"aura-plugins-15qvn","label":"aura:p3-plan:s3-propose"}
@@ -134,6 +136,7 @@
 {"issue_id":"aura-plugins-1i8ej","label":"aura:p9-impl:s9-slice"}
 {"issue_id":"aura-plugins-1ic","label":"aura:p10-impl:s10-review"}
 {"issue_id":"aura-plugins-1ic","label":"aura:severity:minor"}
+{"issue_id":"aura-plugins-1iowf","label":"pasture:p9-impl:s9-slice"}
 {"issue_id":"aura-plugins-1k4g","label":"aura:p10-impl:s10-review"}
 {"issue_id":"aura-plugins-1k4g","label":"aura:severity:important"}
 {"issue_id":"aura-plugins-1ka","label":"aura:p10-impl:s10-review"}
@@ -241,6 +244,7 @@
 {"issue_id":"aura-plugins-2ojv","label":"aura:p2-user:s2_2-urd"}
 {"issue_id":"aura-plugins-2ojv","label":"aura:urd"}
 {"issue_id":"aura-plugins-2onu","label":"aura:p10-impl:s10-review"}
+{"issue_id":"aura-plugins-2oxfd","label":"pasture:p2-user:s2_1-elicit"}
 {"issue_id":"aura-plugins-2q4k","label":"aura:p10-impl:s10-review"}
 {"issue_id":"aura-plugins-2q4k","label":"aura:severity:minor"}
 {"issue_id":"aura-plugins-2q74","label":"aura:p10-impl:s10-review"}
@@ -393,6 +397,7 @@
 {"issue_id":"aura-plugins-41gqs","label":"aura:deferred-enforcement"}
 {"issue_id":"aura-plugins-41gqs","label":"aura:mh4ek-investigation"}
 {"issue_id":"aura-plugins-41gqs","label":"aura:residual"}
+{"issue_id":"aura-plugins-41jzo","label":"pasture:p7-plan:s7-handoff"}
 {"issue_id":"aura-plugins-46yx","label":"aura:p11-user:s11-uat"}
 {"issue_id":"aura-plugins-47zju","label":"aura:epic-followup"}
 {"issue_id":"aura-plugins-47zo","label":"aura:p9-impl:s9-slice"}
@@ -425,6 +430,7 @@
 {"issue_id":"aura-plugins-4hu","label":"aura:p10-impl:s10-review"}
 {"issue_id":"aura-plugins-4hu","label":"aura:severity:minor"}
 {"issue_id":"aura-plugins-4ix2j","label":"aura:p11-user:s11-uat"}
+{"issue_id":"aura-plugins-4jrgx","label":"pasture:p4-plan:s4-review"}
 {"issue_id":"aura-plugins-4jsgx","label":"aura:p10-impl:s10-review"}
 {"issue_id":"aura-plugins-4jsgx","label":"aura:severity:blocker"}
 {"issue_id":"aura-plugins-4k9t","label":"aura:p10-impl:s10-review"}
@@ -485,6 +491,7 @@
 {"issue_id":"aura-plugins-54c8","label":"aura:severity:minor"}
 {"issue_id":"aura-plugins-54j2","label":"aura:p5-user:s5-uat"}
 {"issue_id":"aura-plugins-55bi5","label":"aura:p4-plan:s4-review"}
+{"issue_id":"aura-plugins-55wqk","label":"pasture:p10-impl:s10-review"}
 {"issue_id":"aura-plugins-57s4q","label":"aura:p10-impl:s10-review"}
 {"issue_id":"aura-plugins-57s4q","label":"aura:severity:minor"}
 {"issue_id":"aura-plugins-58p","label":"aura:p10-impl:s10-review"}
@@ -594,6 +601,8 @@
 {"issue_id":"aura-plugins-6lyb9","label":"aura:round:2"}
 {"issue_id":"aura-plugins-6lyb9","label":"aura:severity:minor"}
 {"issue_id":"aura-plugins-6m2m","label":"aura:p10-impl:s10-review"}
+{"issue_id":"aura-plugins-6m45m","label":"pasture:p10-impl:s10-review"}
+{"issue_id":"aura-plugins-6m45m","label":"pasture:severity:blocker"}
 {"issue_id":"aura-plugins-6ntg","label":"aura:p10-impl:s10-review"}
 {"issue_id":"aura-plugins-6ntg","label":"aura:severity:important"}
 {"issue_id":"aura-plugins-6o6nw","label":"aura:p9-impl:s9-slice"}
@@ -642,6 +651,7 @@
 {"issue_id":"aura-plugins-72hkj","label":"aura:p1-user:s1_1-classify"}
 {"issue_id":"aura-plugins-73r6f","label":"aura:p7-plan:s7-handoff"}
 {"issue_id":"aura-plugins-75shf","label":"aura:p9-impl:s9-slice"}
+{"issue_id":"aura-plugins-769m8","label":"pasture:p4-plan:s4-review"}
 {"issue_id":"aura-plugins-76ab","label":"aura:p10-impl:s10-review"}
 {"issue_id":"aura-plugins-76ab","label":"aura:severity:minor"}
 {"issue_id":"aura-plugins-76qby","label":"aura:roadmap"}
@@ -679,6 +689,7 @@
 {"issue_id":"aura-plugins-7f2h","label":"aura:severity:minor"}
 {"issue_id":"aura-plugins-7g0q2","label":"aura:p4-plan:s4-review"}
 {"issue_id":"aura-plugins-7gm","label":"aura:p4-plan:s4-review"}
+{"issue_id":"aura-plugins-7gm3l","label":"pasture:p5-user:s5-uat"}
 {"issue_id":"aura-plugins-7iy","label":"aura:p10-impl:s10-review"}
 {"issue_id":"aura-plugins-7iy2","label":"aura:p8-impl:s8-impl-plan"}
 {"issue_id":"aura-plugins-7j072","label":"pasture pasture-release"}
@@ -849,6 +860,7 @@
 {"issue_id":"aura-plugins-9857k","label":"aura:p6-plan:s6-ratify"}
 {"issue_id":"aura-plugins-99q","label":"aura:p2-user:s2_2-urd"}
 {"issue_id":"aura-plugins-9ae","label":"aura:p9-impl:s9-slice"}
+{"issue_id":"aura-plugins-9aqca","label":"pasture:p8-impl:s8-plan"}
 {"issue_id":"aura-plugins-9ax2y","label":"aura:axis:correctness"}
 {"issue_id":"aura-plugins-9ax2y","label":"aura:p10-impl:s10-finding"}
 {"issue_id":"aura-plugins-9ax2y","label":"aura:severity:minor"}
@@ -969,6 +981,8 @@
 {"issue_id":"aura-plugins-a4oo","label":"aura:p10-impl:s10-review"}
 {"issue_id":"aura-plugins-a4oo","label":"aura:severity:blocker"}
 {"issue_id":"aura-plugins-a55n","label":"aura:p9-impl:s9-slice"}
+{"issue_id":"aura-plugins-a6i4y","label":"pasture:p3-plan:s3-propose"}
+{"issue_id":"aura-plugins-a6i4y","label":"pasture:superseded"}
 {"issue_id":"aura-plugins-a6r9","label":"aura:p10-impl:s10-review"}
 {"issue_id":"aura-plugins-a6r9","label":"aura:severity:minor"}
 {"issue_id":"aura-plugins-a887a","label":"aura:p10-impl:s10-review"}
@@ -1015,6 +1029,7 @@
 {"issue_id":"aura-plugins-au57i","label":"aura:severity:important"}
 {"issue_id":"aura-plugins-au57i","label":"aura:slice-ref:aura-plugins-498x4"}
 {"issue_id":"aura-plugins-avge9","label":"aura:p9-impl:s9-slice"}
+{"issue_id":"aura-plugins-avsqv","label":"pasture:p4-plan:s4-review"}
 {"issue_id":"aura-plugins-avwpw","label":"pasture:p10-impl:s10-review"}
 {"issue_id":"aura-plugins-avwpw","label":"pasture:severity:important"}
 {"issue_id":"aura-plugins-awe1p","label":"aura:epic:providence"}
@@ -1168,6 +1183,7 @@
 {"issue_id":"aura-plugins-cqbbg","label":"aura:roadmap"}
 {"issue_id":"aura-plugins-crd","label":"aura:p10-impl:s10-review"}
 {"issue_id":"aura-plugins-crd","label":"aura:severity:important"}
+{"issue_id":"aura-plugins-csw2i","label":"pasture:p11-user:s11-uat"}
 {"issue_id":"aura-plugins-ct01","label":"aura:p10-impl:s10-review"}
 {"issue_id":"aura-plugins-ct01","label":"aura:severity:important"}
 {"issue_id":"aura-plugins-ctma","label":"aura:p9-impl:s9-slice"}
@@ -1176,6 +1192,8 @@
 {"issue_id":"aura-plugins-cuuw","label":"aura:p1-user:s1_1-classify"}
 {"issue_id":"aura-plugins-cvcf","label":"aura:p10-impl:s10-review"}
 {"issue_id":"aura-plugins-cvcf","label":"aura:severity:blocker"}
+{"issue_id":"aura-plugins-cvr4m","label":"pasture:p10-impl:s10-review"}
+{"issue_id":"aura-plugins-cvr4m","label":"pasture:severity:blocker"}
 {"issue_id":"aura-plugins-cws7d","label":"aura:p9-impl:s9-slice"}
 {"issue_id":"aura-plugins-cxb2m","label":"aura:p4-plan:s4-review"}
 {"issue_id":"aura-plugins-cxmvp","label":"aura:p3-plan:s3-propose"}
@@ -1221,12 +1239,14 @@
 {"issue_id":"aura-plugins-d8whg","label":"aura:p9-impl:s9-slice"}
 {"issue_id":"aura-plugins-d9p4","label":"aura:p10-impl:s10-review"}
 {"issue_id":"aura-plugins-d9p4","label":"aura:severity:important"}
+{"issue_id":"aura-plugins-da8be","label":"pasture:p10-impl:s10-review"}
 {"issue_id":"aura-plugins-daakm","label":"aura:axis:elegance"}
 {"issue_id":"aura-plugins-daakm","label":"aura:round:2"}
 {"issue_id":"aura-plugins-ddkg","label":"aura:p10-impl:s10-review"}
 {"issue_id":"aura-plugins-ddkg","label":"aura:severity:minor"}
 {"issue_id":"aura-plugins-ddocq","label":"aura:p9-impl:s9-slice"}
 {"issue_id":"aura-plugins-de173","label":"aura:p9-impl:s9-slice"}
+{"issue_id":"aura-plugins-deqko","label":"pasture:p10-impl:s10-review"}
 {"issue_id":"aura-plugins-dflki","label":"aura:p11-user:s11-uat"}
 {"issue_id":"aura-plugins-dgor","label":"aura:p10-impl:s10-review"}
 {"issue_id":"aura-plugins-dgor","label":"aura:severity:blocker"}
@@ -1246,9 +1266,12 @@
 {"issue_id":"aura-plugins-dnhiq","label":"aura:audit"}
 {"issue_id":"aura-plugins-dnhiq","label":"aura:p4-plan:s4-review"}
 {"issue_id":"aura-plugins-dnhiq","label":"aura:roadmap"}
+{"issue_id":"aura-plugins-dnr46","label":"pasture:p2-user:s2_2-urd"}
+{"issue_id":"aura-plugins-dnr46","label":"pasture:urd"}
 {"issue_id":"aura-plugins-dobi0","label":"aura:p9-impl:s9-slice"}
 {"issue_id":"aura-plugins-don","label":"aura:p10-impl:s10-review"}
 {"issue_id":"aura-plugins-don","label":"aura:severity:important"}
+{"issue_id":"aura-plugins-doyg5","label":"pasture:p4-plan:s4-review"}
 {"issue_id":"aura-plugins-dpwd","label":"aura:p10-impl:s10-review"}
 {"issue_id":"aura-plugins-dpwd","label":"aura:severity:minor"}
 {"issue_id":"aura-plugins-dq02","label":"aura:p10-impl:s10-review"}
@@ -1318,6 +1341,8 @@
 {"issue_id":"aura-plugins-e86ea","label":"aura:docs"}
 {"issue_id":"aura-plugins-e86ea","label":"aura:roadmap"}
 {"issue_id":"aura-plugins-e8rwk","label":"pasture:p8-impl:s8-plan"}
+{"issue_id":"aura-plugins-e9779","label":"pasture:p10-impl:s10-review"}
+{"issue_id":"aura-plugins-e9779","label":"pasture:severity:minor"}
 {"issue_id":"aura-plugins-e99","label":"aura:p5-user:s5-uat"}
 {"issue_id":"aura-plugins-ears","label":"aura:p2-user:s2_1-elicit"}
 {"issue_id":"aura-plugins-eauj6","label":"aura:p12-impl:s12-landing"}
@@ -1369,6 +1394,7 @@
 {"issue_id":"aura-plugins-eyqwx","label":"aura:p4-plan:s4-review"}
 {"issue_id":"aura-plugins-eyqwx","label":"aura:review:elegance"}
 {"issue_id":"aura-plugins-f01z","label":"aura:p9-impl:s9-slice"}
+{"issue_id":"aura-plugins-f1ux6","label":"pasture:p10-impl:s10-review"}
 {"issue_id":"aura-plugins-f3dkd","label":"aura:axis:correctness"}
 {"issue_id":"aura-plugins-f3dkd","label":"aura:p10-impl:s10-review"}
 {"issue_id":"aura-plugins-f3dkd","label":"aura:round:5"}
@@ -1679,6 +1705,9 @@
 {"issue_id":"aura-plugins-iamf","label":"aura:severity:important"}
 {"issue_id":"aura-plugins-ibw","label":"aura:p10-impl:s10-review"}
 {"issue_id":"aura-plugins-ibw","label":"aura:severity:important"}
+{"issue_id":"aura-plugins-icrfz","label":"ci"}
+{"issue_id":"aura-plugins-icrfz","label":"pasture"}
+{"issue_id":"aura-plugins-icrfz","label":"release"}
 {"issue_id":"aura-plugins-icvxn","label":"aura:p3-plan:s3-propose"}
 {"issue_id":"aura-plugins-icvxn","label":"aura:p6-plan:s6-ratify"}
 {"issue_id":"aura-plugins-idy12","label":"aura:p9-impl:s9-slice"}
@@ -1704,6 +1733,8 @@
 {"issue_id":"aura-plugins-in8","label":"aura:p10-impl:s10-review"}
 {"issue_id":"aura-plugins-in8","label":"aura:severity:important"}
 {"issue_id":"aura-plugins-infkn","label":"aura:epic-followup"}
+{"issue_id":"aura-plugins-inw9u","label":"pasture:p3-plan:s3-propose"}
+{"issue_id":"aura-plugins-inw9u","label":"pasture:p6-plan:s6-ratify"}
 {"issue_id":"aura-plugins-ioki","label":"aura:p10-impl:s10-review"}
 {"issue_id":"aura-plugins-ioki","label":"aura:severity:minor"}
 {"issue_id":"aura-plugins-ip41","label":"aura:p10-impl:s10-review"}
@@ -1715,18 +1746,22 @@
 {"issue_id":"aura-plugins-iq4db","label":"pasture:p4-plan:s4-review"}
 {"issue_id":"aura-plugins-ircvi","label":"aura:p3-plan:s3-propose"}
 {"issue_id":"aura-plugins-itv16","label":"pasture:p9-impl:s9-slice"}
+{"issue_id":"aura-plugins-itvjy","label":"pasture:p3-plan:s3-propose"}
+{"issue_id":"aura-plugins-itvjy","label":"pasture:superseded"}
 {"issue_id":"aura-plugins-iu1qg","label":"aura:p11-user:s11-uat"}
 {"issue_id":"aura-plugins-iucy0","label":"aura:axis:correctness"}
 {"issue_id":"aura-plugins-iucy0","label":"aura:p10-impl:s10-review"}
 {"issue_id":"aura-plugins-iucy0","label":"aura:round:5"}
 {"issue_id":"aura-plugins-iucy0","label":"aura:severity:blocker"}
 {"issue_id":"aura-plugins-iv5j","label":"aura:p2-user:s2_1-elicit"}
+{"issue_id":"aura-plugins-iv7m1","label":"pasture:p4-plan:s4-review"}
 {"issue_id":"aura-plugins-ivl1","label":"aura:p10-impl:s10-review"}
 {"issue_id":"aura-plugins-ivl1","label":"aura:severity:minor"}
 {"issue_id":"aura-plugins-iw89","label":"aura:p3-plan:s3-propose"}
 {"issue_id":"aura-plugins-iw89","label":"aura:p6-plan:s6-ratify"}
 {"issue_id":"aura-plugins-iwukt","label":"pasture:p10-impl:s10-review"}
 {"issue_id":"aura-plugins-j02","label":"aura:p2-user:s2_1-elicit"}
+{"issue_id":"aura-plugins-j03hw","label":"pasture:p10-impl:s10-review"}
 {"issue_id":"aura-plugins-j09z","label":"aura:p4-plan:s4-review"}
 {"issue_id":"aura-plugins-j1878","label":"aura:epic:providence-followup"}
 {"issue_id":"aura-plugins-j1878","label":"aura:p9-impl:s9-slice"}
@@ -1794,15 +1829,18 @@
 {"issue_id":"aura-plugins-jonsp","label":"aura:round:4"}
 {"issue_id":"aura-plugins-jonsp","label":"aura:severity:minor"}
 {"issue_id":"aura-plugins-jpd3u","label":"aura:p9-impl:s9-slice"}
+{"issue_id":"aura-plugins-jpgvm","label":"pasture:p4-plan:s4-review"}
 {"issue_id":"aura-plugins-jpucr","label":"aura:p10-impl:s10-review"}
 {"issue_id":"aura-plugins-jpucr","label":"aura:severity:important"}
 {"issue_id":"aura-plugins-jpyf4","label":"pasture:p4-plan:s4-review"}
 {"issue_id":"aura-plugins-jr9n2","label":"aura:p10-review"}
+{"issue_id":"aura-plugins-jrqdy","label":"pasture:p10-impl:s10-review"}
 {"issue_id":"aura-plugins-js1e8","label":"aura:p10-impl:s10-review"}
 {"issue_id":"aura-plugins-js1e8","label":"aura:severity:minor"}
 {"issue_id":"aura-plugins-jtame","label":"aura:epic:providence"}
 {"issue_id":"aura-plugins-jtame","label":"aura:p4-plan:s4-review"}
 {"issue_id":"aura-plugins-jtame","label":"aura:review:test_quality"}
+{"issue_id":"aura-plugins-jtcla","label":"pasture:p4-plan:s4-review"}
 {"issue_id":"aura-plugins-jteh","label":"aura:p9-impl:s9-slice"}
 {"issue_id":"aura-plugins-jumq","label":"aura:p10-impl:s10-review"}
 {"issue_id":"aura-plugins-jumq","label":"aura:severity:blocker"}
@@ -2010,6 +2048,7 @@
 {"issue_id":"aura-plugins-mdj4","label":"aura:p10-impl:s10-review"}
 {"issue_id":"aura-plugins-mdj4","label":"aura:severity:important"}
 {"issue_id":"aura-plugins-mdyr","label":"aura:p4-plan:s4-review"}
+{"issue_id":"aura-plugins-meab9","label":"pasture:p4-plan:s4-review"}
 {"issue_id":"aura-plugins-mfxm","label":"aura:p7-plan:s7-handoff"}
 {"issue_id":"aura-plugins-mg6h","label":"aura:p6-plan:s6-ratify"}
 {"issue_id":"aura-plugins-mgfo","label":"aura:p4-plan:s4-review"}
@@ -2054,6 +2093,7 @@
 {"issue_id":"aura-plugins-mrw6t","label":"aura:p9-impl:s9-slice"}
 {"issue_id":"aura-plugins-msfr","label":"aura:p11-user:s11-uat"}
 {"issue_id":"aura-plugins-mu1e","label":"aura:p4-plan:s4-review"}
+{"issue_id":"aura-plugins-mvfvj","label":"pasture:p10-impl:s10-review"}
 {"issue_id":"aura-plugins-mvfw","label":"aura:p2-user:s2_1-elicit"}
 {"issue_id":"aura-plugins-mw3a","label":"aura:p9-impl:s9-slice"}
 {"issue_id":"aura-plugins-mwdv","label":"aura:p3-plan:s3-propose"}
@@ -2312,6 +2352,7 @@
 {"issue_id":"aura-plugins-pj4wo","label":"aura:epic-followup"}
 {"issue_id":"aura-plugins-pkko8","label":"aura:p9-impl:s9-slice"}
 {"issue_id":"aura-plugins-pl8p","label":"aura:severity:blocker"}
+{"issue_id":"aura-plugins-plfwm","label":"pasture:p4-plan:s4-review"}
 {"issue_id":"aura-plugins-plol9","label":"pasture:p11-user:s11-uat"}
 {"issue_id":"aura-plugins-plrp","label":"aura:p4-plan:s4-review"}
 {"issue_id":"aura-plugins-pngt1","label":"aura:p9-impl:s9-slice"}
@@ -2335,6 +2376,8 @@
 {"issue_id":"aura-plugins-puadm","label":"pasture:p5-user:s5-uat"}
 {"issue_id":"aura-plugins-punit","label":"aura:roadmap"}
 {"issue_id":"aura-plugins-pv2ek","label":"aura:p1-user:s1_1-classify"}
+{"issue_id":"aura-plugins-pwmhr","label":"pasture:p10-impl:s10-review"}
+{"issue_id":"aura-plugins-pwmhr","label":"pasture:severity:minor"}
 {"issue_id":"aura-plugins-pxc0","label":"aura:p10-impl:s10-review"}
 {"issue_id":"aura-plugins-pxc0","label":"aura:severity:blocker"}
 {"issue_id":"aura-plugins-pxo","label":"aura:p10-impl:s10-review"}
@@ -2404,6 +2447,8 @@
 {"issue_id":"aura-plugins-qrgx","label":"aura:p10-impl:s10-review"}
 {"issue_id":"aura-plugins-qrm4","label":"aura:p4-plan:s4-review"}
 {"issue_id":"aura-plugins-qt1p","label":"aura:p4-plan:s4-review"}
+{"issue_id":"aura-plugins-qt23k","label":"pasture"}
+{"issue_id":"aura-plugins-qt23k","label":"release"}
 {"issue_id":"aura-plugins-qtbl9","label":"aura:p9-impl:s9-slice"}
 {"issue_id":"aura-plugins-quz1","label":"aura:p10-impl:s10-review"}
 {"issue_id":"aura-plugins-quz1","label":"aura:severity:important"}
@@ -2455,6 +2500,7 @@
 {"issue_id":"aura-plugins-r8rj1","label":"aura:severity:minor"}
 {"issue_id":"aura-plugins-r9e2i","label":"aura:p5-user:s5-uat"}
 {"issue_id":"aura-plugins-ra8u","label":"research"}
+{"issue_id":"aura-plugins-rcuqj","label":"pasture:p1-user:s1_1-classify"}
 {"issue_id":"aura-plugins-rd0oy","label":"aura:p10-impl:s10-review"}
 {"issue_id":"aura-plugins-rd0oy","label":"aura:severity:important"}
 {"issue_id":"aura-plugins-rfqkm","label":"aura:deferred-enforcement"}
@@ -2624,6 +2670,8 @@
 {"issue_id":"aura-plugins-tgip","label":"aura:p10-impl:s10-review"}
 {"issue_id":"aura-plugins-tgip","label":"aura:severity:important"}
 {"issue_id":"aura-plugins-tgpc","label":"aura:p9-impl:s9-slice"}
+{"issue_id":"aura-plugins-tgu7w","label":"pasture:p3-plan:s3-propose"}
+{"issue_id":"aura-plugins-tgu7w","label":"pasture:superseded"}
 {"issue_id":"aura-plugins-thm2d","label":"aura:p10-impl:s10-review"}
 {"issue_id":"aura-plugins-thm2d","label":"aura:severity:important"}
 {"issue_id":"aura-plugins-thune","label":"aura:p1-user:s1_1-classify"}
@@ -2666,6 +2714,7 @@
 {"issue_id":"aura-plugins-txz3h","label":"aura:severity:blocker"}
 {"issue_id":"aura-plugins-tzp8","label":"aura:p10-impl:s10-review"}
 {"issue_id":"aura-plugins-tzp8","label":"severity:important"}
+{"issue_id":"aura-plugins-u1b4p","label":"pasture:p10-impl:s10-review"}
 {"issue_id":"aura-plugins-u1jl","label":"aura:p10-impl:s10-review"}
 {"issue_id":"aura-plugins-u1jl","label":"aura:severity:minor"}
 {"issue_id":"aura-plugins-u3ae0","label":"aura:p8-impl:s8-plan"}
@@ -2674,6 +2723,8 @@
 {"issue_id":"aura-plugins-u4anr","label":"aura:p9-impl:s9-slice"}
 {"issue_id":"aura-plugins-u4vmp","label":"pasture:p3-plan:s3-propose"}
 {"issue_id":"aura-plugins-u4vmp","label":"pasture:p6-plan:s6-ratify"}
+{"issue_id":"aura-plugins-u64n9","label":"pasture:p10-impl:s10-review"}
+{"issue_id":"aura-plugins-u64n9","label":"pasture:severity:important"}
 {"issue_id":"aura-plugins-u66s","label":"aura:p10-impl:s10-review"}
 {"issue_id":"aura-plugins-u66s","label":"aura:severity:important"}
 {"issue_id":"aura-plugins-u6n","label":"aura:p10-impl:s10-review"}
@@ -2685,6 +2736,8 @@
 {"issue_id":"aura-plugins-u8r8w","label":"aura:p9-impl:s9-slice"}
 {"issue_id":"aura-plugins-ua0i","label":"aura:p10-impl:s10-review"}
 {"issue_id":"aura-plugins-ua0i","label":"aura:severity:minor"}
+{"issue_id":"aura-plugins-uad4t","label":"pasture:p10-impl:s10-review"}
+{"issue_id":"aura-plugins-uad4t","label":"pasture:severity:blocker"}
 {"issue_id":"aura-plugins-uazdq","label":"aura:epic:providence"}
 {"issue_id":"aura-plugins-uazdq","label":"aura:p9-impl:s9-slice"}
 {"issue_id":"aura-plugins-ubdt","label":"aura:p10-impl:s10-review"}
@@ -2823,6 +2876,7 @@
 {"issue_id":"aura-plugins-vuj3z","label":"aura:p10-impl:s10-review"}
 {"issue_id":"aura-plugins-vuj3z","label":"aura:reviewer:correctness"}
 {"issue_id":"aura-plugins-vwgcx","label":"aura:p4-plan:s4-review"}
+{"issue_id":"aura-plugins-vxess","label":"pasture:p10-impl:s10-review"}
 {"issue_id":"aura-plugins-vxvt1","label":"aura:mh4ek-investigation"}
 {"issue_id":"aura-plugins-vxvt1","label":"aura:residual"}
 {"issue_id":"aura-plugins-vy4iy","label":"aura:p5-user:s5-uat"}
@@ -2942,6 +2996,8 @@
 {"issue_id":"aura-plugins-xbgc1","label":"aura:p9-impl:s9-slice"}
 {"issue_id":"aura-plugins-xbky","label":"aura:p10-impl:s10-review"}
 {"issue_id":"aura-plugins-xbky","label":"aura:severity:minor"}
+{"issue_id":"aura-plugins-xbnda","label":"pasture:p3-plan:s3-propose"}
+{"issue_id":"aura-plugins-xbnda","label":"pasture:superseded"}
 {"issue_id":"aura-plugins-xcas9","label":"aura:severity:important"}
 {"issue_id":"aura-plugins-xdiu","label":"aura:p10-impl:s10-review"}
 {"issue_id":"aura-plugins-xdiu","label":"aura:severity:minor"}
@@ -3048,6 +3104,7 @@
 {"issue_id":"aura-plugins-yc46","label":"aura:epic-followup"}
 {"issue_id":"aura-plugins-yc46","label":"aura:p10-impl:s10-review"}
 {"issue_id":"aura-plugins-yc5ij","label":"aura:p9-impl:s9-slice"}
+{"issue_id":"aura-plugins-yduej","label":"pasture:p4-plan:s4-review"}
 {"issue_id":"aura-plugins-ye3","label":"aura:p10-impl:s10-review"}
 {"issue_id":"aura-plugins-ye3","label":"aura:severity:blocker"}
 {"issue_id":"aura-plugins-yef","label":"aura:p10-impl:s10-review"}
@@ -3121,6 +3178,7 @@
 {"issue_id":"aura-plugins-zd45","label":"aura:p10-impl:s10-review"}
 {"issue_id":"aura-plugins-zd45","label":"aura:severity:important"}
 {"issue_id":"aura-plugins-zd9p","label":"aura:p10-impl:s10-review"}
+{"issue_id":"aura-plugins-zejmj","label":"pasture:p4-plan:s4-review"}
 {"issue_id":"aura-plugins-zfhyo","label":"pasture:p9-impl:s9-slice"}
 {"issue_id":"aura-plugins-zfjiw","label":"aura:p10-impl:s10-review"}
 {"issue_id":"aura-plugins-zfjiw","label":"aura:severity:important"}
@@ -3161,3 +3219,5 @@
 {"issue_id":"aura-plugins-zwty","label":"aura:severity:minor"}
 {"issue_id":"aura-plugins-zxlby","label":"aura:axis-elegance"}
 {"issue_id":"aura-plugins-zxlby","label":"aura:p4-plan:s4-review"}
+{"issue_id":"aura-plugins-zxrt6","label":"pasture:p10-impl:s10-review"}
+{"issue_id":"aura-plugins-zxrt6","label":"pasture:severity:important"}
