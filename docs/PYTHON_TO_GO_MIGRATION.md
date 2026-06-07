@@ -13,6 +13,8 @@ references:
 
 # Python → Go migration status
 
+> **2026-06-06 — parent URD `jbnx3` CLOSED.** The Go port is delivered as scoped (R1–R7 re-walk recorded on `aura-plugins-ow0pq`): R1/R2/R3/R5/R6/R7 DONE, R4 ACP core delivered (live-bidirectional externally blocked; residuals `pasture#1`/`#2`/`n856x`). Python `aura_protocol` remains deprecated/frozen and is slated for wholesale deletion (`aura-plugins-4s5zt`). Forward scope is tracked outside `jbnx3`: durable-execution substrate Temporal→DBOS (`pasture#13`), provenance integration (`pasture#14`), modular workflow compiler (`pasture#15`).
+
 ## Status as of 2026-05-24
 
 | Layer | Python (`scripts/aura_protocol/`) | Go (`pasture/`) | Notes |

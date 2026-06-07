@@ -459,6 +459,8 @@
 {"issue_id":"aura-plugins-4r9ms","label":"aura:severity:minor"}
 {"issue_id":"aura-plugins-4rj7","label":"aura:p10-impl:s10-review"}
 {"issue_id":"aura-plugins-4rs36","label":"aura:p4-plan:s4-review"}
+{"issue_id":"aura-plugins-4s5zt","label":"cleanup"}
+{"issue_id":"aura-plugins-4s5zt","label":"python-removal"}
 {"issue_id":"aura-plugins-4s7g","label":"aura:p10-impl:s10-review"}
 {"issue_id":"aura-plugins-4s7g","label":"aura:severity:blocker"}
 {"issue_id":"aura-plugins-4sjll","label":"pasture:p9-impl:s9-slice"}
@@ -1130,6 +1132,8 @@
 {"issue_id":"aura-plugins-c1j90","label":"pasture:p9-impl:s9-slice"}
 {"issue_id":"aura-plugins-c2ja","label":"aura:p9-impl:s9-slice"}
 {"issue_id":"aura-plugins-c4pa","label":"aura:epic-followup"}
+{"issue_id":"aura-plugins-c4se4","label":"aura:audit"}
+{"issue_id":"aura-plugins-c4se4","label":"aura:p11-user:s11-uat"}
 {"issue_id":"aura-plugins-c4ud","label":"aura:p10-impl:s10-review"}
 {"issue_id":"aura-plugins-c4ud","label":"aura:severity:minor"}
 {"issue_id":"aura-plugins-c5jx5","label":"aura:epic:providence"}
@@ -2257,6 +2261,8 @@
 {"issue_id":"aura-plugins-onfwy","label":"aura:p3-plan:s3-propose"}
 {"issue_id":"aura-plugins-ongg","label":"aura:p9-impl:s9-slice"}
 {"issue_id":"aura-plugins-ongg","label":"aura:p9-impl:slice-complete"}
+{"issue_id":"aura-plugins-onhv2","label":"aura:architecture"}
+{"issue_id":"aura-plugins-onhv2","label":"aura:request"}
 {"issue_id":"aura-plugins-onw3g","label":"aura:p10-impl:s10-review"}
 {"issue_id":"aura-plugins-onw3g","label":"aura:severity:minor"}
 {"issue_id":"aura-plugins-oo359","label":"aura:roadmap"}

@@ -23,6 +23,10 @@ gate [`aura-plugins-ow0pq`](beads://aura-plugins-ow0pq). The Beads task
 graph is the source of truth for status and dependencies; this file is the
 browsable / diff-able reference for what's outstanding and why.
 
+> **Status (2026-06-06): `jbnx3` CLOSED — the Go port is delivered as scoped; the audit closure cascade is complete.**
+> All 8 `ow0pq` blockers resolved (`3iz51` / `fzctk` / `h2zd9` / `qzr8a` / `bch` + `rk2su` / `x5071` / `6l5yo`); the R1–R7 re-walk is recorded on `ow0pq`; `ow0pq` and the parent URD `jbnx3` are closed. **R1/R2/R3/R5/R6/R7 DONE**; **R4 (ACP)** core delivered with live-bidirectional externally blocked on Claude Code native ACP (residuals tracked: `pasture#1`/`#2`/`n856x`).
+> **Forward scope now lives in its own threads — NOT `jbnx3`:** durable-execution substrate Temporal→DBOS ([`pasture#13`](https://github.com/dayvidpham/pasture/issues/13) / `onhv2`), provenance integration ([`pasture#14`](https://github.com/dayvidpham/pasture/issues/14) / `9wdwc`), modular workflow compiler ([`pasture#15`](https://github.com/dayvidpham/pasture/issues/15)), multi-vendor extensibility (`kv0od`), and the `6l5yo` git_recorder graduation (§2g — **DELIVERED** at pasture `04ec6ad`, local-unpushed; 3 deferrals → FOLLOWUP epic `sibkn`).
+
 Sections:
 
 - **§0. Design context** — load-bearing distinctions and framings.
@@ -220,16 +224,13 @@ the closure decision possible*.
 | 🟡 | **1i. Skill-drift CI check** | (not yet filed) | Add a CI check that flags any drift between `aura-plugins/skills/<skill>/SKILL.md` and `pasture/skills/<skill>/SKILL.md` for the 8 overlapping skills. Migration doc named this; never filed. |
 | 🟡 | **1j. Supervisor + worker SKILL.md per-fragment fidelity audit** | [`aura-plugins-fzctk`](beads://aura-plugins-fzctk) | Per URE Q8: walk through parent SKILL.md L341–869 (supervisor) + L253–568 (worker), fragment by fragment, and verify the Go codegen literal (`specs_data_body.go::supervisorBody` L24+, `workerBody` L1375+) captured each piece accurately. **Blocks `jbnx3` closure** — informs whether R1 "Port aurad" is genuinely complete at the codegen-fidelity layer. |
 
-## §1.5. Sibling epics blocking `jbnx3` closure
+## §1.5. Sibling epics blocking `jbnx3` closure — ✅ RESOLVED (2026-06-06)
 
-`jbnx3` (the Pasture parent URD) is blocked on the closure triage task
-[`aura-plugins-ow0pq`](beads://aura-plugins-ow0pq), which is blocked by
-**8 prerequisite tasks** — 5 visibility audits (cmvu5 children) + 3 peer
-epics implementing R-rows directly (`6ujr` descoped 2026-05-30 — see below).
+**All 8 prerequisites landed; `ow0pq` re-walked R1–R7 and `jbnx3` is CLOSED.** This section is retained for the audit trail; the table below records the final state. `6ujr` was descoped 2026-05-30 (see below).
 
-| Status | Type | Task | Why it blocks `jbnx3` closure |
+| Status | Type | Task | Why it blocked `jbnx3` closure |
 |---|---|---|---|
-| 🚫 | gate | [`aura-plugins-ow0pq`](beads://aura-plugins-ow0pq) | The single direct blocker on `jbnx3`. Re-walks R1–R7 once the 8 below land. |
+| ✅ | gate | [`aura-plugins-ow0pq`](beads://aura-plugins-ow0pq) | The single direct blocker on `jbnx3`. Re-walked R1–R7 once the 8 below landed; **CLOSED** (jbnx3 closed with residuals filed). |
 | 🟡 | audit | [`aura-plugins-fzctk`](beads://aura-plugins-fzctk) (§1j) | Per-fragment supervisor/worker fidelity audit — informs R1 codegen-fidelity completeness. |
 | 🟡 | audit | [`aura-plugins-qzr8a`](beads://aura-plugins-qzr8a) (§2i) | 19 stale items individual triage — `bwfqm` ("aurad+aura-msg URD") and `q72mt` ("rework supervisor URD") may carry residual asks against R1/R2. |
 | 🟡 | audit | [`aura-plugins-h2zd9`](beads://aura-plugins-h2zd9) (§2k) | IS jbnx3 R5 directly — specify cross-module consumption story for `pkg/protocol`. |
