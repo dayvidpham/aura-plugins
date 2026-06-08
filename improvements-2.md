@@ -114,4 +114,48 @@ ok      github.com/peasant-labs/peasant/pkg/redact    1.578s
 
 </logs>
 
+---------------------
 
+# Word Salad Question Asking
+
+The problem here: we just use endless amounts of buzzwords, keywords, and variable names without any context or grounding to prepare me for what it actually means or what's being asked.
+
+<logs>
+Not sure what all the different propositions here are:
+
+<options>
+● Verified — and this settles it: DBOS-Go v0.16.0 has no public transactional-step API. runAsTxn is unexported (internal to DBOS's own checkpointing); RunAsStep's body receives only a context.Context, never a *sql.Tx. So there is
+  no supported way to write any external row atomically inside DBOS's step-checkpoint transaction. DBOS's Go exactly-once is purely step-return memoization — a step body's external side effects re-run on the partial-failure
+  window, by design ("make steps idempotent").
+
+  That means exactly-once for an external row is only achievable via an idempotency key on the same connection as the write:
+  - audit_events (pasture-owned, modernc, can add a key) → exactly-once works (single INSERT … ON CONFLICT is atomic on its own connection). ✓
+  - activities (provenance-owned, written through a different driver — zombiezen, random-UUID id, schema frozen by §8) → exactly-once is architecturally blocked. No deterministic key, can't modify the table, and any pasture-side
+  sidecar is on a different connection → unavoidable dual-write window (A's blocker).
+
+  This has now blocked three straight rounds (B-R2, A-R3, A-R4). It's not a detail to patch a 5th time — it's a fundamental consequence of the two-driver split + the "Provenance unmodified" binding + DBOS's no-public-txn API. The
+  resolution narrows a URD must-pass and touches a binding you own, so this is genuinely your call, not mine to decide unilaterally:
+─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+ ☐ activities semantics
+
+Exactly-once for the provenance `activities` table is architecturally blocked (provenance uses a different SQLite driver/connection via zombiezen; no deterministic key; §8 says don't modify the library; DBOS-Go has no public
+in-tx step API). DBOS orchestration state (phases/votes) and pasture-owned audit_events CAN be exactly-once. How should activities behave?
+
+  1. Sidecar authoritative, activities best-effort (Recommended)
+     The pasture-owned sidecar `engine_activity_emitted` (modernc, UNIQUE key) is the EXACTLY-ONCE authoritative activity ledger; `pasture status` + acceptance read IT. prov.StartActivity is best-effort population of the
+     provenance graph (at-least-once — a rare crash-replay may leave one duplicate activities row). Honors §8, never loses provenance, exactly-once where it's the source of truth. Narrows URD 'exactly-once' to: orchestration
+     state + audit_events exactly-once; provenance activities at-least-once (deduped at read via the sidecar).
+  2. Bypass the library for activities
+     Write the activities row directly via pasture's modernc handle with a deterministic TEXT id + UNIQUE/ON CONFLICT (NOT through prov.StartActivity). Gives true exactly-once on activities, but couples pasture to provenance's
+     table schema (fragile to provenance changes) and violates the spirit of 'provenance owns activities' without formally reversing §8.
+  3. Modify provenance library (reverse §8)
+     Add an idempotent/deterministic-id StartActivity to the provenance library so activities is natively exactly-once. Cleanest semantically, but REVERSES the §8/D5 'Provenance library unmodified' binding — which is #14's
+     (provenance integration) decision to make, not this substrate epoch's. Would expand scope into #14.
+  4. Defer activity wiring to #14
+     Drop x45ho/R6 (activity-table population) from THIS epoch entirely; let #14 (provenance integration) own activity recording with whatever idempotency model it chooses. Shrinks this epoch to substrate+boundary+status; the
+     PROV-O activities table stays unpopulated until #14.
+</options>
+
+Need to walk through these component-by-component, showing me the interfaces, the semantic usages, and the inter-op and integration with existing surfaces.
+
+</logs>
