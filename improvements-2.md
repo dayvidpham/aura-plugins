@@ -159,3 +159,39 @@ in-tx step API). DBOS orchestration state (phases/votes) and pasture-owned audit
 Need to walk through these component-by-component, showing me the interfaces, the semantic usages, and the inter-op and integration with existing surfaces.
 
 </logs>
+
+------------
+
+# Beads leaking into the Code, Docs, External-Facing Comms
+
+<logs>
+      40 +- [No process vocab in code](no-process-vocab-in-code.md
+         +) — code/tests must not reference Beads IDs / PROPOSAL/Δ
+         + / FOLLOWUP / slice labels (M1-Sx) / LIP-N; keep self-co
+         +ntained domain terms; provenance lives in Beads + commit
+         + msg
+</logs>
+
+----------
+
+# New team structure. Standing team, and chosen model for each agent type.
+
+<logs>
+❯ ❯ /pasture:epoch When PR #60 that was merged in that implemented ingestion from Codex transcripts, the `push`
+  command was actually broken. This was known. However, now that the push command is fixed, we need to change the
+  `village` backend to be able to receive our push. This might require an update to the `pkg/schema` as well, if
+  it is not represented in our data model yet. We also need to perform minimal updates to the village frontend,
+  so that Codex transcripts can be displayed. We should Explore first to determine if `codex` is implemented in
+  `push`. It SHOULD show up in the interactive transcript selector when we run `./bin/peasant village push`,
+  though I'm not sure. We also need to update the local peasant `web` frontend to display Codex transcripts. The
+  transcript browser is actually at @../transcript-browser/ .
+
+  We should create tickets for each of these distinct tasks, if they are found to exist. Send out many parallel
+  Haiku @"Explore (agent)"  agents to determine if any of this is implemented yet. Once this is done: you ARE the
+  epoch, architect, and supervisor agent, subsuming and fulfilling their roles whenever the Pasture Protocol
+  reaches those phases. We should use TeamCreate to create a team, then @"pasture:reviewer (agent)" should be a
+  standing team of 3 Fable teammates total, one for each review axis, and that are re-used for all review waves;
+  and @"pasture:worker (agent)" should be one Opus agent per-slice, for when you become the supervisor and we
+  move into the IMPL phases.
+
+</logs>
