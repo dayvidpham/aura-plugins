@@ -195,3 +195,103 @@ Need to walk through these component-by-component, showing me the interfaces, th
   move into the IMPL phases.
 
 </logs>
+
+
+-----------
+
+# AskUserQuestion swallows model explanation.
+
+❯ MUST end the turn with the explanation as plain text (with appropriate markup, syntax highlighting), NOT embed the context inside the AskUserQuestion. This is because the AskUserQuestion content does not show any syntax highlighting.● User answered Claude's questions:
+
+<logs>
+● User answered Claude's questions:
+· Ratify this design and dispatch? (Three workers with the design baked into their briefs: ① spec versioning + legacy-spec retirement w/ consumer-inventory gate, ② fixtures, ③ docs. Each commits to the PR branch; I verify gates and push once all land.) → Need some more information on (2) fixtures first.
+
+Let me ground the fixture design in the actual current tests first, then give you the full concrete picture:
+
+● Bash(ls internal/pull/ && wc -l internal/pull/types_test.go)
+clock.go
+manifest.go
+pipeline.go
+pipeline_test.go
+refresh.go
+refresh_test.go
+types.go
+types_test.go
+143 internal/pull/types_test.go
+
+● Read(/home/minttea/dev/agent-data-leverage/feat--pull-from-village/internal/pull/types_test.go)
+Read 144 lines
+
+● User answered Claude's questions:
+· Does this concrete fixture design answer the open questions — and two sub-decisions within itl values in the YAML with testutil re-exporting them (vs consumer-supplied params), and (b) manifest examples as golden JSON files beside the YAML? → What is a golden JSON manifest?
+· With component 2 settled — ratify the full three-component design and dispatch? → Hold
+
+● User answered Claude's questions:
+· With 'golden file' clarified — lock component 2's two sub-decisions? (a) fixture carries self-contained canonical values, testutil re-exports them; (b) manifest example as a golden JSON file beside the YAML, shape-pinned
+by a round-trip test. → Nothing was clarified: Claude Code harness is broken, can't see your ouon.
+· Ratify the full three-component design and dispatch? → Hold
+Interrupted · What should Claude do instead?
+
+❯ This is what I saw:
+
+  <logs>
+  ● User answered Claude's questions:
+  · Does this concrete fixture design answer the open questions — and two sub-decisions within it: (a) self-contained canonical values in the YAML with testutil re-exporting them (vs consumer-supplied params), and (b) manifest
+  examples as golden JSON files beside the YAML? → What is a golden JSON manifest?
+  · With component 2 settled — ratify the full three-component design and dispatch? → Hold
+
+  ● User answered Claude's questions:
+  · With 'golden file' clarified — lock component 2's two sub-decisions? (a) fixture carries self-contained canonical values, testutil re-exports them; (b) manifest example as a golden JSON file beside the YAML, shape-pinned by a round-trip test. → Nothing was clarified: Claude Code harness is broken, can't see your output before the AskUserQuestion.
+  · Ratify the full three-component design and dispatch? → Hold
+  </logs>
+
+● Write(/home/minttea/.claude/projects/-home-minttea-dev-agent-data-leverage/memory/feedback_text_before_askuserquestion_invisible.md)
+Wrote 17 lines to /home/minttea/.claude/projects/-home-minttea-dev-agent-data-leverage/memory/festion_invisible.md
+---
+name: text-before-askuserquestion-invisible
+description: "Explanatory text emitted in the same turn BEFORE an AskUserQuestion call may not render to the user — put context inside the question/preview, or deliver it in a text-only turn first"
+metadata:
+  node_type: memory
+  type: feedback
+  originSessionId: 7f19dd79-70b3-4bad-bcf2-bbd859f190f0
+---
+
+Observed 2026-06-11 (village-pull PR design phase): I wrote a multi-paragraph "what is a golden file" explanation and then called AskUserQuestion in the same turn. The user saw ONLY the question dialog — the expla
+nation never rendered ("Claude Code harness is broken, can't see your output before the AskUserQuestion"). This happened on a turn that started from an AskUserQuestion answer (no fresh user text message).
+
+**Why:** Assistant text in the middle of a turn (before a tool call) is not reliably displa turn is guaranteed. An AskUserQuestion-answer-driven turn that immediately re-asks renders j
+ust the dialog.
+
+**How to apply:**
+- Never rely on assistant prose immediately preceding AskUserQuestion in the same turn for decision context.
+- Either (a) end the turn with the explanation as plain text (no trailing tool call) and ask the question in the NEXT turn, or (b) embed the needed context inside the AskUserQuestion `question` text / option `desc
+ription`s / `preview`s, which always render.
+- For design phases (URE/UAT style), prefer (b) for short context and (a) for anything long (comparisons, diagrams).
+
+● Update(/home/minttea/.claude/projects/-home-minttea-dev-agent-data-leverage/memory/MEMORY.md)
+
+● Bash(F=/home/minttea/.claude/projects/-home-minttea-dev-agent-data-leverage/memory/MEMORY.md
+  python3 - "$F" <<'EOF'
+  import sys
+  p = sys.argv[1]
+  s = open(p).read()
+  anchor = "### Never guess Beads IDs or git hashes (HARD REQUIREMENT)"
+  block = """### Text before AskUserQuestion doesn't render
+  - [feedback_text_before_askuserquestion_invisible.md](feedback_text_before_askuserquestion_invisible.md) — prose written in the same turn before an AskUserQuestion call may never be shown; embed context in the
+  question/options/previews, or end the turn with text and ask next turn.
+
+  ### Design phase before fixing (PR feedback)
+  - [feedback_design_phase_before_fixing.md](feedback_design_phase_before_fixing.md) — review feedba mini-URE with the user BEFORE workers are dispatched; never fix blindly.
+
+  """
+  assert anchor in s and block.split("\n")[0] not in s
+  open(p, "w").write(s.replace(anchor, block + anchor, 1))
+  print("MEMORY.md updated")
+  EOF)
+MEMORY.md updated
+Interrupted · What should Claude do instead?
+
+❯ MUST end the turn with the explanation as plain text (with appropriate markup, syntax highlighting), NOT embed the context inside the AskUserQuestion. This is because the AskUserQuestion content does not show any syntax highlighting.● User answered Claude's questions:
+
+</logs>
