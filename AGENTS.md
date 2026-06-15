@@ -4,6 +4,19 @@ This project is the **Aura Protocol** toolkit — multi-agent orchestration scri
 
 This project uses **bd** (beads) for issue tracking. Run `bd prime` to get started.
 
+## CRITICAL: Git Hooks Policy
+
+**NEVER install ANY Git hooks — from Beads (`bd`) or any other source — without
+explicit permission from the user.** This is a hard, non-negotiable safety rule.
+
+- ❌ Do NOT run any command that installs, enables, or modifies git hooks
+  (e.g. `bd` hook-install flags, `core.hooksPath` changes, writing to
+  `.git/hooks/`, `pre-commit install`, or any tool's "install hooks" step).
+- ❌ Do NOT let a setup/init/prime step silently install hooks as a side effect —
+  if a tool offers to install hooks, STOP and ask first.
+- ✅ If a workflow appears to need a git hook, surface it to the user and obtain
+  explicit, specific approval BEFORE installing it.
+
 ## Quick Reference
 
 ```bash
