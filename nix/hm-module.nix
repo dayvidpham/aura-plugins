@@ -103,7 +103,11 @@ in
     };
 
     # ── Plugin skills → ~/.claude/skills/<name>/SKILL.md ──
-    # Both Claude Code and OpenCode discover skills under ~/.claude/skills/.
+    # This is the USER-LEVEL install path: both Claude Code and OpenCode scan
+    # ~/.claude/skills/ for user-installed skills. It is distinct from the
+    # PROJECT-LEVEL manifest path (.opencode/skill) that an emitted
+    # opencode.json points at for repo-scoped skill discovery — these are two
+    # separate discovery mechanisms.
     commands = {
       enable = mkOption {
         type = types.bool;
