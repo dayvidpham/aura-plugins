@@ -134,6 +134,7 @@
 {"created_at":"2026-03-03T03:32:08Z","created_by":"David Huu Pham","depends_on_id":"aura-plugins-ji13","issue_id":"aura-plugins-1o92","type":"blocks"}
 {"created_at":"2026-03-03T08:20:01Z","created_by":"David Huu Pham","depends_on_id":"aura-plugins-nk7k","issue_id":"aura-plugins-1o92","type":"blocks"}
 {"created_at":"2026-03-03T03:32:08Z","created_by":"David Huu Pham","depends_on_id":"aura-plugins-t6r5","issue_id":"aura-plugins-1o92","type":"blocks"}
+{"created_at":"2026-06-15T21:22:53Z","created_by":"David Huu Pham","depends_on_id":"aura-plugins-fjbl4","issue_id":"aura-plugins-1shlf","type":"blocks"}
 {"created_at":"2026-06-09T00:40:45Z","created_by":"David Huu Pham","depends_on_id":"aura-plugins-coutm","issue_id":"aura-plugins-1so2s","type":"blocks"}
 {"created_at":"2026-03-07T15:22:30Z","created_by":"David Huu Pham","depends_on_id":"aura-plugins-o25j1","issue_id":"aura-plugins-1sqb1","type":"blocks"}
 {"created_at":"2026-03-11T20:42:19Z","created_by":"David Huu Pham","depends_on_id":"aura-plugins-icvxn","issue_id":"aura-plugins-1vhhp","type":"blocks"}
@@ -191,6 +192,8 @@
 {"created_at":"2026-02-25T20:30:20Z","created_by":"David Huu Pham","depends_on_id":"aura-plugins-2j4v","issue_id":"aura-plugins-2j4v.2","type":"parent-child"}
 {"created_at":"2026-02-25T20:30:21Z","created_by":"David Huu Pham","depends_on_id":"aura-plugins-2j4v","issue_id":"aura-plugins-2j4v.3","type":"parent-child"}
 {"created_at":"2026-02-25T20:30:27Z","created_by":"David Huu Pham","depends_on_id":"aura-plugins-2j4v.3","issue_id":"aura-plugins-2j4v.3.1","type":"parent-child"}
+{"created_at":"2026-06-15T21:16:41Z","created_by":"David Huu Pham","depends_on_id":"aura-plugins-s3pxo","issue_id":"aura-plugins-2knh0","type":"blocks"}
+{"created_at":"2026-06-15T21:19:59Z","created_by":"David Huu Pham","depends_on_id":"aura-plugins-yl0y8","issue_id":"aura-plugins-2knh0","type":"blocks"}
 {"created_at":"2026-04-25T14:48:13Z","created_by":"David Huu Pham","depends_on_id":"aura-plugins-0sfqy","issue_id":"aura-plugins-2l6af","type":"blocks"}
 {"created_at":"2026-03-14T02:31:13Z","created_by":"David Huu Pham","depends_on_id":"aura-plugins-3ox02","issue_id":"aura-plugins-2nw4i","type":"blocks"}
 {"created_at":"2026-03-14T02:31:13Z","created_by":"David Huu Pham","depends_on_id":"aura-plugins-drhvj","issue_id":"aura-plugins-2nw4i","type":"blocks"}
@@ -316,6 +319,7 @@
 {"created_at":"2026-06-09T00:40:43Z","created_by":"David Huu Pham","depends_on_id":"aura-plugins-svrtb","issue_id":"aura-plugins-43bn4","type":"blocks"}
 {"created_at":"2026-06-09T00:40:44Z","created_by":"David Huu Pham","depends_on_id":"aura-plugins-wvauh","issue_id":"aura-plugins-43bn4","type":"blocks"}
 {"created_at":"2026-06-09T14:28:02Z","created_by":"David Huu Pham","depends_on_id":"aura-plugins-xfi39","issue_id":"aura-plugins-43bn4","type":"blocks"}
+{"created_at":"2026-06-15T21:22:53Z","created_by":"David Huu Pham","depends_on_id":"aura-plugins-fjbl4","issue_id":"aura-plugins-45gf2","type":"blocks"}
 {"created_at":"2026-05-30T04:24:04Z","created_by":"David Huu Pham","depends_on_id":"aura-plugins-q9sz9","issue_id":"aura-plugins-47zju","type":"discovered-from"}
 {"created_at":"2026-03-02T14:26:27Z","created_by":"David Huu Pham","depends_on_id":"aura-plugins-2blr","issue_id":"aura-plugins-48jp","type":"blocks"}
 {"created_at":"2026-03-02T14:26:35Z","created_by":"David Huu Pham","depends_on_id":"aura-plugins-521h","issue_id":"aura-plugins-48jp","type":"blocks"}
@@ -373,6 +377,8 @@
 {"created_at":"2026-03-25T03:20:28Z","created_by":"David Huu Pham","depends_on_id":"aura-plugins-j3bqc","issue_id":"aura-plugins-5bvwh","type":"blocks"}
 {"created_at":"2026-03-25T03:21:17Z","created_by":"David Huu Pham","depends_on_id":"aura-plugins-rrx3a","issue_id":"aura-plugins-5bvwh","type":"blocks"}
 {"created_at":"2026-03-25T03:21:17Z","created_by":"David Huu Pham","depends_on_id":"aura-plugins-t3sh8","issue_id":"aura-plugins-5bvwh","type":"blocks"}
+{"created_at":"2026-06-15T21:22:53Z","created_by":"David Huu Pham","depends_on_id":"aura-plugins-fjbl4","issue_id":"aura-plugins-5dfox","type":"blocks"}
+{"created_at":"2026-06-15T23:00:44Z","created_by":"David Huu Pham","depends_on_id":"aura-plugins-oxbre","issue_id":"aura-plugins-5dfox","type":"blocks"}
 {"created_at":"2026-03-06T21:23:25Z","created_by":"David Huu Pham","depends_on_id":"aura-plugins-etmeb","issue_id":"aura-plugins-5efq8","type":"blocks"}
 {"created_at":"2026-03-06T21:23:25Z","created_by":"David Huu Pham","depends_on_id":"aura-plugins-ierf1","issue_id":"aura-plugins-5efq8","type":"blocks"}
 {"created_at":"2026-03-24T22:37:56Z","created_by":"David Huu Pham","depends_on_id":"aura-plugins-o7bkb","issue_id":"aura-plugins-5k40z","type":"blocks"}
@@ -406,6 +412,8 @@
 {"created_at":"2026-03-04T23:30:13Z","created_by":"David Huu Pham","depends_on_id":"aura-plugins-v1ct","issue_id":"aura-plugins-69yr","type":"blocks"}
 {"created_at":"2026-03-07T15:21:33Z","created_by":"David Huu Pham","depends_on_id":"aura-plugins-ln4w4","issue_id":"aura-plugins-6aieu","type":"blocks"}
 {"created_at":"2026-02-26T22:55:23Z","created_by":"David Huu Pham","depends_on_id":"aura-plugins-dzen","issue_id":"aura-plugins-6btj","type":"blocks"}
+{"created_at":"2026-06-15T23:00:44Z","created_by":"David Huu Pham","depends_on_id":"aura-plugins-45gf2","issue_id":"aura-plugins-6d0gj","type":"blocks"}
+{"created_at":"2026-06-15T21:22:53Z","created_by":"David Huu Pham","depends_on_id":"aura-plugins-fjbl4","issue_id":"aura-plugins-6d0gj","type":"blocks"}
 {"created_at":"2026-02-26T15:46:06Z","created_by":"David Huu Pham","depends_on_id":"aura-plugins-9fud","issue_id":"aura-plugins-6dfm","type":"blocks"}
 {"created_at":"2026-06-13T21:57:30Z","created_by":"David Huu Pham","depends_on_id":"aura-plugins-8k3b6","issue_id":"aura-plugins-6f652","type":"blocks"}
 {"created_at":"2026-03-06T21:16:32Z","created_by":"David Huu Pham","depends_on_id":"aura-plugins-2zdcu","issue_id":"aura-plugins-6h52t","type":"blocks"}
@@ -498,6 +506,9 @@
 {"created_at":"2026-02-25T20:30:31Z","created_by":"David Huu Pham","depends_on_id":"aura-plugins-82ya","issue_id":"aura-plugins-82ya.2","type":"parent-child"}
 {"created_at":"2026-02-25T20:30:41Z","created_by":"David Huu Pham","depends_on_id":"aura-plugins-82ya.2","issue_id":"aura-plugins-82ya.2.1","type":"parent-child"}
 {"created_at":"2026-02-25T20:30:32Z","created_by":"David Huu Pham","depends_on_id":"aura-plugins-82ya","issue_id":"aura-plugins-82ya.3","type":"parent-child"}
+{"created_at":"2026-06-15T21:22:04Z","created_by":"David Huu Pham","depends_on_id":"aura-plugins-45gf2","issue_id":"aura-plugins-82zlb","type":"blocks"}
+{"created_at":"2026-06-15T21:22:04Z","created_by":"David Huu Pham","depends_on_id":"aura-plugins-6d0gj","issue_id":"aura-plugins-82zlb","type":"blocks"}
+{"created_at":"2026-06-15T21:20:54Z","created_by":"David Huu Pham","depends_on_id":"aura-plugins-fjbl4","issue_id":"aura-plugins-82zlb","type":"blocks"}
 {"created_at":"2026-06-01T00:43:41Z","created_by":"David Huu Pham","depends_on_id":"aura-plugins-1tgss","issue_id":"aura-plugins-8368d","type":"blocks"}
 {"created_at":"2026-05-31T22:25:27Z","created_by":"David Huu Pham","depends_on_id":"aura-plugins-3h5ee","issue_id":"aura-plugins-8368d","type":"blocks"}
 {"created_at":"2026-05-31T22:25:27Z","created_by":"David Huu Pham","depends_on_id":"aura-plugins-6o6nw","issue_id":"aura-plugins-8368d","type":"blocks"}
@@ -667,6 +678,9 @@
 {"created_at":"2026-03-25T03:08:28Z","created_by":"David Huu Pham","depends_on_id":"aura-plugins-qkw9p","issue_id":"aura-plugins-ampqm","type":"blocks"}
 {"created_at":"2026-03-25T03:08:41Z","created_by":"David Huu Pham","depends_on_id":"aura-plugins-vwgcx","issue_id":"aura-plugins-ampqm","type":"blocks"}
 {"created_at":"2026-02-21T17:32:46Z","created_by":"David Huu Pham","depends_on_id":"aura-plugins-r1n","issue_id":"aura-plugins-amx","type":"blocks"}
+{"created_at":"2026-06-15T21:20:23Z","created_by":"David Huu Pham","depends_on_id":"aura-plugins-fjbl4","issue_id":"aura-plugins-anobg","type":"blocks"}
+{"created_at":"2026-06-15T21:21:48Z","created_by":"David Huu Pham","depends_on_id":"aura-plugins-husd5","issue_id":"aura-plugins-anobg","type":"blocks"}
+{"created_at":"2026-06-15T21:21:48Z","created_by":"David Huu Pham","depends_on_id":"aura-plugins-klr5q","issue_id":"aura-plugins-anobg","type":"blocks"}
 {"created_at":"2026-06-09T20:50:47Z","created_by":"David Huu Pham","depends_on_id":"aura-plugins-7dg0t","issue_id":"aura-plugins-anunp","type":"blocks"}
 {"created_at":"2026-06-09T20:50:47Z","created_by":"David Huu Pham","depends_on_id":"aura-plugins-c6op5","issue_id":"aura-plugins-anunp","type":"blocks"}
 {"created_at":"2026-06-09T20:54:54Z","created_by":"David Huu Pham","depends_on_id":"aura-plugins-vcj6h","issue_id":"aura-plugins-anunp","type":"blocks"}
@@ -1063,6 +1077,9 @@
 {"created_at":"2026-04-25T14:54:11Z","created_by":"David Huu Pham","depends_on_id":"aura-plugins-zgti3","issue_id":"aura-plugins-f59jc","type":"blocks"}
 {"created_at":"2026-02-22T19:22:00Z","created_by":"David Huu Pham","depends_on_id":"aura-plugins-u3ce","issue_id":"aura-plugins-f5l7","type":"blocks"}
 {"created_at":"2026-06-09T21:20:20Z","created_by":"David Huu Pham","depends_on_id":"aura-plugins-ukaxt","issue_id":"aura-plugins-f5n3e","type":"blocks"}
+{"created_at":"2026-06-15T21:22:04Z","created_by":"David Huu Pham","depends_on_id":"aura-plugins-5dfox","issue_id":"aura-plugins-f6t64","type":"blocks"}
+{"created_at":"2026-06-15T21:20:54Z","created_by":"David Huu Pham","depends_on_id":"aura-plugins-fjbl4","issue_id":"aura-plugins-f6t64","type":"blocks"}
+{"created_at":"2026-06-15T21:22:04Z","created_by":"David Huu Pham","depends_on_id":"aura-plugins-oxbre","issue_id":"aura-plugins-f6t64","type":"blocks"}
 {"created_at":"2026-02-23T01:04:38Z","created_by":"David Huu Pham","depends_on_id":"aura-plugins-139n","issue_id":"aura-plugins-f6tk","type":"blocks"}
 {"created_at":"2026-02-22T04:54:10Z","created_by":"David Huu Pham","depends_on_id":"aura-plugins-59p","issue_id":"aura-plugins-f6u","type":"blocks"}
 {"created_at":"2026-05-30T02:05:14Z","created_by":"David Huu Pham","depends_on_id":"aura-plugins-qzr8a","issue_id":"aura-plugins-f89mx","type":"discovered-from"}
@@ -1087,6 +1104,10 @@
 {"created_at":"2026-03-26T02:28:01Z","created_by":"David Huu Pham","depends_on_id":"aura-plugins-prrwk","issue_id":"aura-plugins-fe1ju","type":"blocks"}
 {"created_at":"2026-03-27T01:18:30Z","created_by":"David Huu Pham","depends_on_id":"aura-plugins-x1oe8","issue_id":"aura-plugins-fe1ju","type":"blocks"}
 {"created_at":"2026-04-25T14:44:49Z","created_by":"David Huu Pham","depends_on_id":"aura-plugins-cbgkl","issue_id":"aura-plugins-fepht","type":"blocks"}
+{"created_at":"2026-06-15T21:21:47Z","created_by":"David Huu Pham","depends_on_id":"aura-plugins-ak9sn","issue_id":"aura-plugins-fjbl4","type":"blocks"}
+{"created_at":"2026-06-15T21:21:48Z","created_by":"David Huu Pham","depends_on_id":"aura-plugins-l12xx","issue_id":"aura-plugins-fjbl4","type":"blocks"}
+{"created_at":"2026-06-15T21:21:48Z","created_by":"David Huu Pham","depends_on_id":"aura-plugins-n8fs9","issue_id":"aura-plugins-fjbl4","type":"blocks"}
+{"created_at":"2026-06-15T21:21:48Z","created_by":"David Huu Pham","depends_on_id":"aura-plugins-sveg1","issue_id":"aura-plugins-fjbl4","type":"blocks"}
 {"created_at":"2026-05-29T17:57:59Z","created_by":"David Huu Pham","depends_on_id":"aura-plugins-mh4ek","issue_id":"aura-plugins-fkmwt","type":"discovered-from"}
 {"created_at":"2026-02-26T22:24:59Z","created_by":"David Huu Pham","depends_on_id":"aura-plugins-47zo","issue_id":"aura-plugins-fkou","type":"blocks"}
 {"created_at":"2026-03-02T13:52:34Z","created_by":"David Huu Pham","depends_on_id":"aura-plugins-70yh","issue_id":"aura-plugins-fl5p","type":"blocks"}
@@ -1167,6 +1188,10 @@
 {"created_at":"2026-02-21T17:00:39Z","created_by":"David Huu Pham","depends_on_id":"aura-plugins-jd9","issue_id":"aura-plugins-gmv","type":"blocks"}
 {"created_at":"2026-02-21T17:17:00Z","created_by":"David Huu Pham","depends_on_id":"aura-plugins-qil","issue_id":"aura-plugins-gmv","type":"blocks"}
 {"created_at":"2026-02-26T12:46:15Z","created_by":"David Huu Pham","depends_on_id":"aura-plugins-wfhc","issue_id":"aura-plugins-gox3","type":"blocks"}
+{"created_at":"2026-06-15T21:20:23Z","created_by":"David Huu Pham","depends_on_id":"aura-plugins-fjbl4","issue_id":"aura-plugins-gozk6","type":"blocks"}
+{"created_at":"2026-06-15T21:21:48Z","created_by":"David Huu Pham","depends_on_id":"aura-plugins-iyvgw","issue_id":"aura-plugins-gozk6","type":"blocks"}
+{"created_at":"2026-06-15T21:21:48Z","created_by":"David Huu Pham","depends_on_id":"aura-plugins-mxcxr","issue_id":"aura-plugins-gozk6","type":"blocks"}
+{"created_at":"2026-06-15T21:21:48Z","created_by":"David Huu Pham","depends_on_id":"aura-plugins-pig3c","issue_id":"aura-plugins-gozk6","type":"blocks"}
 {"created_at":"2026-05-30T04:24:04Z","created_by":"David Huu Pham","depends_on_id":"aura-plugins-q9sz9","issue_id":"aura-plugins-gqzbv","type":"discovered-from"}
 {"created_at":"2026-04-25T15:37:06Z","created_by":"David Huu Pham","depends_on_id":"aura-plugins-3sum0","issue_id":"aura-plugins-gsm1f","type":"blocks"}
 {"created_at":"2026-04-25T15:33:00Z","created_by":"David Huu Pham","depends_on_id":"aura-plugins-daakm","issue_id":"aura-plugins-gsm1f","type":"blocks"}
@@ -1229,6 +1254,7 @@
 {"created_at":"2026-06-09T20:50:48Z","created_by":"David Huu Pham","depends_on_id":"aura-plugins-s2iwd","issue_id":"aura-plugins-hl1h1","type":"blocks"}
 {"created_at":"2026-02-22T20:24:10Z","created_by":"David Huu Pham","depends_on_id":"aura-plugins-h4wl","issue_id":"aura-plugins-hqzj","type":"blocks"}
 {"created_at":"2026-02-22T20:23:56Z","created_by":"David Huu Pham","depends_on_id":"aura-plugins-mk16","issue_id":"aura-plugins-hqzj","type":"blocks"}
+{"created_at":"2026-06-15T21:22:53Z","created_by":"David Huu Pham","depends_on_id":"aura-plugins-fjbl4","issue_id":"aura-plugins-husd5","type":"blocks"}
 {"created_at":"2026-03-09T21:19:45Z","created_by":"David Huu Pham","depends_on_id":"aura-plugins-y70cx","issue_id":"aura-plugins-hvl6f","type":"blocks"}
 {"created_at":"2026-05-29T17:57:42Z","created_by":"David Huu Pham","depends_on_id":"aura-plugins-mh4ek","issue_id":"aura-plugins-hyceu","type":"discovered-from"}
 {"created_at":"2026-03-14T02:30:41Z","created_by":"David Huu Pham","depends_on_id":"aura-plugins-21lgi","issue_id":"aura-plugins-hyuaz","type":"blocks"}
@@ -1309,7 +1335,8 @@
 {"created_at":"2026-02-25T23:12:31Z","created_by":"David Huu Pham","depends_on_id":"aura-plugins-90s0","issue_id":"aura-plugins-iw89","type":"blocks"}
 {"created_at":"2026-02-25T23:40:03Z","created_by":"David Huu Pham","depends_on_id":"aura-plugins-a0x0","issue_id":"aura-plugins-iw89","type":"blocks"}
 {"created_at":"2026-02-25T23:12:24Z","created_by":"David Huu Pham","depends_on_id":"aura-plugins-mdyr","issue_id":"aura-plugins-iw89","type":"blocks"}
-{"created_at":"2026-02-21T18:27:36Z","created_by":"David Huu Pham","depends_on_id":"aura-plugins-s6i","issue_id":"aura-plugins-j02","type":"blocks"}
+{"created_at":"2026-06-15T21:22:53Z","created_by":"David Huu Pham","depends_on_id":"aura-plugins-fjbl4","issue_id":"aura-plugins-iyvgw","type":"blocks"}
+{"created_at":"2026-06-15T23:00:44Z","created_by":"David Huu Pham","depends_on_id":"aura-plugins-pig3c","issue_id":"aura-plugins-iyvgw","type":"blocks"}
 {"created_at":"2026-03-25T04:02:31Z","created_by":"David Huu Pham","depends_on_id":"aura-plugins-bvl96","issue_id":"aura-plugins-j1878","type":"blocks"}
 {"created_at":"2026-02-21T12:10:26Z","created_by":"David Huu Pham","depends_on_id":"aura-plugins-wqw","issue_id":"aura-plugins-j2k","type":"blocks"}
 {"created_at":"2026-03-25T03:20:29Z","created_by":"David Huu Pham","depends_on_id":"aura-plugins-5wn5c","issue_id":"aura-plugins-j3bqc","type":"blocks"}
@@ -1402,6 +1429,8 @@
 {"created_at":"2026-03-06T21:16:32Z","created_by":"David Huu Pham","depends_on_id":"aura-plugins-8hw5s","issue_id":"aura-plugins-kgs4x","type":"blocks"}
 {"created_at":"2026-02-26T22:25:34Z","created_by":"David Huu Pham","depends_on_id":"aura-plugins-kg8l","issue_id":"aura-plugins-kixh","type":"blocks"}
 {"created_at":"2026-02-22T20:27:59Z","created_by":"David Huu Pham","depends_on_id":"aura-plugins-7jsw","issue_id":"aura-plugins-kjtp","type":"blocks"}
+{"created_at":"2026-06-15T21:22:53Z","created_by":"David Huu Pham","depends_on_id":"aura-plugins-fjbl4","issue_id":"aura-plugins-klr5q","type":"blocks"}
+{"created_at":"2026-06-15T23:00:44Z","created_by":"David Huu Pham","depends_on_id":"aura-plugins-husd5","issue_id":"aura-plugins-klr5q","type":"blocks"}
 {"created_at":"2026-03-02T20:38:40Z","created_by":"David Huu Pham","depends_on_id":"aura-plugins-zi5k","issue_id":"aura-plugins-kpu2","type":"blocks"}
 {"created_at":"2026-02-28T21:24:27Z","created_by":"David Huu Pham","depends_on_id":"aura-plugins-mvfw","issue_id":"aura-plugins-kqtf","type":"blocks"}
 {"created_at":"2026-05-24T17:56:05Z","created_by":"David Huu Pham","depends_on_id":"aura-plugins-t3498","issue_id":"aura-plugins-kv0od","type":"discovered-from"}
@@ -1482,6 +1511,8 @@
 {"created_at":"2026-02-22T09:43:09Z","created_by":"David Huu Pham","depends_on_id":"aura-plugins-pz9x","issue_id":"aura-plugins-m4i3","type":"blocks"}
 {"created_at":"2026-04-24T21:33:16Z","created_by":"David Huu Pham","depends_on_id":"aura-plugins-hjsdt","issue_id":"aura-plugins-m656u","type":"discovered-from"}
 {"created_at":"2026-03-06T21:17:54Z","created_by":"David Huu Pham","depends_on_id":"aura-plugins-rlcji","issue_id":"aura-plugins-m6bgj","type":"blocks"}
+{"created_at":"2026-06-15T21:22:05Z","created_by":"David Huu Pham","depends_on_id":"aura-plugins-1shlf","issue_id":"aura-plugins-m6ihk","type":"blocks"}
+{"created_at":"2026-06-15T21:20:54Z","created_by":"David Huu Pham","depends_on_id":"aura-plugins-fjbl4","issue_id":"aura-plugins-m6ihk","type":"blocks"}
 {"created_at":"2026-02-22T20:24:56Z","created_by":"David Huu Pham","depends_on_id":"aura-plugins-1nxp","issue_id":"aura-plugins-m6w0","type":"blocks"}
 {"created_at":"2026-02-22T20:24:45Z","created_by":"David Huu Pham","depends_on_id":"aura-plugins-9oxz","issue_id":"aura-plugins-m6w0","type":"blocks"}
 {"created_at":"2026-06-01T13:57:45Z","created_by":"David Huu Pham","depends_on_id":"aura-plugins-j2lla","issue_id":"aura-plugins-m72qa","type":"blocks"}
@@ -1543,6 +1574,8 @@
 {"created_at":"2026-06-09T20:54:10Z","created_by":"David Huu Pham","depends_on_id":"aura-plugins-4s5h6","issue_id":"aura-plugins-mwts9","type":"blocks"}
 {"created_at":"2026-06-09T20:54:10Z","created_by":"David Huu Pham","depends_on_id":"aura-plugins-h7pqj","issue_id":"aura-plugins-mwts9","type":"blocks"}
 {"created_at":"2026-06-09T20:54:10Z","created_by":"David Huu Pham","depends_on_id":"aura-plugins-xaxb1","issue_id":"aura-plugins-mwts9","type":"blocks"}
+{"created_at":"2026-06-15T21:22:53Z","created_by":"David Huu Pham","depends_on_id":"aura-plugins-fjbl4","issue_id":"aura-plugins-mxcxr","type":"blocks"}
+{"created_at":"2026-06-15T23:00:44Z","created_by":"David Huu Pham","depends_on_id":"aura-plugins-pig3c","issue_id":"aura-plugins-mxcxr","type":"blocks"}
 {"created_at":"2026-06-09T00:38:54Z","created_by":"David Huu Pham","depends_on_id":"aura-plugins-wodnd","issue_id":"aura-plugins-my9kz","type":"blocks"}
 {"created_at":"2026-06-01T13:57:45Z","created_by":"David Huu Pham","depends_on_id":"aura-plugins-m72qa","issue_id":"aura-plugins-n15la","type":"blocks"}
 {"created_at":"2026-03-06T01:04:51Z","created_by":"David Huu Pham","depends_on_id":"aura-plugins-edvk","issue_id":"aura-plugins-n16h","type":"blocks"}
@@ -1675,6 +1708,7 @@
 {"created_at":"2026-05-24T18:45:49Z","created_by":"David Huu Pham","depends_on_id":"aura-plugins-rk2su","issue_id":"aura-plugins-ow0pq","type":"blocks"}
 {"created_at":"2026-05-24T18:45:35Z","created_by":"David Huu Pham","depends_on_id":"aura-plugins-t3498","issue_id":"aura-plugins-ow0pq","type":"discovered-from"}
 {"created_at":"2026-05-24T18:45:49Z","created_by":"David Huu Pham","depends_on_id":"aura-plugins-x5071","issue_id":"aura-plugins-ow0pq","type":"blocks"}
+{"created_at":"2026-06-15T21:22:53Z","created_by":"David Huu Pham","depends_on_id":"aura-plugins-fjbl4","issue_id":"aura-plugins-oxbre","type":"blocks"}
 {"created_at":"2026-03-13T12:06:10Z","created_by":"David Huu Pham","depends_on_id":"aura-plugins-dxd8y","issue_id":"aura-plugins-oyque","type":"blocks"}
 {"created_at":"2026-03-13T12:06:10Z","created_by":"David Huu Pham","depends_on_id":"aura-plugins-et9et","issue_id":"aura-plugins-oyque","type":"blocks"}
 {"created_at":"2026-02-26T15:45:37Z","created_by":"David Huu Pham","depends_on_id":"aura-plugins-cyc2","issue_id":"aura-plugins-oyxw","type":"blocks"}
@@ -1714,6 +1748,7 @@
 {"created_at":"2026-06-01T03:54:59Z","created_by":"David Huu Pham","depends_on_id":"aura-plugins-v7es2","issue_id":"aura-plugins-pexw3","type":"blocks"}
 {"created_at":"2026-05-31T22:24:52Z","created_by":"David Huu Pham","depends_on_id":"aura-plugins-xbgc1","issue_id":"aura-plugins-pexw3","type":"blocks"}
 {"created_at":"2026-06-02T23:55:55Z","created_by":"David Huu Pham","depends_on_id":"aura-plugins-iipuk","issue_id":"aura-plugins-pga1u","type":"blocks"}
+{"created_at":"2026-06-15T21:22:53Z","created_by":"David Huu Pham","depends_on_id":"aura-plugins-fjbl4","issue_id":"aura-plugins-pig3c","type":"blocks"}
 {"created_at":"2026-05-30T04:24:04Z","created_by":"David Huu Pham","depends_on_id":"aura-plugins-q9sz9","issue_id":"aura-plugins-pj4wo","type":"discovered-from"}
 {"created_at":"2026-02-25T18:41:40Z","created_by":"David Huu Pham","depends_on_id":"aura-plugins-9wd6","issue_id":"aura-plugins-po9n","type":"blocks"}
 {"created_at":"2026-02-25T18:41:18Z","created_by":"David Huu Pham","depends_on_id":"aura-plugins-oitf","issue_id":"aura-plugins-po9n","type":"blocks"}
@@ -1906,7 +1941,6 @@
 {"created_at":"2026-03-13T12:06:10Z","created_by":"David Huu Pham","depends_on_id":"aura-plugins-q262v","issue_id":"aura-plugins-s6a3q","type":"blocks"}
 {"created_at":"2026-03-13T12:06:10Z","created_by":"David Huu Pham","depends_on_id":"aura-plugins-tmfr6","issue_id":"aura-plugins-s6a3q","type":"blocks"}
 {"created_at":"2026-03-06T21:17:54Z","created_by":"David Huu Pham","depends_on_id":"aura-plugins-m6bgj","issue_id":"aura-plugins-s6f0o","type":"blocks"}
-{"created_at":"2026-02-22T03:19:17Z","created_by":"David Huu Pham","depends_on_id":"aura-plugins-j02","issue_id":"aura-plugins-s6i","type":"blocks"}
 {"created_at":"2026-02-26T22:24:59Z","created_by":"David Huu Pham","depends_on_id":"aura-plugins-47zo","issue_id":"aura-plugins-s7dj","type":"blocks"}
 {"created_at":"2026-02-26T22:55:23Z","created_by":"David Huu Pham","depends_on_id":"aura-plugins-dzen","issue_id":"aura-plugins-s7dj","type":"blocks"}
 {"created_at":"2026-02-26T22:24:59Z","created_by":"David Huu Pham","depends_on_id":"aura-plugins-fkou","issue_id":"aura-plugins-s7dj","type":"blocks"}
@@ -2328,6 +2362,12 @@
 {"created_at":"2026-05-31T18:42:57Z","created_by":"David Huu Pham","depends_on_id":"aura-plugins-hxvpc","issue_id":"aura-plugins-yh5sl","type":"blocks"}
 {"created_at":"2026-05-31T03:37:58Z","created_by":"David Huu Pham","depends_on_id":"aura-plugins-9e42d","issue_id":"aura-plugins-yivi2","type":"blocks"}
 {"created_at":"2026-03-04T23:30:13Z","created_by":"David Huu Pham","depends_on_id":"aura-plugins-9frn","issue_id":"aura-plugins-ykfk","type":"blocks"}
+{"created_at":"2026-06-15T21:20:54Z","created_by":"David Huu Pham","depends_on_id":"aura-plugins-82zlb","issue_id":"aura-plugins-yl0y8","type":"blocks"}
+{"created_at":"2026-06-15T21:20:22Z","created_by":"David Huu Pham","depends_on_id":"aura-plugins-anobg","issue_id":"aura-plugins-yl0y8","type":"blocks"}
+{"created_at":"2026-06-15T21:20:54Z","created_by":"David Huu Pham","depends_on_id":"aura-plugins-f6t64","issue_id":"aura-plugins-yl0y8","type":"blocks"}
+{"created_at":"2026-06-15T21:20:00Z","created_by":"David Huu Pham","depends_on_id":"aura-plugins-fjbl4","issue_id":"aura-plugins-yl0y8","type":"blocks"}
+{"created_at":"2026-06-15T21:20:23Z","created_by":"David Huu Pham","depends_on_id":"aura-plugins-gozk6","issue_id":"aura-plugins-yl0y8","type":"blocks"}
+{"created_at":"2026-06-15T21:20:54Z","created_by":"David Huu Pham","depends_on_id":"aura-plugins-m6ihk","issue_id":"aura-plugins-yl0y8","type":"blocks"}
 {"created_at":"2026-06-01T12:14:49Z","created_by":"David Huu Pham","depends_on_id":"aura-plugins-p31i8","issue_id":"aura-plugins-yrflm","type":"blocks"}
 {"created_at":"2026-06-01T12:14:49Z","created_by":"David Huu Pham","depends_on_id":"aura-plugins-t5jjm","issue_id":"aura-plugins-yrflm","type":"blocks"}
 {"created_at":"2026-06-10T02:37:07Z","created_by":"David Huu Pham","depends_on_id":"aura-plugins-9nvw4","issue_id":"aura-plugins-yrm9w","type":"blocks"}
