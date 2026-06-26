@@ -2423,3 +2423,61 @@ The decision you need to make — the architect found that fairtrade's published
 
 which is literally what I said
 </logs>
+
+
+------
+
+# Leaking internal documentation terminology and jargon into external-facing codebase or comments
+
+Should not be leaking Beads task IDs or phase names into comments or the codebase.
+
+<logs>
+❯ Workers should be instructed to not let the internal documetnation-tracking terminology leak out into the codebase. That will be the easiest fix: then the reviewrs have to spend less time doing these expensive audits.
+
+Merge inspection is clean — good news for the landing: integration is an ancestor of all four slices (no divergence), and the slices touch disjoint files (PD = ui/ deletion + dep strip; PH = new scripts/visual/ + dev route; VC4 = 3 transcript components; VH = new scripts/visual/). So the merges are conflict-free, unlike the earlier chrome-wave ft-ui.ts add/adds. I'll hold the actual merge for a moment to address your point first, because it changes process going forward.
+
+You're right, and it's the cheaper fix by far. The "Wave-2" leak (and the whole class of plabs-*/SLICE-*/Wave-* taxonomy) should never reach the reviewers — a worker self-grep before reporting catches it in seconds, versus three reviewers each running independent audits. Let me codify it as a worker-side prevention gate. First, the current rule:
+
+● Bash(grep -n -i "hygiene\|taxonomy\|plabs\|leak\|internal-facing\|Wave-\|grep" /home/minttea/dev/peasant-labs/AGENTS.md | head -40)
+16:- **`.beads/`** — shared Beads task DB, prefix **`plabs`**; run `bd` from this root. Work is tracked with
+92:- **Beads/pasture:** `bd` from this root (prefix `plabs`); the 12-phase epoch protocol.
+96:- **Shipped-artifact hygiene:** NO internal task taxonomy — `plabs-*` Beads IDs, `SLICE-N` / `W*-*` slice names, `LIP-N`, leaf-task IDs, or phase/epic codenames (`Wave 1`, `defer-2`, `PRO, comments, docs/READMEs, ORcommit messages**. Describe everything by substance (what the code does / why). The standing reviewers grep each slice's changed files for leaks as a review gatlanding squash message mus leaks from prior repodevelopment are out of scope unless the user asks to clean them.)
+112:staged; playbooks in `llm/`). Open follow-ups: Beads epic `plabs-zgqo`, transcript-browser#5 (scor
+
+● Read(/home/minttea/dev/peasant-labs/AGENTS.md · lines 88-103)
+Read 16 lines
+
+Now strengthening the rule from "reviewers grep as the gate" to "workers prevent it; reviewers only backstop":
+
+● Update(/home/minttea/dev/peasant-labs/AGENTS.md)
+Added 1 line, removed 1 li
+- **Landing:** squashno-ff` into the repo's
+**default** branch (`develop` for
+  peasant/village, `main` for fairtrade/transcript-browser). On peasant/v
+illage, `main` advances only on a release.
+- **No git hooks** (hflake.nix`/direnv.
+- **Shipped-artifact hygiene:** NO internal task taxonomy — `plabs-*` Bea
+ds IDs, `SLICE-N` / `W*-*` slice names, `LIP-N`, leaf-task IDs, or phase/
+epic codenames (`Wave — in shipped **code, c
+omments, docs/READMEs, OR commit messages**. Describe everything by subst
+ance (what the code does / why). The standing reviewers grep each slice's
+ changed files for leding squash message mus
+t be clean too. (Pre-existing leaks from prior repo development are out o
+f scope unless the user asks to clean them.)
+- **Shipped-artifact hygiene — WORKER-PREVENTED, reviewer-backstopped:**
+NO internal task taxonomy — `plabs-*` Beads IDs, `SLICE-N` / `W*-*` slice
+ names, `LIP-N`, leaf-task IDs, or phase/epic codenames (`Wave 1`/`Wave-2
+`, `defer-2`, `PROPOSAL-N`) — in shipped **code, comments, docs/READMEs,
+OR commit messages**.ance (what the code doe
+s / why). **Prevention is the WORKER's job, not the reviewers':** never w
+rite internal trackintifacts in the first pl
+ace, and **before reporting a slice complete, self-grep your changed file
+s and scrub any hit** — e.g. `git diff --name-only <base>..HEAD | xargs g
+rep -nE 'plabs-|SLICE-|W[0-9]+-|\bLIP-|Wave[ -]?[0-9]|defer-[0-9]|PROPOSA
+L-|\bTB\b'`. This is a mandatory pre-report gate so reviewers never spend
+ cycles on expensive hygiene audits. The reviewer grep + the clean landin
+g-squash message remat the primary catch. (`
+.tb-*` CSS selectors axonomy token — don't f
+lag them. Pre-existing leaks from prior repo development are out of scope
+ unless the user asks to clean them.)
+</logs>
