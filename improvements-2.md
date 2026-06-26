@@ -2401,3 +2401,25 @@ completed · 13m 50s
   a/b/c.
 </logs>
 
+----------
+
+# Asking for user input without any proper contextualization or grounding beforehand.
+
+Not properly presenting information to the user before asking question. Constant use of jargon and non-standardized language invented on the spot. Too wordy and end up being a word soup.
+
+<logs>
+The architect's coverage-gap analysis is in — and it's good news with one real decision for you.
+
+Feasible, moderate. fairtrade /ui is comprehensive — it covers ~everything both apps use (Button/Input/Select/Checkbox/Switch/Card/Chip→Badge/Tabs/Table/Dialog/Popover/Tooltip/Menu/Skeleton/Toast/Breadcrumb/Avatar/EmptyState/…). Genuine gaps are tiny (village GitHubUserSearch autocomplete → small local rebuild; Collapsible→Accordion; Separator/ScrollArea/Sheet→CSS/native + drop dead deps). Inventory: peasant 12 local ui/ + ~22 call-site files; village 6 hand-rolled + the 4 ex-primitives files + 8 installed-but-unused Radix packages (dead weight to clean up).
+
+The cost isn't missing components — it's ~30 files of compound→single API rewrites (shadcn's Tooltip.*/Select.*/Dialog.* compound parts → fairtrade's props-driven single components), plus the real risk: behavioral parity (Radix focus-trap/keyboard/portal → fairtrade's own ARIA), concentrated in peasant's multi-step share wizard + multiselect/label popovers → those need explicit functional smoke-tests at INT/UAT (the visual harness won't catch behavior).
+
+The decision you need to make — the architect found that fairtrade's published components.css also ships the demo's full mockup view layouts (.cex-*/.cmg-*/.iu-*, ~418 classes), not just component classes. So "make the apps look like the demo" spans a spectrum:
+
+● User answered Claude's questions:
+· How far should peasant + village converge to the fairtrade demo's look? (All options retire shadcn → fairtrade /ui + token/font convergence; they differ on whether the apps' page LAYOUTS restructure to mirror the demo.) → No idea what S1/2/3 are. This isn't how we're supposed to present context and ask questions of the user. Should be
+  3.S3 — full restructure, apps mirror the demo's views now
+     Restructure both apps' chrome/layouts so they look like the demo's app-2-village / app-3-peasant screens. Biggest — commits the larger re-scope up front and brushes the DEFER-2 line (lifting the demo). A 
+
+which is literally what I said
+</logs>
