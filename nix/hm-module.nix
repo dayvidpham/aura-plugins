@@ -26,6 +26,7 @@ let
   # submodule, which carry OpenCode-flavoured YAML frontmatter (mode/model/
   # permission) wrapping the same agent body as the Claude Code agents.
   openCodeAgentsDir = "${self}/pasture/.opencode/agent";
+  openCodeAgentsAvailable = builtins.pathExists openCodeAgentsDir;
 
   # ── Role definitions ──
   # Each role maps to a set of skill subdirectories with that prefix
@@ -87,6 +88,11 @@ let
   allAgentFiles = listMdFiles agentsDir;
 
   enabledAgentFiles = allAgentFiles // cfg.agents.extraAgents;
+
+  openCodeAgentFiles =
+    if openCodeAgentsAvailable
+    then listMdFiles openCodeAgentsDir
+    else { };
 
 in
 {
@@ -167,8 +173,8 @@ in
       agents = {
         enable = mkOption {
           type = types.bool;
-          default = true;
-          description = "Install pasture OpenCode agent definitions to ~/.config/opencode/agent/<role>.md (system-wide discovery for OpenCode)";
+          default = openCodeAgentsAvailable;
+          description = "Install pasture OpenCode agent definitions to ~/.config/opencode/agent/<role>.md (system-wide discovery for OpenCode). Defaults to enabled only when pasture/.opencode/agent exists in this flake source.";
         };
       };
       # ~/.config/opencode/plugin/ is reserved for a future hooks plugin
@@ -193,6 +199,23 @@ in
   };
 
   config = mkIf cfg.enable (mkMerge [
+    {
+      assertions = [
+        {
+          assertion = !cfg.opencode.agents.enable || openCodeAgentsAvailable;
+          message = ''
+            Aura config sync cannot install OpenCode agents because ${openCodeAgentsDir}
+            does not exist in the aura-plugins flake source. This happens while
+            evaluating CUSTOM.programs.aura-config-sync.opencode.agents for the
+            Home Manager activation. It means no pasture-generated OpenCode agent
+            definitions are available to place under ~/.config/opencode/agent.
+            Fix it by generating or vendoring pasture/.opencode/agent in the
+            aura-plugins source, or set
+            CUSTOM.programs.aura-config-sync.opencode.agents.enable = false.
+          '';
+        }
+      ];
+    }
 
     # ── Packages ──
     (mkIf cfg.packages.enable {
@@ -237,7 +260,7 @@ in
           name = ".config/opencode/agent/${name}";
           value = { source = path; };
         })
-        (listMdFiles openCodeAgentsDir);
+        openCodeAgentFiles;
     })
 
     # ── Protocol docs ──
