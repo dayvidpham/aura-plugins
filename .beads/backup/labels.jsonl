@@ -688,6 +688,7 @@
 {"issue_id":"aura-plugins-6kl3","label":"aura:p11-user:s11-uat"}
 {"issue_id":"aura-plugins-6knah","label":"pasture:severity:minor"}
 {"issue_id":"aura-plugins-6l5yo","label":"aura:roadmap"}
+{"issue_id":"aura-plugins-6lc04","label":"pasture:epic-followup"}
 {"issue_id":"aura-plugins-6lsr","label":"aura:p9-impl:s9-slice"}
 {"issue_id":"aura-plugins-6lufn","label":"aura:p2-user:s2_1-elicit"}
 {"issue_id":"aura-plugins-6lyb9","label":"aura:axis:test-quality"}
@@ -2601,6 +2602,7 @@
 {"issue_id":"aura-plugins-oeufm","label":"aura:residual"}
 {"issue_id":"aura-plugins-oi8gg","label":"aura:p9-impl:s9-slice"}
 {"issue_id":"aura-plugins-oitf","label":"aura:p4-plan:s4-review"}
+{"issue_id":"aura-plugins-oj7we","label":"pasture:epic-followup"}
 {"issue_id":"aura-plugins-ojl8","label":"infrastructure"}
 {"issue_id":"aura-plugins-ojl8","label":"nix"}
 {"issue_id":"aura-plugins-ojvdr","label":"aura:p4-plan:s4-review"}
@@ -3203,6 +3205,7 @@
 {"issue_id":"aura-plugins-uj4i","label":"aura:severity:blocker"}
 {"issue_id":"aura-plugins-ukewh","label":"aura:p9-impl:s9-slice"}
 {"issue_id":"aura-plugins-ul1o","label":"aura:p4-plan:s4-review"}
+{"issue_id":"aura-plugins-um1gb","label":"pasture:p11-user:s11-uat"}
 {"issue_id":"aura-plugins-umi","label":"aura:p2-user:s2_2-urd"}
 {"issue_id":"aura-plugins-umi","label":"aura:urd"}
 {"issue_id":"aura-plugins-ummgy","label":"aura:p10-impl:s10-review"}
