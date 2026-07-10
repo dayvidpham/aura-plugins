@@ -1,28 +1,18 @@
-[project]
-name = "aura-plugins"
-version = "0.10.2"
-description = "Parallel agent launcher for Aura multi-agent workflows"
-requires-python = ">=3.10"
-license = "MIT"
-dependencies = [
-    "temporalio>=1.9.0",
-    "pyyaml>=6.0.3",
-    "aiosqlite>=0.22.1",
-    "jinja2>=3.1.6",
-]
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
 
-[project.optional-dependencies]
-dev = ["pytest>=8.0", "pytest-asyncio>=0.24", "pymysql>=1.1"]
+[project]
+name = "aura-swarm"
+version = "0.10.2"
+description = "Worktree and tmux launcher for Aura/Pasture multi-agent workflows"
+requires-python = ">=3.11"
+license = "MIT"
+dependencies = []
+
+[tool.setuptools]
+script-files = ["bin/aura-swarm"]
 
 [tool.setuptools.packages.find]
 where = ["scripts"]
-
-[tool.pytest.ini_options]
-testpaths = ["tests"]
-pythonpath = ["scripts", "tests"]
-
-[dependency-groups]
-dev = [
-    "pytest>=8.0",
-    "pytest-asyncio>=0.24",
-]
+include = ["aura_protocol*"]

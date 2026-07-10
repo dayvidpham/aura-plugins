@@ -1,6 +1,6 @@
 {
   "metadata": {
-    "description": "Multi-agent orchestration toolkit for structured software development using the Aura 12-phase protocol",
+    "description": "aura-swarm orchestration tooling and marketplace registry for Pasture-based multi-agent workflows",
     "version": "0.10.2"
   },
   "name": "aura-plugins",
@@ -8,12 +8,6 @@
     "name": "David Pham"
   },
   "plugins": [
-    {
-      "description": "Aura protocol — 12-phase audit-trail workflow for structured software development with agent coordination, beads task tracking, and vertical slice implementation",
-      "name": "aura",
-      "source": "./",
-      "version": "0.10.2"
-    },
     {
       "description": "Security filter that blocks Claude Code from accessing sensitive files (SSH keys, credentials, env files)",
       "name": "agentfilter",

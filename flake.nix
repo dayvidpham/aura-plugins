@@ -1,15 +1,13 @@
 {
-  description = "Aura Protocol: agent tooling, commands, and config sync for Claude Code / OpenCode";
+  description = "aura-swarm tooling and config sync for Pasture-generated agent workflows";
 
   # ============================================================
   # INPUTS
   # ============================================================
 
   inputs = {
-    nixpkgs-stable.url = "github:NixOS/nixpkgs/nixos-25.11";
-    nixpkgs-unstable.url = "github:NixOS/nixpkgs/nixos-unstable";
-    nixpkgs.follows = "nixpkgs-stable";
-    flake-utils.url = "github:numtide/flake-utils";
+    nixpkgs.url = "github:NixOS/nixpkgs/nixos-25.11";
+    pasture.url = "github:dayvidpham/pasture";
   };
 
   # ============================================================
@@ -19,9 +17,7 @@
   outputs =
     inputs@{ self
     , nixpkgs
-    , nixpkgs-stable
-    , nixpkgs-unstable
-    , flake-utils
+    , pasture
     , ...
     }:
     let
@@ -38,92 +34,37 @@
     {
       # ── Packages ──────────────────────────────────────────────
       packages = forAllSystems ({ pkgs, system }: {
-        # aura-parallel = pkgs.writeShellApplication {
-        #   name = "aura-parallel";
-        #   runtimeInputs = [ pkgs.python3 ];
-        #   text = ''
-        #     exec python3 "${self}/bin/aura-parallel" "$@"
-        #   '';
-        # };
-
         aura-swarm = pkgs.writeShellApplication {
           name = "aura-swarm";
           runtimeInputs = [ pkgs.python3 ];
           text = ''
-            export AURA_PACKAGE_SKILLS_DIR="${self}/skills"
+            export AURA_PACKAGE_SKILLS_DIR="${pasture}/skills"
             PYTHONPATH="${self}/scripts" exec python3 "${self}/bin/aura-swarm" "$@"
           '';
         };
 
-        # aura-release = pkgs.writeScriptBin "aura-release" (
-        #   builtins.replaceStrings
-        #     [ "#!/usr/bin/env python3" ]
-        #     [ "#!${pkgs.python3}/bin/python3" ]
-        #     (builtins.readFile ./bin/aura-release)
-        # );
-
-        # aurad = pkgs.writeShellApplication {
-        #   name = "aurad";
-        #   runtimeInputs = [
-        #     (pkgs.python3.withPackages (ps: [ ps.temporalio ps.pyyaml ps.aiosqlite ]))
-        #   ];
-        #   text = ''
-        #     PYTHONPATH="${self}/scripts" exec python3 "${self}/bin/aurad.py" "$@"
-        #   '';
-        # };
-
-        # aura-msg = pkgs.writeShellApplication {
-        #   name = "aura-msg";
-        #   runtimeInputs = [
-        #     (pkgs.python3.withPackages (ps: [ ps.temporalio ps.pyyaml ]))
-        #   ];
-        #   text = ''
-        #     PYTHONPATH="${self}/scripts" exec python3 "${self}/bin/aura-msg" "$@"
-        #   '';
-        # };
-
         default = pkgs.symlinkJoin {
           name = "aura-plugins";
           paths = [
-            # self.packages.${system}.aura-parallel
             self.packages.${system}.aura-swarm
-            # self.packages.${system}.aura-release
-            # self.packages.${system}.aurad
-            # self.packages.${system}.aura-msg
           ];
         };
       });
 
       # ── Home Manager Modules ─────────────────────────────────
       homeManagerModules = {
-        aura-config-sync = import ./nix/hm-module.nix { inherit self; };
-        # temporal-service = import ./nix/temporal-service.nix;
-        # aurad-service = import ./nix/aurad-service.nix { inherit self; };
+        aura-config-sync = import ./nix/hm-module.nix { inherit self pasture; };
       };
 
       # ── Dev Shell (for working on aura-plugins itself) ───────
-      devShells = forAllSystems ({ pkgs, ... }:
-        let
-          devPython = pkgs.python3.withPackages (ps: [
-            ps.temporalio
-            ps.pyyaml
-            ps.aiosqlite
-            ps.jinja2
-            ps.pytest
-            ps.pytest-asyncio
-          ]);
-        in
-        {
-          default = pkgs.mkShell {
-            name = "aura-plugins-dev";
-            packages = [
-              devPython
-              pkgs.tmux
-              pkgs.uv
-            ];
-            shellHook = ''
-          '';
-          };
-        });
+      devShells = forAllSystems ({ pkgs, ... }: {
+        default = pkgs.mkShell {
+          name = "aura-plugins-dev";
+          packages = [
+            pkgs.python3
+            pkgs.tmux
+          ];
+        };
+      });
     };
 }

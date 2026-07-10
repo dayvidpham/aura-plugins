@@ -1,845 +1,124 @@
 # aura-plugins
 
-Multi-agent orchestration toolkit for the [Aura Protocol](skills/protocol/PROCESS.md).
-Provides CLI tools for launching Claude agents in isolated worktrees and tmux
-sessions, role-based slash commands, and a Home Manager module for declarative
-distribution.
+`aura-plugins` now carries the operational pieces that still belong outside the
+Go [Pasture](https://github.com/dayvidpham/pasture) repo:
 
-## Overview
+- `bin/aura-swarm`: worktree and tmux orchestration for multi-agent sessions.
+- `nix/hm-module.nix`: Home Manager sync for `aura-swarm` and Pasture-generated skills/agents.
+- `skills/protocol/`: protocol reference documentation retained for humans and agents.
+- `.claude-plugin/marketplace.json`: marketplace registry entries for external plugins.
 
-aura-plugins solves two problems in multi-agent Claude workflows:
+Pasture is the source of truth for protocol implementation, generated skills,
+and generated agents. This repo no longer ships the retired Python protocol
+engine, Aura plugin package, daemon, message CLI, release CLI, or Python tests.
 
-1. **Isolation.** Parallel agents editing the same repo need separate working
-   trees and branches to avoid conflicts. `aura-swarm` creates per-epic git
-   worktrees with automatic Beads context gathering.
+## Install
 
-2. **Coordination.** Agents need structured roles (architect, supervisor,
-   worker, reviewer) with different toolsets and instructions. Both CLI tools
-   inject role-specific system prompts from `skills/*/SKILL.md` files.
-
-All inter-agent coordination flows through [Beads](https://github.com/dayvidpham/beads)
-task status and comments &mdash; there is no separate messaging system.
-
-## Quick Start — Plugin Install
-
-### Claude Code
-
-```bash
-# 1. Add the aura-plugins marketplace
-claude plugin marketplace add dayvidpham/aura-plugins
-
-# 2. Install the aura plugin (user-wide)
-claude plugin install aura@aura-plugins
-
-# Or install for a specific project only
-claude plugin install aura@aura-plugins --scope project
-
-# Validate (optional)
-claude plugin validate /path/to/aura-plugins
-```
-
-After installing, restart Claude Code. Skills are auto-discovered and invocable as `/aura:<skill-name>` (e.g. `/aura:epoch`, `/aura:user-request`).
-
-```bash
-# Update to latest
-claude plugin update aura@aura-plugins
-
-# Local development (from a checkout, no install needed)
-claude plugin marketplace add /path/to/aura-plugins
-claude plugin install aura@aura-plugins
-```
-
-### OpenCode
-
-OpenCode natively reads `skills/*/SKILL.md`. Clone into your project's `.claude/` or configure via OpenCode's plugin system.
-
----
-
-## Installation (CLI Tools)
-
-### Nix Flake (recommended)
-
-Add as a flake input:
+### Nix Package
 
 ```nix
-# flake.nix
 {
   inputs.aura-plugins.url = "github:dayvidpham/aura-plugins";
 }
 ```
 
-Then reference the packages:
+Use the package directly:
 
 ```nix
-# In your system or home-manager config:
-aura-plugins.packages.${system}.aura-swarm     # unified agent orchestration
-aura-plugins.packages.${system}.aura-parallel  # deprecated wrapper
-aura-plugins.packages.${system}.default        # all tools
+aura-plugins.packages.${system}.aura-swarm
 ```
 
-### Home Manager Module
+The default package is a symlink join containing `aura-swarm`.
 
-The flake exports a Home Manager module that syncs commands, agents, and
-protocol docs into `~/.claude/`:
+### Home Manager
+
+The module installs `aura-swarm` and symlinks Pasture-generated skills and
+agents into Claude Code and OpenCode config locations.
 
 ```nix
-# home.nix
 {
   imports = [ aura-plugins.homeManagerModules.aura-config-sync ];
 
   CUSTOM.programs.aura-config-sync = {
-    packages.enable = true;              # install CLI tools
+    enable = true;
+    packages.enable = true;
 
-    commands.enable = true;              # install slash commands
-    commands.roles = {                   # toggle per-role
-      architect = true;
-      supervisor = true;
-      worker = true;
-      reviewer = true;
-      epoch = true;
-    };
-    # commands.enableAll = true;         # shorthand for all roles
+    # Sources generated skills/ and agents/ from the pasture flake input by default.
+    commands.enable = true;        # ~/.claude/skills/<name>/SKILL.md
+    agents.enable = true;          # ~/.claude/agents/<role>.md
+    opencode.skills.enable = true; # ~/.config/opencode/skills/<name>/SKILL.md
+    opencode.agents.enable = true; # ~/.config/opencode/agent/<role>.md
 
-    agents.enable = true;               # install custom agents
-
-    protocol.enable = false;             # install skills/protocol/ docs (off by default)
+    protocol.enable = false;       # optional local protocol docs sync
   };
 }
 ```
 
-Core commands (`aura:status`, `aura:impl:*`, `aura:user:*`) are always installed when
-`commands.enable = true`, regardless of role selection.
+For local Pasture development, override the generated source:
+
+```nix
+CUSTOM.programs.aura-config-sync.pasture.source = ../pasture;
+```
 
 ### Manual
 
-Both scripts are standalone Python 3.10+ with no external dependencies:
+`aura-swarm` is a Python 3.10+ script with only standard-library runtime
+dependencies. It requires `scripts/aura_protocol/session_registry.py` on
+`PYTHONPATH`.
 
 ```bash
-git clone https://github.com/dayvidpham/aura-plugins
-cd aura-plugins
-chmod +x bin/aura-swarm bin/aura-release
-# Add bin/ to PATH or symlink into a PATH directory
+PYTHONPATH=scripts bin/aura-swarm --help
 ```
 
-## Prerequisites
+When running outside the Nix wrapper, set `AURA_PACKAGE_SKILLS_DIR` to a Pasture
+`skills/` directory if the target project does not provide local role skills:
 
-Both tools check for these on startup and exit with an error if any are missing:
-
-| Tool    | Purpose                          |
-|---------|----------------------------------|
-| `git`   | Worktree and branch management   |
-| `tmux`  | Agent session hosting            |
-| `bd`    | Beads issue tracking             |
-| `claude`| Claude CLI (agent runtime)       |
-
-Python 3.10+ (stdlib only, no pip dependencies).
-
----
+```bash
+AURA_PACKAGE_SKILLS_DIR=/path/to/pasture/skills PYTHONPATH=scripts bin/aura-swarm start --swarm-mode intree --role supervisor --prompt "..."
+```
 
 ## aura-swarm
 
-Creates an isolated git worktree for a Beads epic, gathers task context from the
-dependency graph, and launches a single Claude instance in a tmux session. The
-agent uses Claude's Agent Teams internally to spawn workers on sub-branches.
+`aura-swarm` supports two launch modes:
 
-### Branch model
+- Worktree mode creates or reuses an isolated git worktree for a Beads epic and launches Claude in tmux.
+- Intree mode launches one or more Claude sessions in the current checkout without creating worktrees.
 
-```
-main
- └── epic/<epic-id>                   aura-swarm creates this branch + worktree
-       ├── agent/<task-id-1>          Claude Agent Teams creates sub-branches
-       ├── agent/<task-id-2>
-       └── agent/<task-id-3>
-```
-
-### Usage
+Examples:
 
 ```bash
-aura-swarm <subcommand> [options]
-```
-
-### Subcommands
-
-#### `start` &mdash; Launch an epic session
-
-Creates (or reuses) a worktree, discovers tasks and URD from the Beads
-dependency graph, builds a context-rich prompt, and launches Claude in a
-detached tmux session.
-
-```bash
-aura-swarm start --epic <epic-id> [options] [task-id ...]
-```
-
-| Option              | Default          | Description                                      |
-|---------------------|------------------|--------------------------------------------------|
-| `--epic`            | *(required)*     | Beads epic ID                                    |
-| `--role`            | `supervisor`     | Agent role: `architect`, `supervisor`, `reviewer`, `worker` |
-| `--model`           | `sonnet`         | Model: `sonnet`, `opus`, `haiku`                 |
-| `--skill`           | &mdash;          | Skill to invoke at start (e.g. `aura:supervisor`) |
-| `--prompt-addon`    | &mdash;          | Extra instructions appended to the auto-generated prompt |
-| `--permission-mode` | `acceptEdits`    | `default`, `acceptEdits`, `bypassPermissions`, `plan` |
-| `--urd`             | *(auto-discovered)* | Explicit URD task ID (overrides graph walk)    |
-| `--restart`         | `false`          | Kill existing session and start fresh             |
-| `--worktree-dir`    | `worktree`       | Root directory for worktrees (relative to repo)   |
-| `--dry-run`         | `false`          | Preview prompt and commands without launching     |
-| `task-id ...`       | *(auto-discovered)* | Explicit task IDs (overrides dependency walk)  |
-
-**Task discovery.** When no explicit task IDs are given, `aura-swarm` walks the
-epic's Beads dependency graph two levels deep, classifying each task as a
-*blocker* (must finish first) or *dependent* (downstream work). The discovered
-tasks are formatted into a markdown table in the generated prompt.
-
-**URD discovery.** The User Requirements Document is identified by the
-`aura:user:reqs` label or a `[aura:user:reqs]` title prefix. If `--urd` is not
-set, the script searches the epic's first- and second-level dependencies.
-
-**Examples:**
-
-```bash
-# Typical: launch a supervisor for an epic, let it discover tasks from Beads
-aura-swarm start --epic aura-dyu --model sonnet
-
-# Use opus for complex architectural work
-aura-swarm start --epic aura-dyu --role architect --model opus
-
-# Explicitly pass tasks instead of auto-discovery
-aura-swarm start --epic aura-dyu impl-001 impl-002 impl-003
-
-# Preview what would be launched (inspect the generated prompt)
-aura-swarm start --epic aura-dyu --dry-run
-
-# Restart a stuck session
-aura-swarm start --epic aura-dyu --restart
-```
-
-#### `status` &mdash; List active sessions
-
-```bash
+aura-swarm start --epic aura-example --model sonnet
+aura-swarm start --swarm-mode intree --role supervisor -n 1 --prompt "Coordinate this implementation"
 aura-swarm status
-```
-
-Prints a table of all tracked sessions for the current repository:
-
-```
-epic-id            tmux session         alive?   worktree                  branch                  # tasks
-aura-dyu           epic-dyu--a3d5       yes      worktree/aura-dyu         epic/aura-dyu           3
-```
-
-#### `attach` &mdash; Attach to an epic's tmux session
-
-```bash
-aura-swarm attach <epic-id>
-```
-
-Replaces the current process with `tmux attach -t <session>`. Detach with
-`Ctrl-b d` as usual.
-
-#### `stop` &mdash; Kill session, keep worktree
-
-```bash
-aura-swarm stop <epic-id>
-aura-swarm stop <epic-id> --dry-run
-```
-
-Kills the tmux session and removes the session record. The worktree and branch
-are preserved for inspection or manual cleanup.
-
-#### `merge` &mdash; Merge epic branch into main
-
-```bash
-aura-swarm merge <epic-id>
-aura-swarm merge <epic-id> --dry-run
-```
-
-Runs `git merge epic/<epic-id> --no-ff` from the repository root. Fails if the
-worktree has uncommitted changes. On merge conflict, automatically aborts the
-merge and lists conflicting files.
-
-#### `review` &mdash; Generate a review document
-
-```bash
-aura-swarm review --epic <epic-id>
-aura-swarm review --epic <epic-id> --dry-run
-```
-
-Generates a markdown review document at `docs/review-<epic-id>.md` containing
-the epic description, task breakdown, diff stats against main, and a review
-checklist. Also creates a Beads task labeled `[REVIEW]` for tracking.
-
-#### `cleanup` &mdash; Remove worktrees and branches
-
-```bash
-# Clean up a specific epic
-aura-swarm cleanup <epic-id>
-
-# Remove all merged epic branches
+aura-swarm attach aura-example
+aura-swarm stop aura-example
 aura-swarm cleanup --done
-
-# Interactive removal of all worktrees (prompts for confirmation)
-aura-swarm cleanup --all
-
-# Force removal even if worktree is dirty
-aura-swarm cleanup <epic-id> --force
-
-# Preview what would be removed
-aura-swarm cleanup <epic-id> --dry-run
 ```
 
-Kills any live tmux session, removes the worktree (`git worktree remove`),
-deletes the branch, and cleans up the session record. Skips dirty worktrees
-unless `--force` is set.
+Prerequisites:
 
-### State management
+| Tool | Purpose |
+|------|---------|
+| `git` | Worktree and branch management |
+| `tmux` | Agent session hosting |
+| `bd` | Beads issue tracking |
+| `claude` | Agent runtime |
 
-Session state persists in `~/.aura/swarm/<repo-hash>/sessions.json`, where
-`<repo-hash>` is the first 16 characters of the SHA-256 of the repository root
-path. Each entry records:
+## Marketplace
 
-| Field          | Example                          |
-|----------------|----------------------------------|
-| `epic_id`      | `aura-dyu`                       |
-| `epic_branch`  | `epic/aura-dyu`                  |
-| `worktree`     | `/home/user/repo/worktree/aura-dyu` |
-| `tmux_session` | `epic-dyu--a3d5`                 |
-| `started_at`   | `2026-02-18T14:30:00`            |
-| `model`        | `sonnet`                         |
-| `task_ids`     | `["impl-001", "impl-002"]`       |
+This repo remains a marketplace registry, but it no longer contains a
+self-installable `aura` plugin. Use the `pasture` marketplace entry for the
+generated protocol skills and agents.
 
-Stale sessions (record exists but tmux is dead) are detected automatically and
-can be overwritten with `--restart`.
+## Development
 
-**Prompt files.** The generated prompt is written to
-`~/.local/share/aura/aura-swarm/prompts/<repo-hash>-<timestamp>-prompt.md` before
-launch. The tmux command references this file via `$(cat ...)` shell expansion
-rather than embedding the prompt inline, avoiding tmux's command length limit.
-Role instructions (from `skills/<role>/SKILL.md`) are referenced by
-their original path. Prompt files persist as an audit trail.
-
-### Tmux session naming
-
-Format: `epic-<suffix>--<hex4>`, where `<suffix>` is extracted from the epic ID
-(e.g. `aura-dyu` &rarr; `dyu`) and `<hex4>` is a random 4-character hex token
-for uniqueness. Retries up to 5 times on collision.
-
----
-
-## aura-release
-
-Bumps the version across all manifest files, auto-generates a changelog from git
-history, commits the changes, and creates an annotated git tag.
-
-### Usage
+Useful checks before landing changes:
 
 ```bash
-aura-release <major|minor|patch> [options]
-aura-release --check
-```
-
-### Subcommands and Options
-
-| Argument         | Description                                          |
-|------------------|------------------------------------------------------|
-| `major`          | Bump major version (0.2.3 &rarr; 1.0.0)             |
-| `minor`          | Bump minor version (0.2.3 &rarr; 0.3.0)             |
-| `patch`          | Bump patch version (0.2.3 &rarr; 0.2.4)             |
-| `--check`        | Validate version consistency across files and exit   |
-| `--dry-run`      | Preview changes without writing files                |
-| `--sync`         | Align all files to pyproject.toml version before bumping |
-| `--no-changelog` | Skip CHANGELOG.md generation                         |
-| `--no-commit`    | Skip git commit                                      |
-| `--no-tag`       | Skip git tag creation                                |
-
-### Version files
-
-`aura-release` keeps these files in sync:
-
-| File                              | Field(s) updated                              |
-|-----------------------------------|-----------------------------------------------|
-| `pyproject.toml`                  | `[project].version` (source of truth)         |
-| `.claude-plugin/plugin.json`      | `.version`                                    |
-| `.claude-plugin/marketplace.json` | `.metadata.version` and `.plugins[].version` where `name == "aura"` |
-
-The `agentfilter` plugin entry in marketplace.json is never modified.
-
-### Pre-flight checks
-
-Before making any changes, `aura-release` verifies:
-
-- Not on a detached HEAD (must be on a branch)
-- Working tree is clean (tracked files outside `.beads/` have no uncommitted changes)
-- All version files are consistent (or `--sync` is used to fix drift)
-
-### Changelog format
-
-Generates entries in [Keep a Changelog](https://keepachangelog.com) format,
-grouping commits by conventional commit prefix:
-
-| Prefix              | Changelog section |
-|---------------------|-------------------|
-| `feat`              | Added             |
-| `fix`               | Fixed             |
-| `refactor`, `perf`  | Changed           |
-| `docs`              | Documentation     |
-| everything else     | Other             |
-
-On first release (no prior tags), all commits are included.
-
-### Error recovery
-
-If any step fails after files have been modified, all changes are rolled back
-via `git checkout`. The commit and tag are only created after all file writes
-succeed.
-
-### Examples
-
-```bash
-# Check version consistency (detects drift between files)
-aura-release --check
-
-# Preview a patch release (no changes made)
-aura-release patch --dry-run
-
-# Fix version drift and bump patch
-aura-release patch --sync
-
-# Bump minor version
-aura-release minor
-
-# Bump without changelog or tag (files only)
-aura-release patch --no-changelog --no-tag --no-commit
-
-# After release, push manually:
-git push && git push --tags
-```
-
-### Exit codes
-
-| Code | Meaning                                                |
-|------|--------------------------------------------------------|
-| 0    | Success (or `--check` with consistent versions)       |
-| 1    | `--check` found version drift                         |
-| 2    | Pre-flight failure or runtime error                   |
-
----
-
-## aura-swarm intree mode (replaces aura-parallel)
-
-The intree mode (`--swarm-mode intree`) launches agents in-place without
-creating worktrees. It replaces the deprecated `aura-parallel` command.
-
-```bash
-aura-swarm start --swarm-mode intree --role <role> -n <count> --prompt <text> [options]
-```
-
-See `aura-swarm start --help` for the full list of options. Key intree-specific
-flags:
-
-| Flag | Description |
-|------|-------------|
-| `--prompt` / `--prompt-file` | Required for intree mode |
-| `--task-id` | Beads task IDs (1:1 distribution across agents) |
-| `--skill` | Skill to invoke at session start |
-| `-n` | Number of parallel agents |
-
-### Examples
-
-```bash
-# Launch a supervisor to coordinate an epic
-aura-swarm start --swarm-mode intree --role supervisor -n 1 \
-  --prompt "Read ratified plan aura-xyz and decompose into vertical slices"
-
-# Distribute 3 tasks across 3 workers
-aura-swarm start --swarm-mode intree --role worker -n 3 \
-  --task-id impl-001 --task-id impl-002 --task-id impl-003 \
-  --prompt "Implement your assigned vertical slice"
-
-# Dry run
-aura-swarm start --swarm-mode intree --role supervisor -n 1 \
-  --prompt "Coordinate implementation" --dry-run
-```
-
-### Migration from aura-parallel
-
-`aura-parallel` is deprecated and delegates to `aura-swarm start --swarm-mode intree`.
-All existing `aura-parallel` commands continue to work but print a deprecation warning.
-
----
-
-## Beads Integration
-
-Both tools integrate with [Beads](https://github.com/dayvidpham/beads) for task
-tracking and inter-agent coordination.
-
-### How aura-swarm uses Beads
-
-`aura-swarm start` queries the epic's dependency graph via `bd show <id> --json`
-to:
-
-- **Discover tasks** &mdash; walks `dependencies` (blockers) and `dependents`
-  (downstream) two levels deep
-- **Find the URD** &mdash; searches for tasks labeled `aura:user:reqs` in the
-  dependency chain
-- **Build context** &mdash; formats task details into a markdown table embedded
-  in the agent's prompt
-
-The generated prompt includes `bd show <id>` commands for each discovered task,
-so the launched agent can retrieve full details at runtime.
-
-### Inter-agent coordination patterns
-
-Agents coordinate exclusively through Beads &mdash; there is no dedicated
-messaging API:
-
-```bash
-# Assignment
-bd update <task-id> --assignee=<worker>
-
-# Status updates
-bd update <task-id> --status=in_progress
-bd update <task-id> --notes="Blocked on missing type definition"
-
-# Comments (visible to all agents reading the task)
-bd comments add <task-id> "Layer 1 complete, proceeding to Layer 2"
-bd comments add <task-id> "VOTE: ACCEPT - End-user alignment verified"
-
-# Completion
-bd close <task-id>
-
-# Dependency chaining
-bd dep add <parent-id> --blocked-by <child-id>
-```
-
-### Dependency direction
-
-The `--blocked-by` target is always what must finish **first**. Work flows
-bottom-up; closure flows top-down:
-
-```
-REQUEST                    ← stays open longest
-  └── blocked by URE
-        └── blocked by PROPOSAL
-              └── blocked by IMPL_PLAN
-                    └── blocked by SLICE   ← leaf work, closes first
-```
-
-```bash
-# Correct: REQUEST stays open until URE finishes
-bd dep add request-id --blocked-by ure-id
-
-# Wrong: inverts the relationship
-bd dep add ure-id --blocked-by request-id
-```
-
----
-
-## Choosing the Right Tool
-
-| Scenario                                | Tool                       | Why                                                |
-|-----------------------------------------|----------------------------|----------------------------------------------------|
-| Epic with multiple slices               | `aura-swarm start`         | Needs isolated worktree + automatic task discovery  |
-| New supervisor/architect for planning    | `aura-swarm start --swarm-mode intree` | Long-running, needs its own tmux session |
-| Plan review (3 reviewers)               | `general-purpose` subagents | Short-lived, results collected in-session           |
-| Code review (3 reviewers)               | `general-purpose` subagents | Short-lived, results collected in-session           |
-| Ad-hoc research or exploration          | Task tool (Explore agent)  | Quick, no orchestration needed                      |
-
-**Rule of thumb:** if the agent needs its own persistent tmux session and
-long-running context, use `aura-swarm start`. If the agent is
-short-lived and you need to collect its result, use `general-purpose` subagents
-(Task tool) or TeamCreate.
-
-### How skills and subagents interact
-
-There are three ways to launch an Aura agent, and each loads role instructions
-differently:
-
-| Launch method | Role instruction loading | When to use |
-|---------------|--------------------------|-------------|
-| `aura-swarm start` | Injected automatically via `--append-system-prompt` from `skills/<role>/SKILL.md` | Long-running agents needing tmux sessions |
-| Task tool subagent | Agent invokes `/aura:<role>` skill (Skill tool) as its first action | Short-lived in-session agents (reviewers, research) |
-| TeamCreate | Same as Task tool &mdash; each teammate invokes the relevant skill | Coordinated multi-agent work within a session |
-
-> **Skills are not subagent types.** `/aura:reviewer`, `/aura:worker`, etc. are
-> Skills &mdash; they load role-specific instructions from `skills/*/SKILL.md`
-> into the agent's context via the Skill tool. They are NOT valid values for
-> the Task tool's `subagent_type` parameter. Always use
-> `subagent_type: "general-purpose"` when spawning agents via the Task tool,
-> then instruct the agent to invoke the appropriate `/aura:*` skill.
-
-```
-# Correct: general-purpose subagent invokes skill to load role
-Task(
-  subagent_type: "general-purpose",
-  prompt: "Invoke /aura:reviewer to load your role. Then review PROPOSAL-1..."
-)
-
-# Wrong: "reviewer" is not a valid subagent_type
-Task(subagent_type: "reviewer", prompt: "Review PROPOSAL-1...")
-```
-
----
-
-## Protocol Documentation
-
-The `skills/protocol/` directory contains the reusable Aura Protocol specification.
-These files are designed to be copied or symlinked into any project using the
-protocol.
-
-| File                                                              | Purpose                                              |
-|-------------------------------------------------------------------|------------------------------------------------------|
-| [`skills/protocol/README.md`](skills/protocol/README.md)          | Protocol entry point and quick-start guide            |
-| [`skills/protocol/CLAUDE.md`](skills/protocol/CLAUDE.md)          | Core agent directive: philosophy, constraints, roles  |
-| [`skills/protocol/CONSTRAINTS.md`](skills/protocol/CONSTRAINTS.md) | Coding standards, checklists, naming conventions  |
-| [`skills/protocol/PROCESS.md`](skills/protocol/PROCESS.md)        | Step-by-step workflow execution (single source of truth) |
-| [`skills/protocol/AGENTS.md`](skills/protocol/AGENTS.md)          | Role taxonomy: phases, tools, handoffs per agent      |
-| [`skills/protocol/SKILLS.md`](skills/protocol/SKILLS.md)          | Command reference: all `/aura:*` skills by phase      |
-| [`skills/protocol/UAT_TEMPLATE.md`](skills/protocol/UAT_TEMPLATE.md) | User Acceptance Test structured output template |
-| [`skills/protocol/UAT_EXAMPLE.md`](skills/protocol/UAT_EXAMPLE.md) | Worked UAT example                               |
-| [`skills/protocol/schema.xml`](skills/protocol/schema.xml)        | Canonical protocol schema (BCNF): entities, relationships, mappings |
-
-### Workflow phases (v2, 12-phase)
-
-```
-Phase 1:  REQUEST (classify → research || explore)
-Phase 2:  ELICIT (URE survey) → URD (single source of truth)
-Phase 3:  PROPOSAL-N (architect proposes)
-Phase 4:  PROPOSAL-N-REVIEW-{axis}-{round} (3 reviewers: A/B/C, ACCEPT/REVISE)
-            ↺ revise → PROPOSAL-N+1 if any REVISE
-Phase 5:  Plan UAT (user acceptance test)
-Phase 6:  Ratification (old proposals marked aura:superseded)
-Phase 7:  Handoff (architect → supervisor)
-Phase 8:  IMPL_PLAN (supervisor decomposes into vertical slices)
-Phase 9:  SLICE-N (parallel workers, each owns one production code path)
-            Within each slice: Types (L1) → Tests (L2, fail expected) → Impl (L3, tests pass)
-Phase 10: Code review (3 reviewers, severity tree: BLOCKER/IMPORTANT/MINOR)
-Phase 11: Implementation UAT
-Phase 12: Landing (commit, push, hand off)
-```
-
----
-
-## Skills (Slash Commands)
-
-Each `skills/*/SKILL.md` file defines a **Skill** that can be invoked via the
-Skill tool as `/aura:<skill-name>`. When invoked, the skill's SKILL.md content
-is loaded into the agent's context, providing role-specific instructions,
-workflows, and constraints.
-
-Skills serve two purposes depending on the launch method:
-
-- **CLI tool** (`aura-swarm`): Role instructions are injected automatically via
-  `--append-system-prompt`. The `--skill` flag can invoke an additional skill
-  at startup.
-- **Task tool subagents**: The agent must invoke the skill itself (e.g.
-  `/aura:reviewer`) as its first action to load role instructions.
-
-### Roles
-
-These top-level role skills load the full agent persona (workflow, constraints,
-voting procedures, etc.):
-
-| Skill                  | Description                                           |
-|------------------------|-------------------------------------------------------|
-| `/aura:architect`      | Specification writer and implementation designer      |
-| `/aura:supervisor`     | Task coordinator, spawns workers, manages execution   |
-| `/aura:worker`         | Vertical slice implementer (full production code path)|
-| `/aura:reviewer`       | End-user alignment reviewer for plans and code        |
-| `/aura:epoch`          | Master orchestrator for full 12-phase workflow        |
-
-### Architect sub-skills
-
-| Skill                              | Phase | Description                     |
-|------------------------------------|-------|---------------------------------|
-| `/aura:architect-propose-plan`     | 3     | Create PROPOSAL-N task          |
-| `/aura:architect-request-review`   | 4     | Spawn 3 axis-specific reviewers |
-| `/aura:architect-ratify`           | 6     | Ratify proposal (label `aura:p6-plan:s6-ratify`) |
-| `/aura:architect-handoff`          | 7     | Hand off to supervisor          |
-
-### Supervisor sub-skills
-
-| Skill                              | Phase | Description                      |
-|------------------------------------|-------|----------------------------------|
-| `/aura:supervisor-plan-tasks`      | 8     | Decompose plan into slices       |
-| `/aura:supervisor-spawn-worker`    | 9     | Launch workers for slices        |
-| `/aura:supervisor-track-progress`  | 9-10  | Monitor layer completion         |
-| `/aura:supervisor-commit`          | 9-10  | Atomic commit per layer          |
-
-### Worker sub-skills
-
-| Skill                    | Description                       |
-|--------------------------|-----------------------------------|
-| `/aura:worker-implement` | Implement assigned vertical slice |
-| `/aura:worker-complete`  | Signal task completion            |
-| `/aura:worker-blocked`   | Report blocker to supervisor      |
-
-### Reviewer sub-skills
-
-| Skill                         | Description                          |
-|-------------------------------|--------------------------------------|
-| `/aura:reviewer-review-plan`  | Evaluate proposal against 6 criteria |
-| `/aura:reviewer-review-code`  | Review implementation slices         |
-| `/aura:reviewer-comment`      | Leave structured feedback via Beads  |
-| `/aura:reviewer-vote`         | Cast ACCEPT or REVISE vote           |
-
-### Cross-role skills
-
-| Skill                | Description                                        |
-|----------------------|----------------------------------------------------|
-| `/aura:status`       | Project status and monitoring                      |
-| `/aura:impl-slice`   | Vertical slice assignment and tracking             |
-| `/aura:impl-review`  | Code review across all implementation slices       |
-| `/aura:user-request` | Capture user feature request (Phase 1)             |
-| `/aura:user-elicit`  | User requirements elicitation survey (Phase 2)     |
-| `/aura:user-uat`     | User acceptance testing (Phase 5/11)               |
-
----
-
-## Project Structure
-
-```
-aura-plugins/
-├── .claude-plugin/            Plugin manifests
-│   ├── marketplace.json
-│   └── plugin.json
-├── bin/                       Operational tooling (add to PATH)
-│   ├── aura-parallel          Deprecated wrapper → aura-swarm start --swarm-mode intree
-│   ├── aura-release           Version bump, changelog, and git tag
-│   └── aura-swarm             Unified agent orchestration (worktree + intree modes)
-├── skills/                    Plugin skills (SKILL.md per directory)
-│   ├── architect/             Architect orchestrator
-│   ├── epoch/                 Master orchestrator
-│   ├── protocol/              Reusable protocol documentation
-│   │   ├── PROCESS.md         Workflow execution (single source of truth)
-│   │   ├── CLAUDE.md          Core agent directive
-│   │   ├── CONSTRAINTS.md     Coding standards and checklists
-│   │   ├── AGENTS.md          Role taxonomy
-│   │   ├── SKILLS.md          Skill reference by phase
-│   │   ├── schema.xml         Canonical protocol schema
-│   │   └── ...                Templates, examples, migration docs
-│   ├── reviewer/              Reviewer orchestrator
-│   ├── supervisor/            Supervisor orchestrator
-│   ├── worker/                Worker orchestrator
-│   └── .../                   35+ role-specific skills
-├── flake.nix                  Nix packaging + Home Manager module entry
-├── nix/hm-module.nix          Home Manager module implementation
-├── pyproject.toml             Python project metadata
-├── scripts/                   Python packages
-│   ├── aura_protocol/         Protocol engine (types, state machine, constraints, workflow)
-│   │   ├── types.py           Typed enums (StrEnum), frozen dataclass specs, canonical dicts
-│   │   ├── state_machine.py   12-phase EpochStateMachine with consensus/blocker gates
-│   │   ├── constraints.py     RuntimeConstraintChecker — all 26 C-* validators
-│   │   ├── context_injection.py  Role/phase context builders + prompt renderers
-│   │   ├── schema_parser.py   XML → Python spec parser (SchemaParseError)
-│   │   ├── gen_schema.py      Python → schema.xml generator (diff mode)
-│   │   ├── gen_skills.py      SKILL.md header generator (Jinja2, diff mode)
-│   │   ├── gen_types.py       Bootstrap codegen for types.py
-│   │   ├── audit_activities.py   Temporal search attribute definitions
-│   │   ├── workflow.py        Temporal workflow wrapper (signals, queries, search attributes)
-│   │   ├── interfaces.py      Protocol interfaces (runtime_checkable) + A2A content types
-│   │   └── __init__.py        Public API re-exports
-│   └── validate_schema.py     3-layer schema.xml validation (structural, referential, semantic)
-├── tests/                     Test suite (1370+ tests)
-│   ├── test_aura_types.py     Enum completeness, frozen dataclass immutability, dict coverage
-│   ├── test_schema_types_sync.py  Field-level Python ↔ schema.xml sync verification
-│   ├── test_state_machine.py  State machine transitions, consensus gates, blocker gates
-│   ├── test_constraints.py    All 26 C-* runtime validators (BDD-style, class-per-constraint)
-│   ├── test_workflow.py       Temporal sandbox: signals, queries, search attributes
-│   ├── test_interfaces.py     Protocol satisfaction, A2A types, ModelId parsing
-│   ├── test_validate_schema.py  CLI validation, schema mutation testing
-│   ├── test_gen_skills.py     SKILL.md generator: marker parsing, rendering, init mode
-│   └── conftest.py            Shared fixtures (_advance_to, _make_state, sm, sm_at_p4)
-├── agents/                    Custom agent definitions
-│   └── tester.md              BDD test writer agent
-├── AGENTS.md                  Agent orchestration guide
-└── README.md
-```
-
----
-
-## Protocol Engine (`scripts/aura_protocol/`)
-
-The `aura_protocol` Python package provides a machine-executable implementation
-of the 12-phase Aura protocol. It is the programmatic backbone that enforces
-workflow state transitions, constraint validation, and Temporal-backed durable
-execution.
-
-### Version Roadmap
-
-| Version | Scope | Status |
-|---------|-------|--------|
-| v1 (v0.4.3) | State machine + Temporal workflow + 26 C-* constraint validators | Done |
-| v2 | Schema-driven code generation + runtime context injection | Done |
-| v3 | Full Temporal workflow engine (phases as workflows, handoffs as signals) | Future |
-
-### Architecture (v1)
-
-```
-types.py (enums, specs, canonical dicts)
-    │
-    ├─→ state_machine.py (EpochStateMachine — pure Python, no Temporal dep)
-    │       │
-    │       └─→ workflow.py (Temporal wrapper: signals, queries, search attributes)
-    │
-    ├─→ constraints.py (RuntimeConstraintChecker — all 23 C-* validators)
-    │
-    └─→ interfaces.py (Protocol interfaces for cross-project integration)
-```
-
-**Key design decisions:**
-- All spec types are frozen dataclasses (immutable, hashable, safe for Temporal serialization)
-- All enums are `str` Enums (JSON/Temporal serialization compatible)
-- State machine is pure Python — Temporal wrapper is a thin layer on top
-- Constraint validators use DI (accept optional specs dicts for testing)
-- Integration interfaces use `typing.Protocol` (structural subtyping, no inheritance required)
-
-### Running Tests
-
-```bash
-# Run full test suite (1370+ tests)
-uv run pytest tests/ --tb=short -q
-
-# Run specific module
-uv run pytest tests/test_state_machine.py -v
-
-# Run schema validation
-PYTHONPATH=scripts uv run python scripts/validate_schema.py skills/protocol/schema.xml
-```
-
-### Regenerating Skill Headers
-
-Role SKILL.md files (`supervisor`, `worker`, `reviewer`, `architect`) have a
-generated header section delimited by `<!-- BEGIN GENERATED FROM aura schema -->`
-/ `<!-- END GENERATED FROM aura schema -->` markers. After changing
-`types.py`, `context_injection.py`, or `skills/templates/skill_header.j2`:
-
-```bash
-# Regenerate all role SKILL.md headers (prints diff, writes in-place)
-PYTHONPATH=scripts uv run python -m aura_protocol.gen_skills
-
-# Regenerate schema.xml from types.py (prints diff, writes in-place)
-PYTHONPATH=scripts uv run python -m aura_protocol.gen_schema
-```
-
-Hand-authored body content (below the END marker) is preserved on every run.
-
-## Validation
-
-```bash
-# Verify Nix flake evaluates cleanly
-nix flake check --no-build 2>&1
-
-# Build packages
+nix flake check --no-build
 nix build .#aura-swarm --no-link
-
-# Test CLI help output
 nix run .#aura-swarm -- --help
-
-# Check version consistency across manifests
-bin/aura-release --check
-
-# Run protocol engine tests
-uv run pytest tests/ --tb=short -q
 ```
 
-## License
-
-MIT
+The Python package metadata exists only to package `aura-swarm` and the retained
+session registry helper. There are no third-party Python dependencies.

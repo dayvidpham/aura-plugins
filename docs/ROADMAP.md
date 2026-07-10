@@ -9,11 +9,17 @@ references:
   impl_plan: aura-plugins-eauj6 (docs/impl-plans/IMPL_PLAN-PROPOSAL-2-pasture-workflow-record.md)
   audit_proposal: aura-plugins-ircvi (docs/proposals/ROADMAP-COMPLETENESS-AUDIT.md)
   audit_request: aura-plugins-t3498
-  python_migration_doc: docs/PYTHON_TO_GO_MIGRATION.md
   related_followup_epic: aura-plugins-f59jc (Phase 10 review findings — drained)
 ---
 
 # ROADMAP — unified Pasture workflow record + observability
+
+> **⚠️ Python-era docs removed (2026-06-24).** Some references below pointed at Python
+> deprecation docs (`docs/PYTHON_TO_GO_MIGRATION.md`, `scripts/aura_protocol/DEPRECATED.md`,
+> `docs/aurad.md`, `docs/aura-msg.md`) that were deleted when the Python engine was removed
+> wholesale in [PR #6](https://github.com/dayvidpham/aura-plugins/pull/6) (Beads
+> `aura-plugins-4s5zt`). Those references are now historical; Go **pasture** is the sole
+> implementation. The v1–v4 reframe is tracked by `aura-plugins-64mld`.
 
 This document is the human-readable view of the forward-looking work tracked
 by the Beads epic [`aura-plugins-cmvu5`](beads://aura-plugins-cmvu5), with
@@ -149,11 +155,11 @@ is **deprecated**. The Go port (Pasture) has absorbed every substrate concern
 and is the only implementation that runs in any deployment. The two
 implementations are intentionally forked at the Temporal search-attribute
 wire-name level (Python keeps `Aura*`; Go uses `Pasture*` per
-[`aura-plugins-fb658`](beads://aura-plugins-fb658)) — see
-[`scripts/aura_protocol/DEPRECATED.md`](../../scripts/aura_protocol/DEPRECATED.md)
-in the parent repo and
-[`docs/PYTHON_TO_GO_MIGRATION.md`](PYTHON_TO_GO_MIGRATION.md) for the
-inventory of what's ported, what's drifted, and the reconciliation policy.
+[`aura-plugins-fb658`](beads://aura-plugins-fb658)). The Python-era inventory docs
+(`scripts/aura_protocol/DEPRECATED.md`, `docs/PYTHON_TO_GO_MIGRATION.md`) that recorded
+what was ported/drifted were removed with the Python engine in
+[PR #6](https://github.com/dayvidpham/aura-plugins/pull/6) (`aura-plugins-4s5zt`); the Go
+port is now the sole implementation, so the reconciliation policy is moot.
 
 ### Version mapping (v1 → v2 → v3 → v4)
 
@@ -280,7 +286,7 @@ Low priority; fold into the next CLI cycle.
 |---|---|---|---|
 | 🟡 | **3a. `pasture task events --task-id` alias** | (not yet filed) | Supported filters are `--epoch-id`, `--context-id`, `--context-kind`, `--agent`. Users may reach for `--task-id` from the mental model. Possible fix: add `--task-id` as alias for `--epoch-id` (epoch IDs ARE task IDs per D5), OR clarify the help text. |
 | 🟡 | **3b. `pasture task comment add` auto-default-author** | (not yet filed) | Currently requires `--author <wire-format AgentID>` — end-users without a registered agent can't comment. Possible fix: auto-register a "cli-default" agent on first comment-add, OR document the agent-registration step prominently in CLI help. |
-| 🟡 | **3c. SessionStart hook — auto-load phase-context from Temporal SAs** | [`aura-plugins-oo359`](beads://aura-plugins-oo359) | When a Claude Code session opens in a worktree associated with an open epoch, read the workflow's `PasturePhase` / `PastureRole` SAs and either *suggest* the matching `/aura:*` skill (safer) or *auto-load* it (more magical). Needs a story for "which epoch is this worktree tied to?" — likely a per-worktree `.pasture/epoch-id` marker, or the aura-swarm one-worktree-per-epoch convention. Lives in the parent `aura-plugins/hooks/` directory. |
+| 🟡 | **3c. SessionStart hook — auto-load phase-context from Temporal SAs** | [`aura-plugins-oo359`](beads://aura-plugins-oo359) | When a Claude Code session opens in a worktree associated with an open epoch, read the workflow's `PasturePhase` / `PastureRole` SAs and either *suggest* the matching `/aura:*` skill (safer) or *auto-load* it (more magical). Needs a story for "which epoch is this worktree tied to?" — likely a per-worktree `.pasture/epoch-id` marker, or the aura-swarm one-worktree-per-epoch convention. Would live in pasture's plugin hooks (the parent `aura-plugins/hooks/` directory was removed in PR #6; hooks are being ported to pasture — see [dayvidpham/pasture#29](https://github.com/dayvidpham/pasture/issues/29)). |
 
 ## §4. Discoveries during roadmap execution
 
@@ -327,7 +333,7 @@ them up.
 - **FOLLOWUP-ROADMAP epic:** [`aura-plugins-cmvu5`](beads://aura-plugins-cmvu5) — the work-index epic this document narrates.
 - **Closure triage:** [`aura-plugins-ow0pq`](beads://aura-plugins-ow0pq) — the gate task that decides `jbnx3` closure.
 - **Audit artifact:** [docs/proposals/ROADMAP-COMPLETENESS-AUDIT.md](proposals/ROADMAP-COMPLETENESS-AUDIT.md) — the 2026-05-24 investigation that produced §1.5, §4b–§4e, §2g–§2m.
-- **Migration policy:** [docs/PYTHON_TO_GO_MIGRATION.md](PYTHON_TO_GO_MIGRATION.md) — Python deprecation + skill drift + reconciliation policy.
+- **Migration policy:** `docs/PYTHON_TO_GO_MIGRATION.md` — Python deprecation + skill-drift + reconciliation policy (removed in [PR #6](https://github.com/dayvidpham/aura-plugins/pull/6), `aura-plugins-4s5zt`; the Python engine it governed is now deleted, Go Pasture is the sole implementation).
 - **Source documents:** [PROPOSAL-2](proposals/PROPOSAL-2-pasture-workflow-record.md), [IMPL_PLAN](impl-plans/IMPL_PLAN-PROPOSAL-2-pasture-workflow-record.md), [ADR 0001](adr/0001-pasture-toolkit-integration-architecture.md).
 - **Live binaries:** `pasture` (local task + audit CLI), `pasture-msg` (Temporal signal CLI), `pastured` (Temporal worker daemon), `pasture-release` (versioning), `pasture-migrate-crash` (test-only).
 - **Smoke entry point:** `make smoke-temporal` from `pasture/` inside `nix develop`.

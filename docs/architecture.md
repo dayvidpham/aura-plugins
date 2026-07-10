@@ -1,12 +1,17 @@
 # Aura Protocol — Architecture
 
+> **⚠️ RETIRED (2026-06-24).** This document describes the deprecated **Python**
+> Aura Protocol engine (v3: `aurad`, `aura-msg`, `scripts/aura_protocol/*`), which
+> was removed wholesale in [PR #6](https://github.com/dayvidpham/aura-plugins/pull/6)
+> (Beads `aura-plugins-4s5zt`). The protocol is now implemented in Go by the
+> **pasture** repo (<https://github.com/dayvidpham/pasture>), which is the source of
+> truth. This file is retained for historical reference only. The operator docs it
+> used to link (`aurad.md`, `aura-msg.md`) were removed in the same PR. A fuller
+> v1–v4 reframe is tracked by `aura-plugins-64mld`.
+
 This document covers the system architecture for Aura Protocol v3: the
 component topology, module layout, workflow design, activity registration,
 child workflow patterns, and the audit trail dependency injection pattern.
-
-For operator setup (running `aurad`, systemd, configuration), see
-[aurad.md](aurad.md). For the `aura-msg` CLI and hook integration, see
-[aura-msg.md](aura-msg.md).
 
 ## Table of Contents
 
