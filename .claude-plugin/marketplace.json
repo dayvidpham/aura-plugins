@@ -1,6 +1,6 @@
 {
   "metadata": {
-    "description": "Multi-agent orchestration toolkit for structured software development using the Aura 12-phase protocol",
+    "description": "aura-swarm orchestration tooling and marketplace registry for Pasture-based multi-agent workflows",
     "version": "0.10.2"
   },
   "name": "aura-plugins",

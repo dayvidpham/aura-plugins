@@ -24,8 +24,15 @@ let
     else pasture.outPath or pasture;
 
   pastureSource = cfg.pasture.source;
-  pastureSkillsDir = "${pastureSource}/skills";
-  pastureAgentsDir = "${pastureSource}/agents";
+
+  # Pasture emits TWO distinct generated trees. Claude Code and OpenCode must each
+  # source from their own tree — they carry different frontmatter schemas (OpenCode
+  # uses mode/permission + provider-qualified model ids; Claude Code uses tools/model).
+  # Cross-wiring them ships wrong-schema files (breaks OpenCode agent loading).
+  pastureSkillsDir = "${pastureSource}/skills";              # Claude Code target
+  pastureAgentsDir = "${pastureSource}/agents";              # Claude Code target
+  pastureOpenCodeSkillsDir = "${pastureSource}/.opencode/skill"; # OpenCode target
+  pastureOpenCodeAgentsDir = "${pastureSource}/.opencode/agent"; # OpenCode target
   protocolDir = "${self}/skills/protocol";
 
   listMdFiles = dir:
@@ -43,44 +50,51 @@ let
     lib.filterAttrs (name: path: builtins.pathExists path)
       (lib.mapAttrs (name: _: "${dir}/${name}/SKILL.md") subdirs);
 
-  allPastureSkillFiles = listSkillFiles pastureSkillsDir;
-  allPastureAgentFiles = listMdFiles pastureAgentsDir;
+  # A local pasture.source override may not have generated the OpenCode target tree.
+  # The `pastureSource != null &&` short-circuit keeps the "${null}/…" path from ever
+  # being forced (Nix laziness) when no source is configured.
+  pastureOpenCodeSkillsAvailable = pastureSource != null && builtins.pathExists pastureOpenCodeSkillsDir;
+  pastureOpenCodeAgentsAvailable = pastureSource != null && builtins.pathExists pastureOpenCodeAgentsDir;
 
-  skillsForRole = role:
-    lib.filterAttrs
-      (name: _: lib.hasPrefix role name)
-      allPastureSkillFiles;
-
-  coreSkillFiles =
-    lib.filterAttrs
-      (name: _:
-        let
-          isRoleSpecific = builtins.any (role: lib.hasPrefix role name) roleNames;
-        in
-        !isRoleSpecific
-      )
-      allPastureSkillFiles;
-
-  enabledPastureSkillFiles =
+  # Apply the role enable/disable filtering to a given skills dir. Core (non-role)
+  # skills are always installed; role skills only when that role is enabled. Shared
+  # by both the Claude Code and OpenCode targets so they stay in lockstep.
+  enabledSkillFilesFrom = skillsDir:
     let
-      roleFiles = builtins.foldl'
+      allSkills = listSkillFiles skillsDir;
+      coreSkills =
+        lib.filterAttrs
+          (name: _: !(builtins.any (role: lib.hasPrefix role name) roleNames))
+          allSkills;
+      roleSkills = builtins.foldl'
         (acc: role:
           if cfg.commands.roles.${role}.enable
-          then acc // (skillsForRole role)
+          then acc // (lib.filterAttrs (name: _: lib.hasPrefix role name) allSkills)
           else acc
         )
         { }
         roleNames;
     in
-    coreSkillFiles // roleFiles // cfg.commands.extraCommands;
+    coreSkills // roleSkills;
 
-  enabledPastureAgentFiles = allPastureAgentFiles // cfg.agents.extraAgents;
+  # Claude Code sets (installed to ~/.claude/…).
+  enabledPastureSkillFiles = (enabledSkillFilesFrom pastureSkillsDir) // cfg.commands.extraCommands;
+  enabledPastureAgentFiles = (listMdFiles pastureAgentsDir) // cfg.agents.extraAgents;
+
+  # OpenCode sets (installed to ~/.config/opencode/…) — sourced from the .opencode
+  # target tree, or empty if that tree is absent (guarded by the assertion below).
+  enabledOpenCodeSkillFiles =
+    if pastureOpenCodeSkillsAvailable then enabledSkillFilesFrom pastureOpenCodeSkillsDir else { };
+  enabledOpenCodeAgentFiles =
+    if pastureOpenCodeAgentsAvailable then listMdFiles pastureOpenCodeAgentsDir else { };
 
   usesPastureGenerated =
     cfg.commands.enable
     || cfg.agents.enable
     || cfg.opencode.skills.enable
     || cfg.opencode.agents.enable;
+
+  usesOpenCode = cfg.opencode.skills.enable || cfg.opencode.agents.enable;
 in
 {
   options.CUSTOM.programs.aura-config-sync = {
@@ -91,9 +105,10 @@ in
       default = pastureSourceDefault;
       defaultText = lib.literalExpression "pasture flake input";
       description = ''
-        Source checkout for Pasture-generated skills/ and agents/. The aura-plugins
-        flake passes the dayvidpham/pasture input by default. Override this for
-        local Pasture development checkouts.
+        Source checkout for Pasture-generated skills/ and agents/ (and their
+        .opencode/ OpenCode-target counterparts). The aura-plugins flake passes the
+        dayvidpham/pasture input by default. Override this for local Pasture
+        development checkouts.
       '';
       example = lib.literalExpression "../pasture";
     };
@@ -157,13 +172,13 @@ in
       skills.enable = mkOption {
         type = types.bool;
         default = true;
-        description = "Install Pasture-generated skills into ~/.config/opencode/skills/<name>/SKILL.md.";
+        description = "Install Pasture OpenCode-target skills (.opencode/skill) into ~/.config/opencode/skills/<name>/SKILL.md.";
       };
 
       agents.enable = mkOption {
         type = types.bool;
         default = true;
-        description = "Install Pasture-generated agents into ~/.config/opencode/agent/<role>.md.";
+        description = "Install Pasture OpenCode-target agents (.opencode/agent) into ~/.config/opencode/agent/<role>.md.";
       };
     };
 
@@ -189,20 +204,43 @@ in
           assertion = !usesPastureGenerated || pastureSource != null;
           message = ''
             CUSTOM.programs.aura-config-sync needs a Pasture source when generated
-            skills or agents are enabled. Set CUSTOM.programs.aura-config-sync.pasture.source
-            to a Pasture checkout, or use the aura-plugins flake so its pasture input
-            is supplied automatically.
+            skills or agents are enabled (evaluated during Home Manager activation).
+            Without it, no Pasture-generated skills or agents can be installed under
+            ~/.claude or ~/.config/opencode. Set
+            CUSTOM.programs.aura-config-sync.pasture.source to a Pasture checkout, or
+            use the aura-plugins flake so its pasture input is supplied automatically.
+          '';
+        }
+        {
+          assertion = !usesOpenCode
+            || pastureSource == null
+            || (pastureOpenCodeSkillsAvailable && pastureOpenCodeAgentsAvailable);
+          message = ''
+            CUSTOM.programs.aura-config-sync.opencode.{skills,agents} is enabled, but
+            the Pasture source does not contain the OpenCode target tree (expected
+            ${pastureOpenCodeSkillsDir} and ${pastureOpenCodeAgentsDir}). This is
+            evaluated during Home Manager activation; without that tree no OpenCode
+            skills/agents can be installed, and installing the Claude Code tree in its
+            place would ship files with the wrong (mode/permission-less) frontmatter.
+            Fix by generating Pasture's OpenCode target (its .opencode/skill and
+            .opencode/agent outputs), by pointing
+            CUSTOM.programs.aura-config-sync.pasture.source at a checkout that has
+            them, or by setting
+            CUSTOM.programs.aura-config-sync.opencode.skills.enable = false and
+            CUSTOM.programs.aura-config-sync.opencode.agents.enable = false.
           '';
         }
       ];
     }
 
+    # ── Packages ──
     (mkIf cfg.packages.enable {
       home.packages = [
         self.packages.${pkgs.system}.aura-swarm
       ];
     })
 
+    # ── Claude Code skills → ~/.claude/skills/<name>/SKILL.md ──
     (mkIf cfg.commands.enable {
       home.file = lib.mapAttrs'
         (name: path: {
@@ -212,6 +250,7 @@ in
         enabledPastureSkillFiles;
     })
 
+    # ── Claude Code agents → ~/.claude/agents/<role>.md ──
     (mkIf cfg.agents.enable {
       home.file = lib.mapAttrs'
         (name: path: {
@@ -221,24 +260,27 @@ in
         enabledPastureAgentFiles;
     })
 
+    # ── OpenCode skills → ~/.config/opencode/skills/<name>/SKILL.md ──
     (mkIf cfg.opencode.skills.enable {
       home.file = lib.mapAttrs'
         (name: path: {
           name = ".config/opencode/skills/${name}/SKILL.md";
           value.source = path;
         })
-        enabledPastureSkillFiles;
+        enabledOpenCodeSkillFiles;
     })
 
+    # ── OpenCode agents → ~/.config/opencode/agent/<role>.md ──
     (mkIf cfg.opencode.agents.enable {
       home.file = lib.mapAttrs'
         (name: path: {
           name = ".config/opencode/agent/${name}";
           value.source = path;
         })
-        enabledPastureAgentFiles;
+        enabledOpenCodeAgentFiles;
     })
 
+    # ── Protocol docs (opt-in) ──
     (mkIf cfg.protocol.enable (
       let
         prefix =
