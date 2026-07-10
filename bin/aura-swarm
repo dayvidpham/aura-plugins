@@ -19,7 +19,7 @@ Usage:
     aura-swarm start --epic aura-dyu --model sonnet
     aura-swarm start --epic aura-dyu --restart
 
-    # Intree mode (replaces aura-parallel)
+    # Intree mode
     aura-swarm start --swarm-mode intree --role supervisor -n 1 --prompt "..."
     aura-swarm start --swarm-mode intree --role worker -n 3 --task-id t1 --task-id t2 --task-id t3 --prompt "..."
 
@@ -178,7 +178,8 @@ def get_role_instructions(role: str, working_dir: Path) -> tuple[str | None, Pat
     Search order (first match wins):
       1. {working_dir}/skills/{role}/SKILL.md  — project-local override
       2. {script_dir}/../skills/{role}/SKILL.md — relative to script (source checkout)
-      3. {PACKAGE_SKILLS_DIR}/{role}/SKILL.md   — package-bundled (Nix store)
+      3. {script_dir}/../pasture/skills/{role}/SKILL.md — Pasture submodule checkout
+      4. {PACKAGE_SKILLS_DIR}/{role}/SKILL.md   — package-bundled (Nix store)
 
     Returns (content, path) tuple. Both are None if not found.
     """
@@ -194,7 +195,12 @@ def get_role_instructions(role: str, working_dir: Path) -> tuple[str | None, Pat
     if script_path.exists():
         return script_path.read_text(), script_path
 
-    # 3. Package-bundled skills (Nix store path or env var)
+    # 3. Pasture submodule checkout, if present.
+    pasture_path = Path(__file__).resolve().parent.parent / "pasture" / "skills" / f"{role}/SKILL.md"
+    if pasture_path.exists():
+        return pasture_path.read_text(), pasture_path
+
+    # 4. Package-bundled skills (Nix store path or env var)
     pkg_path = Path(PACKAGE_SKILLS_DIR) / f"{role}/SKILL.md"
     if pkg_path.exists():
         return pkg_path.read_text(), pkg_path
@@ -540,7 +546,7 @@ def build_intree_prompt(
     skill: str | None,
     task_ids: list[str] | None,
 ) -> str:
-    """Build prompt for intree mode (adapted from aura-parallel)."""
+    """Build prompt for intree mode."""
     parts: list[str] = []
 
     if skill:
@@ -901,6 +907,7 @@ def _start_worktree(
         print(f"Error: Role file not found: skills/{role}/SKILL.md", file=sys.stderr)
         print(f"  Looked in: {worktree_path}/skills/", file=sys.stderr)
         print(f"  Looked in: {script_dir}/skills/", file=sys.stderr)
+        print(f"  Looked in: {script_dir}/pasture/skills/", file=sys.stderr)
         print(f"  Looked in: {PACKAGE_SKILLS_DIR}/", file=sys.stderr)
         return 1
 
@@ -944,7 +951,7 @@ def _start_intree(
     working_dir: Path,
     current_tmux_session: str | None = None,
 ) -> int:
-    """Intree mode: launch agents without worktree (replaces aura-parallel)."""
+    """Intree mode: launch agents without worktree."""
     epic_suffix = get_epic_suffix(epic_id) if epic_id else secrets.token_hex(4)
     task_ids_raw: list[str] = getattr(args, "task_id", None) or []
 
@@ -955,6 +962,7 @@ def _start_intree(
         print(f"Error: Role file not found: skills/{role}/SKILL.md", file=sys.stderr)
         print(f"  Looked in: {working_dir}/skills/", file=sys.stderr)
         print(f"  Looked in: {script_dir}/skills/", file=sys.stderr)
+        print(f"  Looked in: {script_dir}/pasture/skills/", file=sys.stderr)
         print(f"  Looked in: {PACKAGE_SKILLS_DIR}/", file=sys.stderr)
         return 1
 
@@ -1689,7 +1697,7 @@ def build_parser() -> argparse.ArgumentParser:
               aura-swarm start --epic aura-dyu --model opus       # Use opus model
               aura-swarm start --epic aura-dyu --restart          # Stop existing + start fresh
 
-              # Intree mode (replaces aura-parallel)
+              # Intree mode
               aura-swarm start --swarm-mode intree --role supervisor -n 1 --prompt "..."
               aura-swarm start --swarm-mode intree -n 3 --prompt "..." --task-id t1 --task-id t2
 

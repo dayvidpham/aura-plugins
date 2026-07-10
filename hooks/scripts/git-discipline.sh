@@ -25,7 +25,7 @@
 # (block) — failing open is the right choice for a backstop because
 # the skill prose remains the primary authority.
 #
-# Test entry point: tests/test_git_discipline_hook.py
+# Historical test coverage lived in the retired Python test suite.
 
 set -uo pipefail
 

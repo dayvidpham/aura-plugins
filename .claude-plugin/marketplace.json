@@ -9,12 +9,6 @@
   },
   "plugins": [
     {
-      "description": "Aura protocol — 12-phase audit-trail workflow for structured software development with agent coordination, beads task tracking, and vertical slice implementation",
-      "name": "aura",
-      "source": "./",
-      "version": "0.10.2"
-    },
-    {
       "description": "Security filter that blocks Claude Code from accessing sensitive files (SSH keys, credentials, env files)",
       "name": "agentfilter",
       "source": {

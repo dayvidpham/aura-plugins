@@ -1,5 +1,5 @@
 {
-  "description": "Aura plugin hooks — injects beads workflow context on session start, registers sessions, and enforces shared-worktree git discipline for worker agents.",
+  "description": "Aura helper hooks for beads workflow context and shared-worktree git discipline.",
   "hooks": {
     "SessionStart": [
       {

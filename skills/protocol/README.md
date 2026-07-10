@@ -73,5 +73,5 @@ Special labels:
 
 ## References
 
-- `skills/*/SKILL.md` — Slash command definitions (installed to `~/skills/`)
-- `agents/tester.md` — BDD test writer agent definition
+- `../protocol/` in this repo is retained reference documentation.
+- Generated role skills and agents are owned by the Pasture repo under `pasture/skills/` and `pasture/agents/`.
