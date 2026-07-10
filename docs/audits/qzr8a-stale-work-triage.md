@@ -4,6 +4,7 @@
 - **Ratified plan:** `docs/proposals/PROPOSAL-1-audit-qzr8a.md` (Triage, all-18 pause)
 - **Executed:** 2026-05-30, after the ratified **all-18 user pause** (verdict-only → single pause → user walkthrough/revision → sign-off → execute).
 - **Note:** the coordinator worker's interim "18/18 close-superseded" was **overturned** by the user walkthrough. Final = **4 close-superseded + 14 extract-residual** across **6 residuals**.
+- **✅ UPDATE (2026-06-24):** the *"superseded by Python deprecation"* verdicts throughout this ledger are now backed by the actual **wholesale Python removal** — landed via **PR #6** (commit `5e2b921`, Beads [`aura-plugins-4s5zt`](beads://aura-plugins-4s5zt)): the `scripts/aura_protocol` engine, Python `tests/`, and the `aurad`/`aura-msg`/`aura-release`/`aura-parallel` Python bins are deleted; Go `pasture` is the SoT. Leaf items closed here as "Python-era / superseded" are thus permanently moot.
 
 ## T-A1 — Final triage ledger
 

@@ -6,6 +6,7 @@
 - **Why REQUEST-level:** a closeable REQUEST cascades its whole subtree (the way `j2k` closed 10 nodes in one decision), instead of triaging hundreds of leaf review-tasks individually. Supersedes the 205-leaf close-list in `qzr8a-stale-work-triage.md`.
 - **Standalone REQUEST already closed this pass:** `63f` (standing research team — deprecated/abandoned).
 - **⚠️ Nothing here is closed yet — recommendations pending sign-off.**
+- **✅ UPDATE — Python removal executed (2026-06-24):** the *"Python is being removed wholesale"* premise above is now **realized**. The wholesale deletion landed via **PR #6** (commit `5e2b921`, Beads [`aura-plugins-4s5zt`](beads://aura-plugins-4s5zt)): removed the `scripts/aura_protocol` engine + codegen, the Python `tests/` suite, `uv.lock`, `bin/{aurad.py,aura-msg,aura-parallel,aura-release}`, `agents/`, all `skills/*` **except** `skills/protocol/`, `nix/{aurad-service,temporal-service}.nix`, `.claude-plugin/plugin.json` + the `aura` marketplace entry, and `docs/{aurad,aura-msg,PYTHON_TO_GO_MIGRATION}.md`. **Kept:** `bin/aura-swarm` + its stdlib-only `scripts/aura_protocol/session_registry.py` (with a gutted `__init__.py`). Every *"being removed / in the deletion scope / post-Python-removal"* disposition below is therefore now **done**, not pending. Inline `file:line` references below are as-of the 2026-06-06 audit date and are now **historical** (e.g. `flake.nix:58 writeScriptBin` no longer exists). Residual historical-doc mentions of deleted Python bins are tracked by follow-up `aura-plugins-64mld`.
 
 ## Summary
 
