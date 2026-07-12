@@ -2481,3 +2481,83 @@ g-squash message remat the primary catch. (`
 lag them. Pre-existing leaks from prior repo development are out of scope
  unless the user asks to clean them.)
 </logs>
+
+----------
+
+# Insufficient Details and Grounding for Terminology Used in Responses
+
+Responses are jargon-laden with no grounding or context given for each component during a /user-uat walkthrough. Notice: the user responses to these questions explicitly ask for more details. Also too wordy: just too much fluff, not enough signal. Would prefer terse but information-rich and context-rich. Bullet points and diagrams are a must. Also a terminology or introduction section where each term is defined.
+
+<logs>
+b2bc214's ScenarioCoverage now pins both the edge and the mutation-load-bearing core case per arm (10 present-by-scenario predicates) — so a net-same swap that replaces, say, canonical's messy core with a second already-canonical case reddens instead of silently making the sort/dedup test vacuous. That's the real final artifact. Let me walk you through it as two pieces, component by component.
+
+---
+Component 1 of 2 — the standard-extension (piece 1)
+
+Definition shown — the one new symbol, assert.RequireValid:
+// RequireValid fails the test unless every case in the corpus is non-vacuous...
+// symmetric to RequireMin around CheckMin: the validity logic lives in Validate
+// so it can be negative-tested without a *testing.T.
+func RequireValid[I any, E any](t *testing.T, corpus testcase.Corpus[I, E]) {
+    t.Helper()
+    if err := corpus.Validate(); err != nil { t.Fatalf("RequireValid: %v", err) }
+}
+
+How it's used — the per-arm guard is two composable calls (mirroring the existing CheckMin/Validate pure seams):
+assert.RequireMin(t, fx.Canonical, 2)   // floor: at least N cases
+assert.RequireValid(t, fx.Canonical)    // per-case non-vacuity
+
+Verified: its negative control (require_valid_test.go + a vacuous_corpus.yaml fixture) is mutation-proven — rgB broke each Validate check and the matching vacuous case reddens. The convention is documented in TESTING.md (the case-list-vs-global-property discriminator + the deliberate no-generic-Suite / earns-its-keep rationale), with README + AGENTS.md pointers.
+
+One impl-level decision to confirm for this piece:
+
+● User answered Claude's questions:
+· Piece 1 guard ergonomics: each arm is guarded byMin (floor) + RequireValid (per-case non-vacuity), each wrapping one pure seam (CheckMin / Validate). Is that the right surface? → Keep two separate symmetric helpers (Recommended)
+· Any feedback on piece 1 (the RequireValid helper or the convention docs) before we move to the adoption? → No — piece 1 looks right
+· ACCEPT piece 1 (standard-extension) to land? → A
+
+Piece 1 locked (two symmetric helpers, ACCEPT). On to the adoption.
+
+---
+Component 2 of 2 — #24 adopts it as the first segmented fixture (piece 2)
+
+The fixtures — four arms, each a distinct typed Corpus (static types, no downcast):
+type skipGateFixtures struct {
+    RoundTrip          testcase.Corpus[itemsInput,   und_trip"`
+    Canonical          testcase.Corpus[itemsInput,   canonicalExpected]  `yaml:"canonical"`
+    OrdersByTranscript testcase.Corpus[resultsInput, orderExpected]      `yaml:"orders_by_transcript_id"`
+    Withheld           testcase.Corpus[resultsInput, thheld_by_omission"`
+}
+
+The validation case set (skip_gate_cases.yaml, now corpus-of-cases with per-case classification/provenance/mutation):
+
+┌─────────────────────────┬────────────────────────────────┬───────────────────────────────────────┐
+│           arm           │              core case (mutation-load-bearing)              │             edge case(s)              │
+├─────────────────────────┼─────────────────────────────────────────────────────────────┼───────────────────────────────────────┤
+│ round_trip              │ multi-item, distinct ids  real │ nil annotation set → non-null []      │
+├─────────────────────────┼─────────────────────────────────────────────────────────────┼───────────────────────────────────────┤
+│ canonical               │ messy multi-item (unsorted+dup) → exercises sort+dedup      │ already-canonical → idempotence no-op │
+├─────────────────────────┼────────────────────────────────┼───────────────────────────────────────┤
+│ orders_by_transcript_id │ scrambled multi-result → exercises sort                     │ already-ordered · empty → non-null    │
+├─────────────────────────┼─────────────────────────────────────────────────────────────┼───────────────────────────────────────┤
+│ withheld_by_omission    │ mixed some-withheld → the      │ all-withheld · none-withheld          │
+└─────────────────────────┴─────────────────────────────────────────────────────────────┴───────────────────────────────────────┘
+
+The net-same guard (ScenarioCoverage, the round-3 stre and the edge of each arm by property, so dropping the mutation-load-bearing core for a second edge reddens:
+requireScenario(t, fx.Canonical.Cases, func(c ...) bool {
+    return len(c.Input.Items) >= 2 && !itemsAlreadyCa
+}, "canonical: a messy core case ... that exercises the sort and dedup")
+
+The security-critical withheld arm asserts each withhe results slice and the marshaled bytes, per case(substring-safe — full distinct hex UUIDs):
+if strings.Contains(string(b), id) { t.Errorf("%s: withheld id %s leaked into the response bytes...", c.Name, id) }
+
+Verified: go test green; all four harnesses preserve their original SUT assertions (behavior-preserving, metadata layered on); clean 3/3 0/0/0 on b2bc214.
+
+● User answered Claude's questions:
+· Validation case set for the skip-gate adoption (the table above): each arm carries its mutation-load-bearing core case plus its edges. Is this set complete and correct? → Completnded)
+· The net-same coverage discipline: ScenarioCoverage pins core AND edge per arm by property. For round_trip specifically, the core and edge pins are intentionally NON-strict (non-disjoint) — rgB ruled that strict disjointness would false-positive (redden on a coverage-preserving fixture edit). Right call? → Tsed here: what is considered "the core" and "edge",what are the pins? and what do you mean by "present by property"?
+· ACCEPT piece 2 (the #24 skip-gate adoption) to land? → ACCEPT — land the whole stack
+Interrupted · What should Claude do instead?
+
+❯ What are the values of itemsInput and resultsInput, and what are the canonicalExpected, *Expected?
+</logs>
