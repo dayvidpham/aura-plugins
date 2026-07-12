@@ -2614,3 +2614,293 @@ Why round_trip is "non-strict": its two pins (a nil-set edge, and a multi-item-w
 ---
 That's the whole mechanism. Your ACCEPT — land the whole stack stands unless this changes anything for you. Say the word and I proceed to land (piece 1 → develop, #24 rebases, queued for your rc4 cut) — or flag a concern and I'll route it.
 </logs>
+
+
+# Confusing, Invented, Bespoke Terminology and Vernacular
+
+Occasionally, agents will just invent their own bespoke terms for common concepts already known by other names. This makes communication confusing and annoying, especially in the context of delivering summaries.
+
+<logs>
+b2bc214's ScenarioCoverage now pins both the edge and the mutation-load-bearing core case per arm (10 present-by-scenario predicates) — so a net-same swap that replaces, say, canonical's messy core with a second already-canonical case reddens instead of silently making the sort/dedup test vacuous. That's the real final artifact. Let me walk you through it as two pieces, component by component.
+
+---
+Component 1 of 2 — the standard-extension (piece 1)
+
+Definition shown — the one new symbol, assert.RequireValid:
+// RequireValid fails the test unless every case in the corpus is non-vacuous...
+// symmetric to RequireMin around CheckMin: the validity logic lives in Validate
+// so it can be negative-tested without a *testing.T.
+func RequireValid[I any, E any](t *testing.T, corpus testcase.Corpus[I, E]) {
+    t.Helper()
+    if err := corpus.Validate(); err != nil { t.Fatalf("RequireValid: %v", err) }
+}
+
+How it's used — the per-arm guard is two composable calls (mirroring the existing CheckMin/Validate pure seams):
+assert.RequireMin(t, fx.Canonical, 2)   // floor: at least N cases
+assert.RequireValid(t, fx.Canonical)    // per-case non-vacuity
+
+Verified: its negative control (require_valid_test.go + a vacuous_corpus.yaml fixture) is mutation-proven — rgB broke each Validate check and the matching vacuous case reddens. The convention is documented in TESTING.md (the case-list-vs-global-property discriminator + the deliberate no-generic-Suite / earns-its-keep rationale), with README + AGENTS.md pointers.
+
+One impl-level decision to confirm for this piece:
+
+● User answered Claude's questions:
+· Piece 1 guard ergonomics: each arm is guarded by two separate calls — RequireMin (floor) + RequireValid (per-case non-vacuity), each wrapping one pure seam (CheckMin / Validate). Is that the right surface? → Keep two separate symmetric helpers (Recommended)
+· Any feedback on piece 1 (the RequireValid helper or the convention docs) before we move to the adoption? → No — piece 1 looks right
+· ACCEPT piece 1 (standard-extension) to land? → ACCEPT piece 1
+
+Piece 1 locked (two symmetric helpers, ACCEPT). On to the adoption.
+
+---
+Component 2 of 2 — #24 adopts it as the first segmented fixture (piece 2)
+
+The fixtures — four arms, each a distinct typed Corpus (static types, no downcast):
+type skipGateFixtures
+    OrdersByTranscript testcase.Corpus[resultsInput, orderExpected]      `yaml:"orders_by_transcript_id"`
+    Withheld           testcase.Corpus[resultsInput, withheldExpected]   `yaml:"withheld_by_omission"`
+}
+
+The validation case set (skip_gate_cases.yaml, now corpus-of-cases with per-case classification/provenance/mutation):
+
+┌─────────────────────┬─────────────────────┬────────────────┐
+│         arm         │ core case (mutation │  edge case(s)  │
+│                     │   -load-bearing)    │                │
+├─────────────────────┼─────────────────────┼────────────────┤
+│                     │ multi-item,         │ nil annotation │
+│ round_trip          │ distinct ids +      │  set →         │
+│                     │ non-empty set →     │ non-null []    │
+│                     │ fidelity is real    │                │
+├─────────────────────┼─────────────────────┼────────────────┤
+│                     │ messy multi-item    │ already-canoni │
+│ canonical           │ (unsorted+dup) →    │ cal →          │
+│                     │ exercises           │ idempotence    │
+│                     │ sort+dedup          │ no-op          │
+├─────────────────────┼─────────────────────┼────────────────┤
+│ orders_by_transcrip │ scrambled           │ already-ordere │
+│ t_id                │ multi-result →      │ d · empty →    │
+│                     │ exercises sort      │ non-null       │
+├─────────────────────┼─────────────────────┼────────────────┤
+│ withheld_by_omissio │ mixed some-withheld │ all-withheld · │
+│ n                   │  → the leak-free    │  none-withheld │
+│                     │ primary             │                │
+└─────────────────────┴─────────────────────┴────────────────┘
+
+The net-same guard (ScenarioCoverage, the round-3 strengthening) pins both the core and the edge of each arm by property, so dropping the mutation-load-bearing core for a second edge reddens:
+requireScenario(t, fx.Canonical.Cases, func(c ...) bool {
+    return len(c.Input.Items) >= 2 && !itemsAlreadyCanonical(c.Input.Items)
+}, "canonical: a messy core case ... that exercises the sort and dedup")
+
+The security-critical withheld arm asserts each withheld id is absent from both the results slice and the marshaled bytes, per case (substring-safe — full distinct hex UUIDs):
+if strings.Contains(string(b), id) { t.Errorf("%s: withheld id %s leaked into the response bytes...", c.Name, id) }
+
+Verified: go test green; all four harnesses preserve their original SUT assertions (behavior-preserving, metadata layered on); clean 3/3 0/0/0 on b2bc214.
+
+● User answered Claude's questions:
+· Validation case set for the skip-gate adoption (the table above): each arm carries its mutation-load-bearing core case plus its edges. Is this set complete and correct? → Complete — the set is right (Recommended)
+· The net-same coverage discipline: ScenarioCoverage pins core AND edge per arm bcore and edge pins are intentionally NON-strict (non-disjoint) — rgB ruled that strict disjointness would false-positive (redden on a coverage-preserving fixture edit). Right call? → This looks okay, but I'm confused here: what is considered "the core" and "edge", what are the pins? and what do you mean by "present by property"?
+· ACCEPT piece 2 (the #24 skip-gate adoption) to land? → ACCEPT — land the whole stack
+Interrupted · What should Claude do instead?
+
+❯ What are the values of itemsInput and resultsInput, and what are the canonicalExpected, *Expected?
+
+Good questions — let me ground both in the actual code rather than hand-wave. Let me pull the real type definitions and the requireScenario helper.
+
+● Bash(cd /home/minttea/dev/peasant-labs/schema/feat--pull-skip-gate-types
+  echo "=== the Input / Expected type definitions ==="
+  awk '/type (itemsInput|resultsInput|skipGateItemRow|skipGateResultRow|canonicalExpected|orderExpected|withheldExpected) /,/^}/' pull_skip_gate_test.go
+  echo
+  echo "=== requireScenario helper (what a \"pin\" actually is) ==="
+  awk '/func requireScenario/,/^}/' pull_skip_gate_test.go
+  echo
+  echo "=== itemsAlreadyCanonical / resultsAscending predicates (used by the pins) ==="
+  awk '/func itemsAlreadyCanonical/,/^}/' pull_skip_gate_test.go)
+=== the Input / Expected type definitions ===
+type skipGateItemRow struct {
+   TranscriptID     string   `yaml:"transcript_id"`
+   ContentHash      string   `yaml:"content_hash"`
+   AnnotationHashes []string `yaml:"annotation_hashes"`
+}
+type skipGateResultRow struct {
+   TranscriptID       string `yaml:"transcript_id"`
+   ContentCurrent     bool   `yaml:"content_current"`
+   AnnotationsCurrent bool   `yaml:"annotations_current"`
+}
+type itemsInput struct {
+   Items []skipGateItemRow `yaml:"items"`
+}
+type resultsInput struct {
+   Results []skipGateResultRow `yaml:"results"`
+}
+type orderExpected struct {
+   Order []string `yaml:"order"`
+}
+type withheldExpected struct {
+   Present []string `yaml:"present"`
+   Absent  []string `yaml:"absent"`
+}
+
+=== requireScenario helper (what a "pin" actually is) ===
+func requireScenario[I any, E any](t *testing.T, cases []testcase.Case[I, E], pred func(testcase.Case[I, E]) bool, desc string) {
+   t.Helper()
+   for _, c := range cases {
+           if pred(c) {
+                   return
+           }
+   }
+   t.Errorf("no case pins the required scenario: %s", desc)
+}
+
+=== itemsAlreadyCanonical / resultsAscending predicates (used by the pins) ===
+func itemsAlreadyCanonical(items []skipGateItemRow) bool {
+   if len(items) < 2 {
+           return false
+   }
+   ids := make([]string, len(items))
+   for i, it := range items {
+           ids[i] = it.TranscriptID
+           if !strictlyAscending(it.AnnotationHashes) {
+                   return false
+           }
+   }
+   return strictlyAscending(ids)
+}
+
+
+
+Here are the concrete answers — all real definitions from the test file.
+
+The types
+
+Input types (the I in Corpus[I,E]) — each wraps a slice of rows:
+type skipGateItemRow struct {          // one request item
+    TranscriptID     string
+    ContentHash      string
+    AnnotationHashes []string
+}
+type skipGateResultRow struct {        // one response result
+    TranscriptID       string
+    ContentCurrent     bool
+    AnnotationsCurrent bool
+}
+type itemsInput   struct { Items   []skipGateItemRow   }   // round_trip, canonical
+type resultsInput struct { Results []skipGateResultRow }   // orders, withheld
+
+Expected types (the E) — each is the specific shape that arm asserts:
+type canonicalExpected struct { Order []string; AnnotationSets map[string][]string }  // canonical
+type orderExpected     struct { Order []string }                                       // orders
+type withheldExpected  struct { Present []string; Absent []string }                    // withheld
+// round_trip's E is struct{} — an empty marker: round-trip has no separate "expected",
+// the assertion is just "this input survives marshal→unmarshal unchanged".
+
+So the four arms are Corpus[itemsInput, struct{}], Corpus[itemsInput, canonicalExpected], Corpus[resultsInput, orderExpected], Corpus[resultsInput, withheldExpected].
+
+Core vs. edge, pins, "present by property"
+
+A "pin" is literally this helper — it asserts at least one case in the arm matches a predicate:
+func requireScenario(t, cases, pred, desc) {
+    for _, c := range cases { if pred(c) { return } }   // some case matches → pass
+    t.Errorf("no case pins the required scenario: %s", desc)  // none matches → RED
+}
+i.e. "there exists a case whose input is a multi-item request that is not already sorted/deduped." Name-and-index-free, so renaming or reordering cases can't fool it.
+
+- Core = the mutation-load-bearing case — the messy input where the behavior actually runs, so a bug would be caught. Canonical's core is [id2:{b,b,a}, id1:{z,y,y}] → the sort+dedup code genuinely executes. If you broke the sort, this case fails.
+- Edge = boundary cases: idempotence (already-canonical → no-op), empty ([] → non-null), nil (nil set → []). Real, but they don't exercise the main transform.
+
+Why the core pin was the round-3 fix: RequireMin only checks count (≥2); RequireValid only checks each case has metadata. Neither notices a net-same swap — drop the messy core, add a second already-canonical case: count still 2, both valid, but now canonical's harness only ever sees already-sorted inputs, so a broken sort passes silently (the mutation test goes vacuous). The core pin reddens exactly that.
+
+Why round_trip is "non-strict": its two pins (a nil-set edge, and a multi-item-with-a-set core) can be satisfied by the same case — the nil-edge case has 2 items, one of which has a set, so it matches the core predicate too. That's fine: each pin only needs some matching case, not a dedicated one. rgB ruled that requiring strictly disjoint cases would false-positive — a legitimate coverage-preserving edit could make them share a case and wrongly redden.
+
+---
+That's the whole mechanism. Your ACCEPT — land the whole stack stands unless this changes anything for you. Say the word and I proceed to land (piece 1 → develop, #24 rebases, queued for your rc4 cut) — or flag a concern and I'll route it.
+
+※ recap: We're extending the schema test-fixture standard and adopting it in #24 (rc4). Both pieces passed your Impl UAT and are review-clean; you accepted landing. Next: on your go, I land piece 1 to develop, rebase #24, and queue it for your rc4 cut.
+
+❯ Why does the Corpus type take two generic arguments?
+
+Case[I, E] (and therefore Corpus[I, E], which is just a list of cases) has one type parameter per role in a test case:
+
+- I = the input you feed the system under test.
+- E = the expected output it should produce.
+
+A test case is fundamentally the pair "given this input, expect this output" — so the model needs both, and they're genuinely different types. For canonical: I = itemsInput (a request), E = canonicalExpected ({Order, AnnotationSets}). For withheld: I = resultsInput, E = withheldExpected ({Present, Absent}). Collapsing them into one parameter would force an awkward union or any.
+
+Why generic at all (rather than a concrete struct per arm): the two parameters are what let one Corpus / Case / LoadCorpus / Validate / CheckMin serve every arm and every uniform corpus with its own precise types. Canonical's cases are Corpus[itemsInput, canonicalExpected]; the license corpus is Corpus[schema.License, bool]; grammar is Corpus[string, versionKind]. Same generic machinery, no re-hand-rolling the loader/validator per shape.
+
+Why that matters at the harness — this was rgA's static-typing bar. When a test iterates fx.Canonical.Cases, it gets:
+c.Input     // typed itemsInput      — c.Input.Items is []skipGateItemRow
+c.Expected  // typed canonicalExpected — c.Expected.Order, c.Expected.AnnotationSets
+No downcast, no any, no type assertion — the compiler checks you use each correctly. A single-parameter or any-typed corpus would lose that.
+
+Why exactly two, not more: input and expected are the only varying roles. The rest of a Case — classification / provenance / mutation — are fixed concrete types, so they add no parameters.
+
+Two nice consequences you saw in the arms:
+- E can degenerate to a marker. round_trip is Corpus[itemsInput, struct{}] — its assertion ("survives marshal→unmarshal") is a property of the input alone, so there's no separate expected; E = struct{} keeps it uniform with the other arms under the same guards anyway.
+- I can be a whole collection and E a global property of it. itemsInput wraps []items, canonicalExpected is the ordering+sets of that whole collection. That's precisely what let the "scenario" arms (canonical/orders/withheld) be honest case-lists rather than needing a separate global-property container — a case is (collection → its gloaccepted stack (piece 1 → develop, #24 rebases, queued for your rc4 cut)?
+
+❯ Okay. This is fine. Before we land this, we should update the documentation in order to use STANDARD terminology already used in industry, not this weird invented language of yours like "core pin" and "nil-edge case" "multi-item-with-a-set core" "nil-set edge".
+
+Fair — that terminology is ad-hoc, and it shouldn't ship. There's established vocabulary for exactly these ideas. Here's the mapping I'd apply, grounded in standard testing concepts (equivalence partitioning, boundary-value analysis, coverage, vacuous tests):
+
+my ad-hoc term: "core case" / "mutation-load-bearing core" / "messy
+  core"
+standard term: representative case
+why: equivalence partitioning: a representative input from the main
+  (non-boundary) partition that actually exercises the transform
+────────────────────────────────────────
+my ad-hoc term: "edge case/scenario" / "nil-set edge"
+standard term: boundary case
+why: boundary-value analysis: empty, nil, single-element,
+  already-sorted
+────────────────────────────────────────
+my ad-hoc term: "pin" / "present-by-scenario" / "requireScenario"
+standard term: coverage assertion ("assert the corpus covers …")
+why: it asserts the corpus covers a required case class
+────────────────────────────────────────
+my ad-hoc term: "net-same swap"
+standard term: a count-preserving swap that drops the
+  representative case, leaving the test passing  vacuously
+why: "vacuous test" is the standard term (already used elsewhere)
+
+Before → after, e.g. one ScenarioCoverage description:
+- "canonical: a messy core case (multi-item input not already canonical) that exercises the sort and dedup"
++ "canonical: a representative case (a multi-item, not-already-canonical input) that exercises sort and dedup"
+and the TESTING.md framing shifts from "pin the core + edge" to "assert coverage of the representative case and the boundary cases."
+
+Scope: the test comments + the ScenarioCoverage description strings + the TESTING.md segmented-fixture section + the YAML case comments. Behavior is unchanged; I'd keep the function names as-is unless they carry the coinage (requireScenario → I'd rename to requireCoverage, but TestSkipGateFixtures_ScenarioCoverage is fine — "scenario coverage" is standard). It's a docs/comments-only pass, then a quick re-review (no behavior change) before landing.
+
+Does that vocabulary work for you — representative case / boundary case / coverage assertion — or would you prefer different terms (e.g. "nominal case" instead of "representative case")? Once you confirm the words, I'll dispatch the pass and hold the landing until it's re-reviewed clean.
+
+❯ Also, run one more review round using an independent, adversarial Fable reviewer.
+
+Two things. On terminology: I'll take representative case / boundary case / coverage assertion as accepted (you didn't object; they're standard) — and I'll fold that cleanup together with anything the adversarial round turns up into a single worker pass, so we don't churn twice. On the review: spinning up the independent adversarial Fable reviewer now, on the real final tip b2bc214, deliberately outside the standing rgA/rgB/rgC team.
+
+● Agent(Adversarial Fable review of the stack) Fable 5
+
+Set. Where it stands:
+
+- Terminology: accepted vocabulary — representative case / boundary case / coverage assertion (with requireScenario → requireCoverage, and "vacuously passing" for the swap risk). I'll apply it as a docs/comments-only pass, behavior unchanged.
+- Independent adversarial round: a Fable reviewer is now running on the real final tip b2bc214, deliberately outside the rgA/rgB/rgC team. It's charged to actually break things — vacuous/tautological harnesses, the withheld leak-free/security contract (can a withheld id leak via any field, substring-safety), coverage-guard non-vacuity (it will mutation-test the guards — edit a fixture, confirm it reddens), and 0.5.0 spec/freshness/immutability integrity. It'll report confirmed findings vs. considered non-issues with a land/fix/block verdict.
+
+Plan to landing: when Fable reports, I fold the terminology cleanup + any confirmed Fable fixes into one worker pass (no double churn) → the standing trio re-reviews the combined change to clean 0/0/0 and confirms each Fable finding resolved → then I land (piece 1 → develop, #24 rebases, queued for your rc4 cut). Nothing lands until that independent round and the combined pass clear.
+
+Holding for the Fable review.
+
+
+@           Plan understood — hold for combined brief; final re-review bar noted
+  Plan understood, and I like combining both into one w1 pass — no double-churn. I'm holding; trio stays warm, w1 stands by.
+
+  Terminology mapping noted (I'll hold the trio to it as a consistency check): core case → "representative case" (equivalence-partition representative); edge → "boundary case"; pin / present-by-scenario → "coverage assertion" (requireScenario → requireCoverage); "net-same swap" → "count-preserving swap that leaves the test passing vacuously". Note this includes a function rename (requireScenario→requireCoverage) + comment/doc rewrites — behavior-preserving but it touches shipped test code + TESTING.md, so the trio will verify the rename is complete/consistent AND no core case/pin/net-same residue remains in shipped artifacts.
+
+  When you send the combined brief, I'll fire the final standing-trio re-review with a 3-part bar: (a) fix-free 0/0/0 across all three, (b) each Fable finding explicitly resolved (I'll track them as findings on the review anchor and confirm each closed), (c) terminology cleanup is behavior-unchanged + consistently applied (rename complete, 0 ad-hoc-term residue, mutation-proofs still green). I'll only greenlight the land when all three hold on the combined SHA. Keeping rgA/rgB/rgC warm + pre-briefed on the mapping; w1 on standby. Fire when Fable 
+Holding for the Fable review.
+
+
+@           Plan understood — hold for combined brief; final re-review bar noted
+  Plan understood, and I like combining both into one w1 pass — no double-churn. I'm holding; trio stays warm, w1 stands by.
+
+  Terminology mapping noted (I'll hold the trio to it as a consistency check): core case → "representative case" (equivalence-partition representative); edge → "boundary case"; pin / present-by-scenario → "coverage assertion" (requireScenario → requireCoverage); "net-same swap" → "count-preserving swap that leaves the test passing vacuously". Note this includes a function rename (requireScenario→requireCoverage) + comment/doc rewrites — behavior-preserving but it touches shipped test code + TESTING.md, so the trio will verify the rename is complete/consistent AND no core case/pin/net-same residue remains in shipped artifacts.
+
+  When you send the combined brief, I'll fire the final standing-trio re-review with a 3-part bar: (a) fix-free 0/0/0 across all three, (b) each Fable finding explicitly resolved (I'll track them as findings on the review anchor and confirm each closed), (c) terminology cleanup is behavior-unchanged + consistently applied (rename complete, 0 ad-hoc-term residue, mutation-proofs still green). I'll only greenlight the land when all three hold on the combined SHA. Keeping rgA/rgB/rgC warm + pre-briefed on the mapping; w1 on standby. Fire when Fable reports. CAS SLICE-B (w2) still parked.
+
+Plan and the 3-part re-review bar are locked in — trio pre-briefed on the terminology mapping, w1 on standby. Holding for the Fable adversarial round to report, then I send the combined brief (terminology cleanup + any confirmed Fable fixes).
+</logs>
+
