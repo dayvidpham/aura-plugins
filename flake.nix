@@ -5,8 +5,10 @@
   # INPUTS
   # ============================================================
 
-  inputs = {
-    nixpkgs.url = "github:NixOS/nixpkgs/nixos-25.11";
+  inputs = rec {
+    nixpkgs-stable.url = "github:NixOS/nixpkgs/nixos-26.05";
+    nixpkgs-unstable.url = "github:NixOS/nixpkgs/nixos-unstable";
+    nixpkgs.url = "github:NixOS/nixpkgs/nixos-26.05";
     pasture.url = "github:dayvidpham/pasture";
   };
 
