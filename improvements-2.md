@@ -2561,3 +2561,56 @@ Interrupted · What should Claude do instead?
 
 ❯ What are the values of itemsInput and resultsInput, and what are the canonicalExpected, *Expected?
 </logs>
+
+Some better followup, once the user asked for more clarification.
+
+<logs>
+Here are the concrete answers — all real definitions from the test file.
+
+The types
+
+Input types (the I in Corpus[I,E]) — each wraps a slice of rows:
+type skipGateItemRow struct {          // one request item
+    TranscriptID     string
+    ContentHash      string
+    AnnotationHashes []string
+}
+type skipGateResultRow struct {        // one response result
+    TranscriptID       string
+    ContentCurrent     bool
+    AnnotationsCurrent bool
+}
+type itemsInput   struct { Items   []skipGateItemRow   }   // round_trip, canonical
+type resultsInput struct { Results []skipGateResultRow }   // orders, withheld
+
+Expected types (the E) — each is the specific shape that arm asserts:
+type canonicalExpected struct { Order []string; AnnotationSets map[string][]string }  // canonical
+type orderExpected     struct { Order []string }                                       // orders
+type withheldExpected  struct { Present []string; Absent []string }                    // withheld
+// round_trip's E is struct{} — an empty marker: round-trip has no separate "expected",
+// the assertion is just "this input survives marshal→unmarshal unchanged".
+
+So the four arms are Corpus[itemsInput, struct{}], Corpus[itemsInput, canonicalExpected], Corpus[resultsInput, orderExpected], Corpus[resultsInput, withheldExpected].
+
+Core vs. edge, pins, "present by property"
+
+A "pin" is literally this helper — it asserts at least one case in the arm matches a predicate:
+func requireScenario(t, cases, pred, desc) {
+    for _, c := range cases { if pred(c) { return } }   // some case matches → pass
+    t.Errorf("no case pins the required scenario: %s", desc)  // none matches → RED
+}
+
+"Present by property" means the predicate matches on the case's structure, not its name or index. Example — canonical's core pin:
+len(c.Input.Items) >= 2 && !itemsAlreadyCanonical(c.Input.Items)
+i.e. "there exists a case whose input is a multi-item request that is not already sorted/deduped." Name-and-index-free, so renaming or reordering cases can't fool it.
+
+- Core = the mutation-load-bearing case — the messy input where the behavior actually runs, so a bug would be caught. Canonical's core is [id2:{b,b,a}, id1:{z,y,y}] → the sort+dedup code genuinely executes. If you broke the sort, this case fails.
+- Edge = boundary cases: idempotence (already-canonical → no-op), empty ([] → non-null), nil (nil set → []). Real, but they don't exercise the main transform.
+
+Why the core pin was the round-3 fix: RequireMin only checks count (≥2); RequireValid only checks each case has metadata. Neither notices a net-same swap — drop the messy core, add a second already-canonical case: count still 2, both valid, but now canonical's harness only ever sees already-sorted inputs, so a broken sort passes silently (the mutation test goes vacuous). The core pin reddens exactly that.
+
+Why round_trip is "non-strict": its two pins (a nil-set edge, and a multi-item-with-a-set core) can be satisfied by the same case — the nil-edge case has 2 items, one of which has a set, so it matches the core predicate too. That's fine: each pin only needs some matching case, not a dedicated one. rgB ruled that requiring strictly disjoint cases would false-positive — a legitimate coverage-preserving edit could make them share a case and wrongly redden.
+
+---
+That's the whole mechanism. Your ACCEPT — land the whole stack stands unless this changes anything for you. Say the word and I proceed to land (piece 1 → develop, #24 rebases, queued for your rc4 cut) — or flag a concern and I'll route it.
+</logs>
