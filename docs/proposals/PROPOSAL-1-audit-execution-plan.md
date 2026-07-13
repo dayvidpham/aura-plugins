@@ -394,4 +394,4 @@ Before any URE bd tasks are filed, the user should answer:
 - **Parent URD:** [`aura-plugins-jbnx3`](beads://aura-plugins-jbnx3) — the Pasture URD whose closure this gates.
 - **Prior audit precedent:** [docs/proposals/ROADMAP-COMPLETENESS-AUDIT.md](ROADMAP-COMPLETENESS-AUDIT.md) — the 2026-05-24 audit that produced these 5 follow-ups.
 - **Live ROADMAP:** [docs/ROADMAP.md](../ROADMAP.md) — §1.5 lists the closure cascade.
-- **Migration policy:** [docs/PYTHON_TO_GO_MIGRATION.md](../PYTHON_TO_GO_MIGRATION.md) — Python deprecation + reconciliation framing relevant to `fzctk` and `qzr8a`.
+- **Migration policy:** `docs/PYTHON_TO_GO_MIGRATION.md` (doc since deleted in PR #6) — Python deprecation + reconciliation framing relevant to `fzctk` and `qzr8a`.

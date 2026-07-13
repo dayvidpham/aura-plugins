@@ -404,4 +404,4 @@ Per the UAT-1 walk-through on `aura-plugins-h59t1`, the user resolved each §7 i
 - **Prior proposal:** [PROPOSAL-1](PROPOSAL-1-audit-execution-plan.md) — pre-URE strawman.
 - **Prior audit precedent:** [ROADMAP-COMPLETENESS-AUDIT.md](ROADMAP-COMPLETENESS-AUDIT.md) — 2026-05-24 investigation that produced the 5 in-cascade follow-ups.
 - **Live ROADMAP:** [docs/ROADMAP.md](../ROADMAP.md) — §1.5 lists the closure cascade.
-- **Migration policy:** [docs/PYTHON_TO_GO_MIGRATION.md](../PYTHON_TO_GO_MIGRATION.md) — relevant to `fzctk`, `qzr8a`, `mh4ek`, `5wbhm`.
+- **Migration policy:** `docs/PYTHON_TO_GO_MIGRATION.md` (doc since deleted in PR #6) — relevant to `fzctk`, `qzr8a`, `mh4ek`, `5wbhm`.

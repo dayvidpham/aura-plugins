@@ -148,7 +148,7 @@ unmarked prose, but because:
 
 ### Recommendation
 
-Update [`docs/PYTHON_TO_GO_MIGRATION.md`](../PYTHON_TO_GO_MIGRATION.md) §"Reconciliation policy"
+Update `docs/PYTHON_TO_GO_MIGRATION.md` (doc since deleted in PR #6) §"Reconciliation policy"
 with the boundary-analysis findings (added as a sub-note under each
 of the 2 substantive-drift rows), and **file the per-skill
 reconciliation REQUEST** that the migration doc said was "out of scope

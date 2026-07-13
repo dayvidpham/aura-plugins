@@ -304,56 +304,16 @@ history or a durable store in place of `InMemoryAuditTrail()`.
 
 ---
 
-## Roadmap
+## Roadmap (historical)
 
-### SliceWorkflow — Full slice agent execution
+This section previously described the design intent for the Python engine's
+stubs (`SliceWorkflow` slice-agent execution, `record_transition` durable
+storage, `NullTranscriptRecorder` unified-schema integration, and
+`NullSecurityGate` agentfilter integration). Those files (`workflow.py`,
+`interfaces.py`) were deleted with the rest of the Python engine, and the
+successor work happened in the Go **pasture** repo — slice execution and
+durable state live in `internal/engine` (DBOS substrate), and the audit /
+provenance trail in `internal/audit` + `internal/tasks`.
 
-**Current state (R12 stub):** `SliceWorkflow.run()` returns
-`SliceResult(success=True)` immediately without executing anything. The full
-slice agent topology is defined (child workflows, fail-fast semantics,
-`SliceInput` fields) but the activity bodies are stubs.
-
-**Design intent:** Each `SliceWorkflow` instance will coordinate a single
-implementation slice by dispatching to one or more worker agents. Activities
-will be responsible for spawning the agent, monitoring its output, and
-collecting the slice result. `phase_spec: str` in `SliceInput` is a
-placeholder for a future `SerializablePhaseSpec` type that encodes the full
-slice specification in a Temporal-serializable form.
-
-**Required before implementation:**
-- `SerializablePhaseSpec` design (unified schema integration)
-- Agent execution activity (how aurad launches or signals a worker agent)
-- Slice progress signals from child to parent (already scaffolded in
-  `EpochWorkflow` via signal infrastructure)
-
-### record_transition — Durable transition storage
-
-**Current state (v1 stub):** `record_transition` logs the transition event to
-the Python logger. The transition record is already stored in
-`EpochState.transition_history` (in-memory, within the workflow's durable
-event history), so no external persistence is done.
-
-**Design intent (v2):** Store each transition as a Beads task comment or in a
-dedicated SQLite/Temporal-backed store so transitions survive outside the
-Temporal event history. This enables reporting and audit queries that don't
-require replaying the full workflow history.
-
-### NullTranscriptRecorder — Unified schema integration
-
-**Current state (R12 stub):** `NullTranscriptRecorder` is a no-op that
-ignores all `record_turn()` calls. Defined in `interfaces.py`.
-
-**Design intent:** When the unified-schema project provides a
-`TranscriptRecorder` implementation, swap `NullTranscriptRecorder` for it in
-the DI wiring. The `TranscriptRecorder` Protocol is already defined in
-`interfaces.py` so callers do not need to change.
-
-### NullSecurityGate — agentfilter integration
-
-**Current state (R12 stub):** `NullSecurityGate` always returns
-`PermissionDecision(allowed=True)`. Defined in `interfaces.py`.
-
-**Design intent:** When agentfilter is available, inject a real
-`SecurityGate` implementation that checks tool-use permissions against
-agentfilter's policy engine. The `SecurityGate` Protocol is already defined
-in `interfaces.py`.
+For the current version roadmap, see the canonical v1–v4 version mapping in
+[`ROADMAP.md`](ROADMAP.md) (§0, "Version mapping").
