@@ -2904,3 +2904,130 @@ Holding for the Fable review.
 Plan and the 3-part re-review bar are locked in — trio pre-briefed on the terminology mapping, w1 on standby. Holding for the Fable adversarial round to report, then I send the combined brief (terminology cleanup + any confirmed Fable fixes).
 </logs>
 
+# Proposal Churn Leading to Architecture Blindspots
+
+In trying to roll out the pasture / provenance Beads replacement, we ended up spinning our wheels in the mud. We kept re-proposing band-aid fixes to whatever the reviewers found within that review wave, and lost sight of the bigger picture.
+
+<logs>
+> How did it even get to this point with so many proposal-review rounds?
+
+• It got here because the workflow repeatedly optimized the current proposal instead of reconsidering its foundational model.
+
+  The live chain is actually at FOLLOWUP_PROPOSAL-44, and the Provenance implementation slice reached review round 12. That is clear evidence the revision loop stopped functioning as an architectural correction mechanism.
+
+  The causal chain was roughly:
+
+  Plugin/skill installer
+    → multi-harness compiler
+    → Pasture task backend
+    → Provenance replacement for Beads
+    → DBOS compatibility
+    → decision ledger and AFK mode
+    → task-only event journal
+    → operations and authorities bolted beside that journal
+    → repeated activation-integrity patches
+
+  The principal failures were:
+
+  1. The epoch became far too broad
+
+  Proposal 44 has fourteen FIX-NOW surfaces spanning three repositories: compiler IR, harness runtime contracts, installers, Home Manager, task CLI, Provenance, DBOS, decisions, UAT, AFK mode, marketplace publication, and source migration.
+
+  The Provenance journal should have been its own bounded epoch with its own URE. Instead, it became a dependency inside an already sprawling plugin-generation request.
+
+  2. The wrong journal boundary was accepted early
+
+  Proposal 44 explicitly chose a “generic ordered TaskEvent journal.” That presupposed that task events were the only facts needing canonical order.
+
+  Operations, authority registrations, actor manifests, zero-event results, and decisions were subsequently placed beside the journal rather than inside it. From that point onward, reviewers were being asked to make an incomplete temporal model
+  internally consistent.
+
+  The key question was never asked:
+
+  > What is the single canonical ordering domain for every persisted fact that can affect authorization, replay, or audit?
+
+  Had we asked that, the unified journal would likely have emerged immediately.
+
+  3. Revisions were additive, not reductive
+
+  Each proposal merged reviewer findings into the previous proposal. It became longer and more precise, but not necessarily more coherent.
+
+  Old assumptions survived because the process emphasized preserving provenance and addressing every finding. For example:
+
+  - (RecordedAt, EventID) was accepted as causal order.
+  - Later, EventID alone correctly became causal.
+  - Operations and authorities then had no EventID.
+  - Instead of resetting the model, implementation added local reconstruction rules.
+  - Each reconstruction rule exposed another historical-order seam.
+
+  Proposal review became specification accretion.
+
+  4. Reviewers checked deltas rather than re-deriving the model
+
+  The proposal reviewers used correctness, test quality, and elegance axes. Those are useful, but this design needed dedicated axes for:
+
+  - Relational normalization and functional dependencies
+  - Temporal and authorization semantics
+  - Migration and replay equivalence
+
+  Nobody produced an FD table, identified all candidate keys, or formally decomposed the operation/authority/event relations. Consequently, OperationID, EventID, authority identity, ordering, audit time, and projection state were evaluated piecemeal.
+
+  5. Passing reviews meant “the latest findings were addressed”
+
+  It did not mean “the architecture has one coherent model.”
+
+  The later code reviewers had executable schemas and could construct counterexamples such as:
+
+  - Apply succeeds but the next Open rejects.
+  - A later assignment retroactively authorizes an earlier zero-event operation.
+  - A multi-effect operation is authorized at the wrong boundary.
+  - A migration rewrites an external view to a temporary table.
+  - Final assignment rows are mistaken for historical assignment state.
+
+  Those counterexamples were not present in the proposal fixtures.
+
+  6. Apply and Open became separate semantic authorities
+
+  Implementation accumulated:
+
+  - Mutation-time validation
+  - Projection validation
+  - Activation integrity checks
+  - Lifecycle replay
+  - Assignment-topology reconstruction
+  - Result/event closure validation
+
+  These independently encoded overlapping rules. Reviewers repeatedly found that Apply accepted something Open later rejected.
+
+  The proposal should have required one canonical reducer/validator used by both producer and activation paths.
+
+  7. We failed to trigger an architectural reset
+
+  After the second or third finding involving “wall-clock order versus event order,” the architect should have stopped and said:
+
+  > These are not independent defects. The database lacks one ordering relation.
+
+  Instead, I kept merging reviewer-proposed code repairs. That is why it felt like chasing our tail: we were repairing consequences of the same missing abstraction.
+
+  8. Beads amplified the noise
+
+  The audit trail contains many superseded proposals, review groups, severity groups, and still-open historical findings. Preserving history is good, but the canonical state became difficult to distinguish from archival state.
+
+  The protocol protected information but did not provide a sufficiently strong “current canonical model” projection.
+
+  The Plan-UAT skip while you were AFK removed one possible checkpoint, but that is not the root cause. The architect should have recognized that the newly introduced Provenance data model required a separate URE and architectural reset regardless.
+
+  The correction should not be “Proposal 45 with more clauses.” It should be a replacement design for a narrowly scoped unified journal, beginning with:
+
+  - Explicit functional dependencies and candidate keys
+  - BCNF decomposition
+  - One global JournalID
+  - OperationID as a unique alternate/idempotency key
+  - Task events, operations, authorities, decisions, and material work as journal subtypes
+  - RecordedAt as metadata only
+  - One shared Apply/Open reducer
+  - Explicit legacy-baseline semantics
+  - Adversarial histories specified before implementation
+
+  Then the existing plugin/compiler epoch should depend on that bounded Provenance surface instead of continuing to design it inline.
+</logs>
