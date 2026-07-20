@@ -3031,3 +3031,19 @@ In trying to roll out the pasture / provenance Beads replacement, we ended up sp
 
   Then the existing plugin/compiler epoch should depend on that bounded Provenance surface instead of continuing to design it inline.
 </logs>
+
+# In OpenCode, not knowing how to ask the user questions interactively
+
+Relevant model response for how to modify our opencode-specific skill output:
+
+<logs>
+The Epoch definition uses the abstract/Claude-style name AskUserQuestion, while this OpenCode session exposes it as functions.question. The generated skill never explicitly maps:
+AskUserQuestion → functions.question
+So I treated the wording literally, overlooked the actual tool inventory, and then incorrectly tried an interact subagent. The Epoch definition did not prevent using functions.question; this was a tool-name mismatch plus my mistake in resolving it.
+The protocol instructions should be updated to explicitly say:
+- On OpenCode, invoke functions.question directly.
+- Do not launch an interact subagent for user questions.
+- Use multiple: true when the protocol requests multi-select.
+- Record the returned selections verbatim in Beads.
+That would make the expected behavior unambiguous for future Epoch runs.
+</logs>
