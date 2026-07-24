@@ -3047,3 +3047,487 @@ The protocol instructions should be updated to explicitly say:
 - Record the returned selections verbatim in Beads.
 That would make the expected behavior unambiguous for future Epoch runs.
 </logs>
+
+# Epoch Workflow Processes
+
+Found an issue in how the implementation worker-review loop occurs happens.
+
+s a broad typed axis and performs zero writes.
+- Stale conditions fail inside the write transaction.
+- Concurrent contenders produce one winner and one typed domain loser.
+- Activity collisions roll back the entire operation.
+- DBOS recovery preserves one operation and the same result.
+- Queries return bounded, attributed, stable pages.
+
+### Good tests
+
+```go
+func TestApply_ExactRetryReturnsOriginalResult(t *testing.T)
+func TestApply_ChangedConditionReportsIndexWithoutWrites(t *testing.T)
+func TestApply_ConcurrentCurrentFactHasOneWinner(t *testing.T)
+func TestApply_ActivityCollisionRollsBack(t *testing.T)
+```
+
+### Bad tests
+
+```text
+- Reject direct field access after a decoy helper call.
+- Trace protected values through arbitrary assignments and closures.
+- Prove promoted fields cannot bypass a designated implementation file.
+- Implement a custom call graph to prove no alternate Go implementation exists.
+```
+
+A small API, package-private helpers, behavioral integration tests, and independent review are the preferred safeguards.
+
+## 10. Review Protocol
+
+Every code-review round creates three independent axes:
+
+- A: correctness and end-user alignment.
+- B: test quality and false-confidence gaps.
+- C: elegance and proportionality.
+
+Every axis eagerly creates:
+
+- BLOCKER group.
+- IMPORTANT group.
+- MINOR group.
+
+Empty groups close immediately. Findings are individual tasks beneath the correct group. Votes are binary: ACCEPT or REVISE.
+
+### Finding ownership
+
+```text
+Reviewer creates finding
+  -> supervisor records receipt and remediation handoff
+  -> worker fixes but does not close
+  -> original reviewer re-inspects and closes or revises
+```
+
+If user direction supersedes a finding's acceptance criterion, the finding is not silently deleted by the worker or supervisor## Purpose
+
+This document records the workflow practices established during the atomic-journal epoch. It focuses on repeatable coordination and quality processes rather than the specific implementation details of Provenance or Pasture.
+
+The central lesson is that autonomous agents are effective only when requirements, ownership, review evidence, and repository state remain independently verifiable.
+
+## 1. Authority Hierarchy
+   . The original reviewer independently determines whether the corrected strategy resolves the underlying concern.
+
+## 11. Reviewers Must Be Read-Only
+
+This epoch exposed a specific coordination hazard: a reviewer used stash/index operations while reviewing a shared worktree, which changed the staged snapshot and produced misleading duplicate-symbol findings.
+
+Reviewer prompts must explicitly prohibit:
+
+```text
+git add
+git reset
+git restore
+git checkout
+git stash
+git commit
+source edits
+```
+
+Safe staged inspection commands include:
+
+```bash
+git diff --cached
+git show :path/to/file.go
+git rev-parse :path/to/file.go
+git status --short
+```
+
+After every agent returns, the coordinator must independently verify:
+
+```bash
+git status --short
+git diff --cached --name-only
+git stash list
+git log --oneline -3
+```
+
+Never trust an agent's statement that repository state was unchanged without checking.
+
+## 12. Separate Source Defects From Snapshot Defects
+
+A broken partial index is not necessarily a production-code defect.
+
+During this epoch, staged new files temporarily duplicated symbols still present in unstaged modified files. The complete worktree compiled, while the partial index did not.
+
+Correct response:
+    artial-index failure
+  -> worker changes production architecture to compensate
+```
+
+Staging is an integration responsibility, not a code architecture.
+
+## 13. Verify Agent Claims Against Repository State
+
+Agent summaries can be incomplete or incorrect. This epoch found examples where:
+
+- A worker reported the sole canonical entrypoint while deprecated aliases remained.
+- A worker omitted a required Activity phase and used ActorID instead of the existing AgentID domain type.
+- A worker was told not to commit but later reported a commit.
+- A reviewer was told to be read-only but changed the index.
+- A worker updated the wrong Beads database when the intended task was not discovered.
+
+The coordinator therefore performs targeted verification after each handoff:
+
+```bash
+rg 'PrepareMutation|LegacyMutation|SemanticOperand' --glob '*.go'
+git status --short
+git diff --stat <baseline>
+git log --oneline -3
+```
+
+Also inspect the public DTO against existing domain APIs rather than accepting newly invented field types.
+
+## 14. Worktree Strategy
+
+Use one worktree for sequential foundation work. Create separate worktrees only after the shared integration base is reviewed and committed.
+
+```text
+foundation worktree
+  -> reviewed I1
+  -> reviewed I2
+       -> DBOS worktree from I2
+       -> query worktree from I2
+```
+
+Rules:
+
+- Parallel branches start from the same named integration commit.
+- File ownership is disjoint.
+- Shared contracts are merged before consumers branch.
+- Reviewers remain ephemeral and do not need worktrees.
+- Long-running workers use worktrees when their verticals can proceed independently.
+
+## 15. Quality Gates
+
+Run focused tests during implementation and the complete gate set before integration:
+
+```bash
+nix develop path:. -c go test ./...
+nix develop path:. -c go test -count=1 -shuffle=on -fullpath -timeout=10m ./...
+nix develop path:. -c env CGO_ENABLED=1 go test -p=1 -race -count=1 -shuffle=on -fullpath -timeout=20m ./...
+nix develop path:. -c go vet ./...
+nix develop path:. -c ast-grep scan --config sgconfig.yml --globs '!vendor/**' --globs '!worktree/**' .
+nix develop path:. -c env CGO_ENABLED=0 go build ./...
+git diff --check
+git diff --cached --check
+nix flake check path:.
+```
+
+Record exact commands and outcomes on the vertical. Do not replace required full gates with shorter commands in the final evidence.
+
+## 16. Integration And Commit Authority
+
+Before committing:
+
+1. All review axes ACCEPT.
+2. All BLOCKER/IMPORTANT findings required for the integration boundary are closed.
+3. Supervisor stages the exact intended set.
+4. Full gates pass against that set.
+5. Inspect `git status`, staged diff, and recent history.
+6. Obtain explicit user authorization when commit authority was not already granted.
+7. Commit with `git agent-commit`.
+8. Record the commit ID in Beads.
+9. Close the vertical only after the reviewed commit exists.
+
+Example:
+
+```bash
+git status --short
+git diff --cached --stat
+git log --oneline -10
+git agent-commit -m "feat(journal): add canonical atomic operation contracts"
+```
+
+Do not push unless explicitly authorized or the user asks to land the work.
+
+## 17. Safe Failure Handling
+
+When an unexpected repository mutation appears:
+
+1. Stop further edits.
+2. Inspect status, index, stash list, and recent commits.
+3. Determine whether source content is intact.
+4. Restore intended staging without destructive checkout/reset of user work.
+5. Record the incident if it affects review evidence.
+6. Re-run the relevant reviewer against the corrected snapshot.
+
+Never use destructive commands to recover a shared worktree unless the user explicitly approves them.
+
+## 18. Minimal Supervisor Checklist
+
+### Before Worker
+
+- URE/URD consulted.
+- Public result and non-goals explicit.
+- Vertical has exclusive files.
+- Dependencies point in the correct direction.
+- Acceptance criteria are behavioral.
+- Beads database paths are explicit.
+- Commit/stage authority is explicit.
+
+### After Worker
+
+- Read raw Beads comments.
+- Verify actual git status and log.
+- Search for forbidden compatibility or metamodel symbols.
+- Compare DTOs with existing domain APIs.
+- Run or verify focused gates.
+- Launch three independent reviewers.
+
+### After Review
+
+- Route findings through supervisor replan.
+- Do not self-close reviewer findings.
+- Re-stage the complete intended snapshot.
+- Re-run full integration gates.
+- Obtain commit authorization.
+- Commit with `git agent-commit`.
+- Record commit and close vertical.
+
+## 19. Core Process Principles
+
+1. End-user behavior outranks internally invented proof machinery.
+2. Requirements changes must update all active sources of truth.
+3. Public contracts are finalized before dependent implementation branches.
+4. Integration tests are more valuable than tests policing implementation syntax.
+5. Beads contains authoritative inter-agent evidence.
+6. Reviewers own findings; supervisors own replanning and integration.
+7. Agents are not trusted to preserve repository state without verification.
+8. Parallelism begins only after shared contracts are reviewed and merged.
+9. Every integration checkpoint is green, reviewed, and independently reproducible.
+10. The smallest correct architecture is preferred over compatibility, metamodel, or analyzer machinery without a concrete consumer need.
+
+1. Supervisor verifies the complete intended worktree.
+2. Worker fixes source defects only.
+3. Supervisor stages the complete intended file set.
+4. Original reviewer re-evaluates the exact staged snapshot.
+
+Incorrect response:
+
+```text
+Reviewer reports p
+When records disagree, use this order of authority:
+
+1. User's latest explicit decision.
+2. URE transcript and URD.
+3. Ratified proposal and implementation plan, updated to reflect later user decisions.
+4. Current vertical task and supervisor handoff.
+5. Authoritative reviewer findings in Beads.
+6. Worker comments and agent summaries.
+7. Existing code and tests.
+
+Existing code and tests are evidence of current behavior, not proof of intended behavior. A test that enforces a superseded requirement must be changed or deleted rather than treated as immutable.
+
+### Correct
+
+```text
+User correction
+  -> update URE/URD/proposal/implementation records
+  -> revise active vertical acceptance criteria
+  -> ask the original reviewer to re-evaluate obsolete findings
+  -> simplify implementation and tests
+```
+
+### Incorrect
+
+```text
+User correction
+  -> leave old task criteria unchanged
+  -> keep fixing the old review finding
+  -> add more machinery until the obsolete test passes
+```
+
+## 2. Re-Anchor Before Replanning
+
+When a review-fix loop becomes increasingly complex, stop local optimization and return to the URE and URD.
+
+Use this diagnostic sequence:
+
+1. Restate the end-user behavior.
+2. Identify which public API is required to deliver it.
+3. Identify which acceptance criterion created the current implementation pressure.
+4. Trace that criterion back to an explicit user requirement.
+5. Remove or revise it if no valid trace exists.
+
+Warning signs of requirement drift include:
+
+- Review findings demand a metamodel not named by the user.
+- Tests prove internal syntax or implementation placement instead of observable behavior.
+- Each fix creates a more sophisticated analyzer for the previous fix.
+- Workers spend more effort satisfying architecture tests than delivering the production path.
+- Supervisor handoffs preserve old criteria without consulting the URE/URD.
+
+## 3. The Autonomous Execution Loop
+
+The corrected loop is:
+
+```text
+User requirements
+  -> architect defines the required public result and boundaries
+  -> supervisor decomposes into reviewed integration verticals
+  -> worker implements one vertical
+  -> independent reviewers record findings in Beads
+  -> supervisor reads raw findings and replans structurally
+  -> worker reads raw findings and remediates
+  -> original reviewers verify and close their own findings
+  -> supervisor runs integration gates and lands the vertical
+```
+
+The supervisor must not paraphrase findings as the only worker input. Workers should read the raw Beads records with `bd show` so severity, evidence, and acceptance conditions are preserved.
+
+## 4. Role Authority
+
+### Architect
+
+- Owns requirements interpretation, public interfaces, tradeoffs, and proposal structure.
+- Works backward from the final end-user API.
+- Defines interfaces known to be required, without implementing speculative variants.
+- Updates the canonical records when user direction changes.
+
+### Supervisor
+
+- Owns decomposition, file ownership, dependency flow, worktree strategy, review coordination, and integration.
+- Does not invent replacement requirements during remediation.
+- Distinguishes a code fix from a process or staging fix.
+- Stages the final intended integration snapshot.
+- Closes a vertical only after independent review and required gates.
+
+### Worker
+
+- Owns the assigned production path, tests, implementation, and wiring.
+- Reads the complete vertical and raw reviewer findings before editing.
+- Does not expand file ownership silently.
+- Does not close reviewer findings, review groups, or the vertical.
+- Does not stage, commit, or push unless the handoff explicitly grants that authority.
+
+### Reviewer
+
+- Independently inspects the real implementation, not only the worker summary.
+- Creates review tasks, eager severity groups, individual findings, dependencies, and a binary vote in Beads.
+- Owns verification and closure of its findings.
+- Must not modify source, index, worktree, stash, branch, or commits during a read-only review.
+
+## 5. Beads Is The Coordination Ledger
+
+Important decisions must be present in Beads, not only in chat or an agent's final message.
+
+Record:
+
+- User questions and verbatim answers.
+- Architecture corrections and their rationale.
+- Positive and negative implementation examples.
+- Vertical acceptance criteria and exclusive ownership.
+- Reviewer evidence, severity, and votes.
+- Supervisor remediation handoffs.
+- Worker completion evidence and exact gate commands.
+- Integration commit IDs and release boundaries.
+
+### Correct dependency direction
+
+```bash
+bd dep add parent-that-stays-open --blocked-by child-that-finishes-first
+```
+
+For example:
+
+```bash
+bd dep add providence-j8i.1.2 --blocked-by providence-j8i.1.1
+```
+
+The blocked-by target is always the work that must finish first.
+
+### Cross-repository Beads records
+
+When a review task lives in another repository's Beads database, the handoff must include:
+
+- Full task IDs.
+- Repository path used to run `bd show`.
+- Which actor owns updates and closure.
+
+Do not assume an agent will discover the correct Beads database from a worktree automatically.
+
+## 6. Plan Vertical Integration Commits
+
+Decompose work into integration commits that are green and reviewable on their own.
+
+The epoch used this dependency shape:
+
+```text
+I1: canonical and public contracts
+  -> I2: transactional SQLite Apply
+       -> I3a: DBOS transport and recovery
+       -> I3b: fact queries and public JournalAPI
+```
+
+Principles:
+
+- Foundation is sequential where downstream work needs stable contracts.
+- Independent downstream verticals branch from the same reviewed integration commit.
+- Each production file has one owner per wave.
+- A vertical must not force the next vertical to reopen its finalized public contracts.
+- Never plan an intentionally red integration checkpoint.
+- Do not create temporary compatibility bridges without a concrete shipped-data or external-consumer requirement.
+
+## 7. Work Backward From Downstream Needs
+
+A foundation vertical must include contracts that downstream implementation is certain to require.
+
+For example, if the next vertical will atomically create an Activity, the foundation must already define:
+
+- Activity creation input fields.
+- Closed effect and journal kinds.
+- Typed collision error.
+- Result-slot identity arm.
+- Canonical encoding and decoding.
+- Public compile-use proof.
+
+The downstream SQLite vertical should implement execution, transactions, persistence, collision handling, and reconstruction. It should not need to reopen the canonical DTO or public API.
+
+### Incorrect split
+
+```text
+Foundation: leaves ActivityCreate undefined
+SQLite vertical: edits canonical DTO, codec, public API, SQL, and replay together
+```
+
+### Correct split
+
+```text
+Foundation: defines and canonicalizes ActivityCreate
+SQLite vertical: executes and reconstructs ActivityCreate atomically
+```
+
+## 8. Public API Before Internal Machinery
+
+Define the smallest public boundary that callers actually need, then make all transports consume it.
+
+Approved shape:
+
+```go
+func Canonicalize(input OperationInput) (CanonicalOperation, error)
+func Apply(input OperationInput) (CommittedResult, error)
+```
+
+Rejected shape:
+
+```go
+func PrepareMutationV1(effects []Effect) (...)
+func PrepareMutation(input OperationInput) (...)
+func Canonicalize(input OperationInput) (...)
+func DBOSCanonicalize(input OperationInput) (...)
+```
+
+Aliases and parallel entrypoints weaken ownership even when they delegate today. If the user approved an in-place breaking evolution and there are no consumers, remove obsolete entrypoints instead of preserving compatibility by default.
+
+## 9. Behavioral Tests Over Syntax Policing
+
+Test observable contracts and persistence behavior:
+
+- Exact retry returns the original committed result.
+- Changed operation identity report
