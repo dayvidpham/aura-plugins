@@ -25,7 +25,7 @@ let
 
   pastureSource = cfg.pasture.source;
 
-  # Pasture emits TWO distinct generated trees. Claude Code and OpenCode must each
+  # Pasture emits distinct generated trees. Claude Code, OpenCode, and Codex must each
   # source from their own tree — they carry different frontmatter schemas (OpenCode
   # uses mode/permission + provider-qualified model ids; Claude Code uses tools/model).
   # Cross-wiring them ships wrong-schema files (breaks OpenCode agent loading).
@@ -33,6 +33,8 @@ let
   pastureAgentsDir = "${pastureSource}/agents";              # Claude Code target
   pastureOpenCodeSkillsDir = "${pastureSource}/.opencode/skill"; # OpenCode target
   pastureOpenCodeAgentsDir = "${pastureSource}/.opencode/agent"; # OpenCode target
+  pastureCodexSkillsDir = "${pastureSource}/.agents/skills";     # Codex target
+  pastureCodexAgentsDir = "${pastureSource}/.codex/agents";      # Codex target
   protocolDir = "${self}/skills/protocol";
 
   listMdFiles = dir:
@@ -50,11 +52,32 @@ let
     lib.filterAttrs (name: path: builtins.pathExists path)
       (lib.mapAttrs (name: _: "${dir}/${name}/SKILL.md") subdirs);
 
+  listTomlFiles = dir:
+    let
+      entries = builtins.readDir dir;
+      tomlFiles = lib.filterAttrs
+        (name: type: type == "regular" && lib.hasPrefix "pasture-" name && lib.hasSuffix ".toml" name)
+        entries;
+    in
+    lib.mapAttrs (name: _: "${dir}/${name}") tomlFiles;
+
+  readDirSucceeds = dir:
+    builtins.pathExists dir
+    && (builtins.tryEval (builtins.readDir dir)).success;
+
   # A local pasture.source override may not have generated the OpenCode target tree.
   # The `pastureSource != null &&` short-circuit keeps the "${null}/…" path from ever
   # being forced (Nix laziness) when no source is configured.
   pastureOpenCodeSkillsAvailable = pastureSource != null && builtins.pathExists pastureOpenCodeSkillsDir;
   pastureOpenCodeAgentsAvailable = pastureSource != null && builtins.pathExists pastureOpenCodeAgentsDir;
+  pastureCodexSkillsAvailable =
+    pastureSource != null
+    && readDirSucceeds pastureCodexSkillsDir
+    && builtins.length (builtins.attrNames (listSkillFiles pastureCodexSkillsDir)) > 0;
+  pastureCodexAgentsAvailable =
+    pastureSource != null
+    && readDirSucceeds pastureCodexAgentsDir
+    && builtins.length (builtins.attrNames (listTomlFiles pastureCodexAgentsDir)) > 0;
 
   # Apply the role enable/disable filtering to a given skills dir. Core (non-role)
   # skills are always installed; role skills only when that role is enabled. Shared
@@ -88,11 +111,21 @@ let
   enabledOpenCodeAgentFiles =
     if pastureOpenCodeAgentsAvailable then listMdFiles pastureOpenCodeAgentsDir else { };
 
+  # Codex skills are installed to ~/.agents/… and custom agents to ~/.codex/… —
+  # both are sourced only from Pasture's generated Codex trees. Codex agents are
+  # standalone TOML files, not plugin manifests.
+  enabledCodexSkillFiles =
+    if pastureCodexSkillsAvailable then listSkillFiles pastureCodexSkillsDir else { };
+  enabledCodexAgentFiles =
+    if pastureCodexAgentsAvailable then listTomlFiles pastureCodexAgentsDir else { };
+
   usesPastureGenerated =
     cfg.commands.enable
     || cfg.agents.enable
     || cfg.opencode.skills.enable
-    || cfg.opencode.agents.enable;
+    || cfg.opencode.agents.enable
+    || cfg.codex.skills.enable
+    || cfg.codex.agents.enable;
 
   usesOpenCode = cfg.opencode.skills.enable || cfg.opencode.agents.enable;
 in
@@ -106,9 +139,9 @@ in
       defaultText = lib.literalExpression "pasture flake input";
       description = ''
         Source checkout for Pasture-generated skills/ and agents/ (and their
-        .opencode/ OpenCode-target counterparts). The aura-plugins flake passes the
-        dayvidpham/pasture input by default. Override this for local Pasture
-        development checkouts.
+          .opencode/ OpenCode- and .agents/skills plus .codex/agents Codex-target counterparts). The
+        aura-plugins flake passes the dayvidpham/pasture input by default. Override
+        this for local Pasture development checkouts.
       '';
       example = lib.literalExpression "../pasture";
     };
@@ -182,6 +215,20 @@ in
       };
     };
 
+    codex = {
+      skills.enable = mkOption {
+        type = types.bool;
+        default = false;
+        description = "Install Pasture Codex-target skills (.agents/skills) into ~/.agents/skills/<name>/SKILL.md.";
+      };
+
+      agents.enable = mkOption {
+        type = types.bool;
+        default = false;
+        description = "Install Pasture Codex custom agents (.codex/agents) into ~/.codex/agents/pasture-<role>.toml.";
+      };
+    };
+
     protocol = {
       enable = mkOption {
         type = types.bool;
@@ -206,9 +253,37 @@ in
             CUSTOM.programs.aura-config-sync needs a Pasture source when generated
             skills or agents are enabled (evaluated during Home Manager activation).
             Without it, no Pasture-generated skills or agents can be installed under
-            ~/.claude or ~/.config/opencode. Set
+            ~/.claude, ~/.config/opencode, ~/.agents, or ~/.codex. Set
             CUSTOM.programs.aura-config-sync.pasture.source to a Pasture checkout, or
             use the aura-plugins flake so its pasture input is supplied automatically.
+          '';
+        }
+        {
+          assertion = !cfg.codex.skills.enable
+            || pastureSource == null
+            || pastureCodexSkillsAvailable;
+          message = ''
+            CUSTOM.programs.aura-config-sync.codex.skills.enable is true, but the
+            Pasture source does not contain the generated Codex skill tree
+            (expected ${pastureCodexSkillsDir}/<name>/SKILL.md). Aura only consumes
+            committed Pasture output and will not recreate protocol prose here.
+            Generate Pasture's Codex target or point
+            CUSTOM.programs.aura-config-sync.pasture.source at a checkout containing
+            .agents/skills, then re-evaluate Home Manager.
+          '';
+        }
+        {
+          assertion = !cfg.codex.agents.enable
+            || pastureSource == null
+            || pastureCodexAgentsAvailable;
+          message = ''
+            CUSTOM.programs.aura-config-sync.codex.agents.enable is true, but the
+            Pasture source does not contain the generated Codex custom-agent tree
+            (expected ${pastureCodexAgentsDir}/pasture-<role>.toml). Aura only
+            consumes committed Pasture TOMLs and will not invent a plugin manifest
+            or agent definition. Generate Pasture's Codex target or point
+            CUSTOM.programs.aura-config-sync.pasture.source at a checkout containing
+            .codex/agents, then re-evaluate Home Manager.
           '';
         }
         {
@@ -278,6 +353,26 @@ in
           value.source = path;
         })
         enabledOpenCodeAgentFiles;
+    })
+
+    # Codex skills → ~/.agents/skills/<name>/SKILL.md
+    (mkIf cfg.codex.skills.enable {
+      home.file = lib.mapAttrs'
+        (name: path: {
+          name = ".agents/skills/${name}/SKILL.md";
+          value.source = path;
+        })
+        enabledCodexSkillFiles;
+    })
+
+    # Codex custom agents → ~/.codex/agents/pasture-<role>.toml
+    (mkIf cfg.codex.agents.enable {
+      home.file = lib.mapAttrs'
+        (name: path: {
+          name = ".codex/agents/${name}";
+          value.source = path;
+        })
+        enabledCodexAgentFiles;
     })
 
     # ── Protocol docs (opt-in) ──

@@ -33,7 +33,10 @@ The default package is a symlink join containing `aura-swarm`.
 ### Home Manager
 
 The module installs `aura-swarm` and symlinks Pasture-generated skills and
-agents into Claude Code and OpenCode config locations.
+agents into Claude Code, OpenCode, and Codex config locations. Codex skills come
+from Pasture's generated `.agents/skills/` tree and custom agents from
+`.codex/agents/`; Aura does not recreate protocol content or write Codex private
+state.
 
 ```nix
 {
@@ -48,11 +51,20 @@ agents into Claude Code and OpenCode config locations.
     agents.enable = true;          # ~/.claude/agents/<role>.md
     opencode.skills.enable = true; # ~/.config/opencode/skills/<name>/SKILL.md
     opencode.agents.enable = true; # ~/.config/opencode/agent/<role>.md
+    codex.skills.enable = true;    # ~/.agents/skills/<name>/SKILL.md
+    codex.agents.enable = true;    # ~/.codex/agents/pasture-<role>.toml
 
     protocol.enable = false;       # optional local protocol docs sync
   };
 }
 ```
+
+These destinations follow the official [Codex skill documentation](https://learn.chatgpt.com/docs/build-skills)
+and [custom-agent documentation](https://learn.chatgpt.com/docs/agent-configuration/subagents?surface=app).
+The [plugin documentation](https://learn.chatgpt.com/docs/build-plugins) describes
+plugins as packages containing skills and/or an MCP server, so custom-agent TOMLs
+remain this module's separate Home Manager projection. The former `.codex/skills`
+path is superseded; this module installs no duplicate skill tree.
 
 For local Pasture development, override the generated source:
 

@@ -92,6 +92,12 @@
         aura-config-sync = import ./nix/hm-module.nix { inherit self pasture; };
       };
 
+      checks = forAllSystems ({ pkgs, ... }:
+        {
+          hm-module-test = import ./nix/hm-module-test.nix { inherit pkgs; };
+        }
+      );
+
       # ── Dev Shell (for working on aura-plugins itself) ───────
       devShells = forAllSystems ({ pkgs, ... }: {
         default = pkgs.mkShell {
