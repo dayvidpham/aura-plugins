@@ -52,6 +52,11 @@ Claude Code paths used by the module:
 - Skills: `~/.claude/skills/<name>/SKILL.md`
 - Agents: `~/.claude/agents/<role>.md`
 
+Codex paths used by the module (opt-in, disabled by default):
+
+- Skills: `~/.agents/skills/<name>/SKILL.md`
+- Agents: `~/.codex/agents/pasture-<role>.toml`
+
 ## Validation
 
 Before landing code changes, run the relevant gates:

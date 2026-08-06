@@ -66,6 +66,14 @@ plugins as packages containing skills and/or an MCP server, so custom-agent TOML
 remain this module's separate Home Manager projection. The former `.codex/skills`
 path is superseded; this module installs no duplicate skill tree.
 
+This Home Manager projection and the imperative `pasture install` workflow are
+two independent installation paths: the home-manager installation exists for
+those who are using NixOS and want declarative opt-in. the imperative `pasture
+install` work exists for those who are not doing so, or want something more
+flexible with less overhead. Home Manager activation regenerates the managed
+files, so imperative edits made directly to those projected paths do not persist
+across the next activation.
+
 For local Pasture development, override the generated source:
 
 ```nix
