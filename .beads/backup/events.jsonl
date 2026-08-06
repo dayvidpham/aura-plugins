@@ -27971,3 +27971,16 @@
 {"actor":"David Huu Pham","comment":null,"created_at":"2026-08-06T03:30:59Z","event_type":"closed","id":33065,"issue_id":"aura-plugins-m2pbg","new_value":"Wave2 axis C round 1: ACCEPT","old_value":""}
 {"actor":"David Huu Pham","comment":null,"created_at":"2026-08-06T03:32:29Z","event_type":"created","id":33066,"issue_id":"aura-plugins-nwzjb","new_value":"","old_value":""}
 {"actor":"David Huu Pham","comment":"Added label: pasture:p10-impl:s10-review","created_at":"2026-08-06T03:32:29Z","event_type":"label_added","id":33067,"issue_id":"aura-plugins-nwzjb","new_value":null,"old_value":null}
+{"actor":"David Huu Pham","comment":null,"created_at":"2026-08-06T03:32:40Z","event_type":"created","id":33068,"issue_id":"aura-plugins-y9bc9","new_value":"","old_value":""}
+{"actor":"David Huu Pham","comment":"Added label: pasture:severity:blocker","created_at":"2026-08-06T03:32:40Z","event_type":"label_added","id":33069,"issue_id":"aura-plugins-y9bc9","new_value":null,"old_value":null}
+{"actor":"David Huu Pham","comment":"Added label: pasture:p10-impl:s10-review","created_at":"2026-08-06T03:32:40Z","event_type":"label_added","id":33070,"issue_id":"aura-plugins-y9bc9","new_value":null,"old_value":null}
+{"actor":"David Huu Pham","comment":null,"created_at":"2026-08-06T03:32:40Z","event_type":"created","id":33071,"issue_id":"aura-plugins-g7ouq","new_value":"","old_value":""}
+{"actor":"David Huu Pham","comment":"Added label: pasture:severity:important","created_at":"2026-08-06T03:32:40Z","event_type":"label_added","id":33072,"issue_id":"aura-plugins-g7ouq","new_value":null,"old_value":null}
+{"actor":"David Huu Pham","comment":"Added label: pasture:p10-impl:s10-review","created_at":"2026-08-06T03:32:41Z","event_type":"label_added","id":33073,"issue_id":"aura-plugins-g7ouq","new_value":null,"old_value":null}
+{"actor":"David Huu Pham","comment":null,"created_at":"2026-08-06T03:32:41Z","event_type":"created","id":33074,"issue_id":"aura-plugins-xaakv","new_value":"","old_value":""}
+{"actor":"David Huu Pham","comment":"Added label: pasture:severity:minor","created_at":"2026-08-06T03:32:41Z","event_type":"label_added","id":33075,"issue_id":"aura-plugins-xaakv","new_value":null,"old_value":null}
+{"actor":"David Huu Pham","comment":"Added label: pasture:p10-impl:s10-review","created_at":"2026-08-06T03:32:41Z","event_type":"label_added","id":33076,"issue_id":"aura-plugins-xaakv","new_value":null,"old_value":null}
+{"actor":"David Huu Pham","comment":null,"created_at":"2026-08-06T03:32:49Z","event_type":"closed","id":33077,"issue_id":"aura-plugins-y9bc9","new_value":"no findings","old_value":""}
+{"actor":"David Huu Pham","comment":null,"created_at":"2026-08-06T03:32:49Z","event_type":"closed","id":33078,"issue_id":"aura-plugins-g7ouq","new_value":"no findings","old_value":""}
+{"actor":"David Huu Pham","comment":null,"created_at":"2026-08-06T03:32:56Z","event_type":"closed","id":33079,"issue_id":"aura-plugins-nwzjb","new_value":"Wave2 axis B round 1: ACCEPT","old_value":""}
+{"actor":"David Huu Pham","comment":null,"created_at":"2026-08-06T03:33:36Z","event_type":"closed","id":33080,"issue_id":"aura-plugins-48xp3","new_value":"Wave-2 round 1: 3/3 ACCEPT, 0B/0I; both worker rulings upheld; stage candidate 33ea89e","old_value":""}

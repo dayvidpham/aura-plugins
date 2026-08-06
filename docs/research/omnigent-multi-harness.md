@@ -425,7 +425,16 @@ Adoption moves fast; treat this as a dated snapshot.
 Agents (harnesses):
 - Native ACP: Gemini CLI (`gemini --acp`), OpenCode, Goose, Qwen Code.
 - SDK / client bridge: Claude Code (Claude Agent SDK over ACP clients).
-- Third-party adapter: Codex (`codex-acp`).
+- Third-party adapter / extension: Codex (`codex-acp`), Pi (`pi-acp`
+  extension; Pi = minimalist hackable terminal agent by Mario Zechner /
+  Earendil Works, ACP via its extension ecosystem not its core).
+
+Integration-path note: "can speak ACP via an adapter" is not the same as "an
+integrator uses ACP for it." Example: omnigent does NOT integrate Pi over ACP —
+it uses Pi's own file-inbox extension protocol (`pi_native_bridge.py`:
+`enqueue_user_message` / `enqueue_interrupt`, CLI_SUBPROCESS, no forwarder),
+even though Pi has an ACP extension. Native support and actual integration path
+are distinct facts.
 
 Editors / clients (not harnesses): Zed (reference client + agent registry),
 VS Code (`vscode-acp`), Neovim (`CodeCompanion`, `avante.nvim`), JetBrains,
