@@ -380,3 +380,74 @@ introduced `internal/acp`, and why the Temporal-based runner became legacy.
   drift-checked projection.
 - This single choice explains most differences: omnigent has forwarders and a
   hosted server; Pasture has install/codegen and a narrow verified waist.
+
+---
+
+# Part 3 — ACP provenance and ecosystem (2026-08-06)
+
+## ACP provenance in Pasture (git history + design docs at 4679f0a)
+
+ACP is a day-one feature, not a later plan. Timeline from the Pasture repo:
+
+| Commit | Date | What |
+|---|---|---|
+| `ae114ac` | 2026-03-09 | Project scaffold (first commit) |
+| `397661a` | 2026-03-09 | `feat(acp): SharedIndexer, Adapter interface, Claude-JSONL + OpenCode-JSON adapters` |
+| `3b729ca` | 2026-03-10 | `feat(acp): IndexingSessionHandler + RunAgentSession activity + pastured wiring` |
+| `ce80101` | 2026-03-11 | ACP ContentBlock tests |
+
+- ACP landed the SAME day as the scaffold, with Claude and OpenCode transcript
+  adapters from the start. It was foundational intent.
+- The runner was a Temporal ACTIVITY (`3b729ca`; "activity" is Temporal's term).
+  The ACP session runner was built on Temporal.
+- Temporal went legacy for install weight. `docs/dbos-architecture.md`: Temporal
+  "required a separate Temporal server process plus a Temporal-flavoured
+  `pastured` worker"; DBOS "removes the external workflow server that made
+  Temporal operationally heavy." Decisions D1 (embedded DBOS in one binary,
+  SQLite) and D6 (`pasture status` replaces Temporal's web UI). Migration PRs
+  #23 (`breaking--migrate-dbos`) and #25 (`dbos-cleanup`); planning in
+  `docs/proposals/PROPOSAL-{1..5}-dbos-substrate-migration.md`.
+- What survived vs went legacy: the substrate-free state machine moved
+  `internal/temporal/` → `pkg/protocol` (a rename), and `internal/temporal/`
+  was deleted; the Temporal `RunAgentSession` runner moved to
+  `legacy/temporal/`; `internal/acp/` is substrate-free and stayed current.
+- Two ACP surfaces: `internal/acp` is transcript INGESTION (client side:
+  `session/update` → `SessionUpdate` → audit). The only "server" is the test
+  double `cmd/pasture-test-agent`. A GATING ACP frontend (`request_permission`
+  → L2 gate consultation → middle-end) would be new work, distinct from the
+  ingestion adapter.
+
+## ACP ecosystem support (web-sourced 2026-08; volatile — re-verify)
+
+Source: agentclientprotocol.com + the ACP registry, via web search 2026-08.
+Adoption moves fast; treat this as a dated snapshot.
+
+Agents (harnesses):
+- Native ACP: Gemini CLI (`gemini --acp`), OpenCode, Goose, Qwen Code.
+- SDK / client bridge: Claude Code (Claude Agent SDK over ACP clients).
+- Third-party adapter: Codex (`codex-acp`).
+
+Editors / clients (not harnesses): Zed (reference client + agent registry),
+VS Code (`vscode-acp`), Neovim (`CodeCompanion`, `avante.nvim`), JetBrains,
+Emacs (`agent-shell`).
+
+Correction to Part 2: an earlier note said Claude Code and Codex do not speak
+ACP. As of 2026-08 that is outdated — Claude is reachable via its Agent SDK
+over ACP clients, and Codex via the `codex-acp` adapter. Native vs bridge still
+matters for a provenance system: native ACP (Gemini, OpenCode, Goose, Qwen)
+gives cleaner evidence than an adapter/bridge (Codex, Claude).
+
+## Implication for a Pasture ACP frontend
+
+- Coverage is now broad. One `frontend/acp` could reach Gemini, OpenCode,
+  Goose, Qwen (native), plus Claude (SDK bridge) and Codex (adapter). This is
+  the omnigent `acp:<slug>` pattern: N agents collapse to one frontend, and a
+  new ACP agent costs one registry row, not a vertical.
+- Stage 2 is the enabler. `frontendRegistry` + generic `Bind` make an ACP
+  frontend one row that serves many agents.
+- Caveats stand: adapter/bridge fidelity (a translation layer for Codex/Claude);
+  ACP carries only the common semantic subset (no harness-specific hook points);
+  Pasture shifts to a DRIVE/ACP-client posture for ACP agents (unlike its
+  install-a-hook augmentation model today); and it needs a new ACP-message
+  evidence/provenance surface. It is an ADDITIONAL ingress, not a replacement
+  for the native-hook frontends.
