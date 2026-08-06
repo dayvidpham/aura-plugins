@@ -223,3 +223,160 @@ also solves a streaming-durability problem that Pasture does not have.
 - The Pasture harness set stays closed (three harnesses).
 - The Stage-2 refactor scope stays as ratified (FOLLOWUP_PROPOSAL-6).
 - The no-live-Codex program rider stays in force.
+
+---
+
+# Part 2 — bridges, ACP, collaboration, auth, self-hosting (2026-08-06)
+
+- Added after a second investigation: five explore agents (omnigent bridge
+  enumeration, omnigent collaboration, omnigent auth, omnigent self-host) plus
+  a direct grep of the Pasture tree for ACP.
+- Note: the omnigent auth/self-host/collaboration findings and the omnigent
+  bridge enumeration carry file:line evidence from those runs. The Pasture ACP
+  findings carry file:line evidence from a direct read at `4679f0a`.
+
+## Correction: the "~6 bridges" number
+
+The earlier scan said ~6 large per-harness files. That was a size filter.
+Exactly six files exceed 1000 lines. The true count is **11 bespoke per-vendor
+native bridges + 1 generic ACP adapter = 12**, reading 24 harness ids plus
+unbounded `acp:<slug>` ids.
+
+The count is far below 24 because 13 ids need no per-vendor transcript reader:
+- 6 run in process (SDK_IN_PROCESS): claude-sdk, openai-agents, open-responses,
+  cursor, antigravity, copilot — streams read inside the executor, no bridge.
+- 4 are per-turn CLI (CLI_SUBPROCESS): codex, pi, kimi, hermes.
+- 3 ride ACP (ACP_SUBPROCESS): `acp` (generic), goose, qwen.
+
+The remaining 11 native ids (`*-native`) each carry exactly one bridge
+(`harness_plugins.py:313-600` for the mode table; `acp_executor.py:233`,
+`workflow.py:1527` for the ACP slug resolver).
+
+## ACP — the corrected picture for both projects
+
+Earlier notes guessed that omnigent's ACP path might cover Codex and OpenCode,
+and that Pasture had no ACP. Both were wrong. Evidence:
+
+### Omnigent
+- ACP is one shared adapter. `AcpExecutor` drives `acp` plus unbounded
+  `acp:<slug>` agents (`omnigent/inner/acp_harness.py`, `acp_executor.py:233`,
+  `workflow.py:1527-1561`). Confirmed: one adapter, any number of ACP agents.
+- Codex and OpenCode do NOT use ACP. Codex is CLI_SUBPROCESS with a loopback
+  WebSocket JSON-RPC app-server (`codex_native_app_server.py`). OpenCode is
+  NATIVE_SERVER via `opencode serve` over HTTP+SSE
+  (`opencode_native_app_server.py`, `opencode_native_forwarder.py`).
+- The ACP-mode ids are only `acp`, `goose`, `qwen`.
+
+### Pasture — ACP exists now (not just a plan)
+- `internal/acp/` is a full, tested package: an ACP CLIENT (`client.go` — parses
+  `session/update` JSON-RPC), a static adapter registry with formats
+  `"claude-jsonl"` and `"opencode-json"` (`adapter.go:41-44`), an indexer
+  (`indexer.go`), and a session handler. So Pasture normalizes Claude and
+  OpenCode transcripts INTO the ACP `SessionUpdate` model.
+- Client, not a shipped server. The only ACP "server" is a test double,
+  `cmd/pasture-test-agent/main.go` ("a fake ACP-compatible agent").
+- The orchestration is legacy. `RunAgentSession` (which called `acp.NewClient`)
+  lives under `legacy/temporal/`. The `internal/acp/` package itself is current.
+- Design lineage: `llm/research/pasture-architecture.md:43` ("ACP adapter
+  ingesting agent transcripts into audit sessions");
+  `llm/research/opencode-codex-codegen-investigation.md:163` cites
+  `internal/acp/adapter.go` as the compile-time-registry precedent for the
+  lifecycle codegen registry. `pkg/protocol/session_entry.go` types are
+  ACP-aligned.
+- Two ingress surfaces exist and are separate: (1) the lifecycle hook path
+  (claude/opencode/codex frontends → waist → middleend), which Stages 1-2
+  refactor; (2) the ACP transcript-ingestion path (`internal/acp`). They solve
+  different problems. The hook path handles single hook events. The ACP path
+  ingests whole agent session transcripts.
+
+Open provenance question (not yet traced): which planning doc or task first
+introduced `internal/acp`, and why the Temporal-based runner became legacy.
+
+## Omnigent collaboration model
+
+- A session is one artifact with one owner. Table `SqlConversation`
+  (`db_models.py:745-849`). No participant column; ownership is a grant.
+- Access is a per-session ACL. `SqlSessionPermission` maps `(user, conversation)
+  → level`: READ=1, EDIT=2, MANAGE=3, OWNER=4 (`auth.py:105-108`). Plus
+  `can_approve` for approval delegation. `__public__` grant = anyone-with-link
+  read (`db_models.py:554-558`).
+- Transport: in-process pub/sub per conversation, snapshot then live-tail, no
+  replay buffer (`session_stream.py`). Live SSE stream `GET
+  /v1/sessions/{id}/stream` (needs READ). Presence shows viewers as circles
+  (`presence.py`, `PresenceAvatars.tsx`).
+- Multi-user participation: SUPPORTED, with limits. READ co-views; EDIT posts
+  input to the live session (`routes_events.py:227-231`). But no invite flow (a
+  user joins by grant + URL), input is one FIFO queue (not true concurrent
+  edit), and native-terminal sessions funnel shared input into one vendor TUI
+  via tmux injection.
+- Session sharing: SUPPORTED. Grant/revoke (needs MANAGE), public link with a
+  kill-switch, server-wide `SharingMode` (ON/READ_ONLY/RESTRICTED_READ_ONLY/OFF,
+  `auth.py:111-143`). No org/team model.
+- Pull transcript + continue locally: SUPPORTED, three paths. (1) Export/import
+  JSONL — the portable cross-machine path: `omnigent session export` →
+  `omnigent session import` recreates it on ANOTHER server (`cli.py:5144-5415`).
+  (2) Fork — same server, forker becomes owner, needs READ
+  (`routes_core.py:1910-2053`). (3) Resume — rebuilds the native transcript, but
+  on the runner host only (`resume_dispatch.py`).
+
+## Omnigent authentication and access control
+
+- AuthN modes: header/proxy (default, `X-Forwarded-Email`, fail-closed,
+  `auth.py:571-614`); OIDC (auth-code + PKCE, JWT cookie, `routes/auth.py:131-222`);
+  built-in accounts (invites, magic links, first-admin setup,
+  `routes/accounts_auth.py`); CLI login; device grants (RFC-8628,
+  `routes/device_auth.py`); short-lived runner tokens
+  (`routes/runner_tunnel.py:313-342`); loopback native servers
+  trusted-by-locality plus generated basic-auth. No mTLS. Bind address sets the
+  default posture: loopback → single-user; non-loopback → auth on.
+- AuthZ is an ACL, not RBAC. Per-session level (READ/EDIT/MANAGE/OWNER). No org,
+  team, or workspace roles. Resolution: admin bypass → conversation lookup →
+  sub-agent parent delegation → grant check (`server/permissions.py:17-60`).
+  Enforcement is manual helper calls, not decorators (`_auth_helpers.py`) — a
+  drift risk.
+- Policy-evaluate is a GUARDRAIL, not access control. It returns ALLOW/DENY/ASK
+  over tool/LLM/prompt phases (`engine.py:42-102`); its own gate is only READ.
+  Commit #3418 tightened per-phase schema validation, fixing a fail-open where a
+  non-2xx policy plugin was treated as ALLOW.
+- Secrets (#3479): `clean_agent_env` is deny-by-default; the launcher prunes env
+  at exec. Before the fix a full environ made the allowlist a no-op, so vendor
+  subprocesses inherited unrelated host secrets (`inner/agent_env.py:35-110`,
+  `inner/sandbox.py:561-629`).
+- Multi-tenancy: boundary is user identity + per-session ACL; per-user dirs. One
+  documented risk: an owner-less runner is bindable by any tenant, mitigated by
+  fail-closed owner resolution (`runner_tunnel.py:404-419`). WS defenses: Origin
+  check, token-bound tunnels, gated terminal attach, verifying TLS.
+- Maturity: a local single-user tool with a genuinely hardened thin hosted
+  layer. Gaps: no org/team RBAC, no mTLS, header-mode trusts the proxy, manual
+  per-route guards.
+
+## Omnigent self-hosting
+
+- Verdict: FULLY self-hostable. Apache-2.0 (`LICENSE`). One FastAPI + WebSocket
+  app you run; that app IS the collaboration/sync server; no hosted relay.
+  Runners connect to YOUR URL (`RUNNER_SERVER_URL`).
+- Deploy: Docker compose (postgres + omnigent), Kubernetes manifests,
+  Fly/Render/Railway, or bare `omnigent server` on `127.0.0.1:6767`.
+- Storage: Postgres OR SQLite (`DATABASE_URL`); artifacts local dir OR
+  S3/MinIO/R2. Models: bring your own key, every provider `base_url`
+  overridable, no omnigent inference gateway. Auth backend: built-in accounts,
+  your own OIDC, header SSO, or single-user mode.
+- Required hosted dependency: none. Caveats (not blockers): usage telemetry is
+  on by default but disableable (`OMNIGENT_ANALYTICS=0`) and self-disables if
+  unreachable; prebuilt images default to `ghcr.io/omnigent-ai/*` but build
+  locally from the same Dockerfile; some optional sandbox providers (Modal,
+  Daytona) are third-party SaaS, while Kubernetes/local sandboxes need none.
+- For air-gapped use: disable telemetry and build the image locally.
+
+## The design axis this exposes (ownership vs augmentation)
+
+- Omnigent OWNS the process. It spawns and drives the agent CLI as a subprocess,
+  injects ephemeral per-session config pointing at its own servers, and forwards
+  events out. It needs no durable projection; it needs stream durability
+  (cursors, dead-letter, replay). The user runs omnigent.
+- Pasture AUGMENTS the user's process. The user runs their own CLI. Pasture
+  projects durable, opt-in config (install + codegen) and observes via installed
+  hooks. It needs no stream durability for the hook path; it needs a generated,
+  drift-checked projection.
+- This single choice explains most differences: omnigent has forwarders and a
+  hosted server; Pasture has install/codegen and a narrow verified waist.
