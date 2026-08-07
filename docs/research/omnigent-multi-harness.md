@@ -460,3 +460,99 @@ gives cleaner evidence than an adapter/bridge (Codex, Claude).
   install-a-hook augmentation model today); and it needs a new ACP-message
   evidence/provenance surface. It is an ADDITIONAL ingress, not a replacement
   for the native-hook frontends.
+
+---
+
+# Part 4 — a third model: emulation (Open Interpreter, 2026-08-06)
+
+Source: read of `github.com/openinterpreter/openinterpreter` at HEAD `855ab60`
+(shallow clone), one explore agent, file:line evidence from that run.
+
+## What it is now
+
+The classic Python "run LLM code locally" Open Interpreter is gone. At this
+HEAD the repo is a **fork of OpenAI's Codex** (the Rust `codex-rs` tree),
+rebranded "a coding agent optimized for low-cost models." README:47: "a fork of
+OpenAI's Codex, with a focus on emulating the agent harness that gets the best
+performance out of low-cost models."
+
+## The emulation model
+
+- One engine imitates many vendor harnesses. It never runs the real Claude
+  Code, OpenCode, or Kimi CLI — it wears their prompt/tool/wire "clothes."
+- `Harness` enum, 15 variants + `Other(String)` (`codex-rs/tools/src/harness.rs:1-42`):
+  native, claude-code, claude-code-bare, deepseek-tui, kimi-code, kimi-cli,
+  zcode, little-coder, mini-swe-agent, opencode, pi, qwen-code, swe-agent,
+  terminus-2, minimal.
+- Selecting a harness is a config value (`harness` in `config.toml`;
+  `config/src/config_toml.rs:159-163`), defaulted per provider/model
+  (`model-provider-info/src/lib.rs:164` `default_harness_for_provider_model`).
+- LIVE swap: the TUI `/harness` command edits the config value mid-session
+  (`tui/src/config_update.rs:95-98` `replace_config_value("harness", …)`). The
+  `/harness` list itself is data-driven from a catalog
+  (`app-server/src/interpreter_catalog.rs`).
+
+## Complexity management — hybrid (half-centralized)
+
+- Wire/transport selection IS centralized: a 2D `(wire_api, harness)` routing
+  table (`core/src/harness/routing.rs` `resolve_stream_transport_route`) with
+  typed output postprocessors (`request.rs` `ChatHarnessPostprocess`). Its
+  comment: "adding a chat harness means adding a route arm in this module, not
+  editing the client." Enum exhaustiveness forces these arms at compile time.
+- Tool/output shaping is SCATTERED: `core/src/tools/handlers/harness_aliases.rs`
+  has ~44 string-based branch checks that silently no-op for a new harness.
+- No `trait Harness`. Each harness is a module with a CONVENTION — a free
+  function `build_request(&Prompt, &ModelInfo) -> (Value, ToolKinds)`
+  (`kimi_code.rs:32`, `opencode.rs:51`). Modules are large: `claude_code.rs`
+  4715 lines, `kimi_cli.rs` 2897, `zcode.rs` 2671.
+
+## Is there an IR? — half a waist, by design
+
+- A provider-neutral internal model exists but is Codex's OWN, inherited:
+  `Prompt { input: Vec<ResponseItem>, base_instructions, … }`
+  (`core/src/client_common.rs`).
+- Response path unified: `chat-wire-compat` parses SSE deltas back into
+  `ResponseItem` (`stream.rs:237-268`). Many dialects → one internal form.
+- Request path fragmented: each harness hand-builds its own `serde_json::Value`
+  wire request, bypassing the shared serializer (`opencode.rs:82`,
+  `kimi_code.rs:60`). N builders sharing almost nothing.
+- Verdict: half a waist. Ingress unified, egress per-harness. And there is NO
+  differential-equivalence guarantee — deliberately. The product value is that
+  each harness is DIFFERENT (per-model performance tuning); a semantic waist
+  would erase the difference it sells.
+
+## Add-a-new-harness developer story — many places, hand-wired
+
+~12 edits across 5 crates, no codegen/macro/registry:
+`harness.rs` (enum + from_config_name + is_* predicate); `harness/mod.rs`
+(module decl); `harness/<name>.rs` (build_request + prompt/tool assets);
+`harness/routing.rs` (route variant + resolve arm + config-name); `harness/
+request.rs` (dispatch arm + optional postprocess); `tools/handlers/
+harness_aliases.rs` (alias variants + string helpers); `tools/spec_plan.rs`
+(matches! block); `app-server/src/interpreter_catalog.rs` (HarnessDefinition,
+drives the /harness UI); `model-provider-info/src/lib.rs` (default heuristic);
+tests (from-config, a hard-asserted catalog list, per-module request-builder
+tests, routing tests). Not one-place. The only free win is the data-driven
+`/harness` UI catalog.
+
+Clever: the typed `(wire_api, harness)` routing table + central postprocess;
+the provider/model default heuristic. Messy: the 44-branch string-typed
+`harness_aliases.rs`; per-harness request builders each re-implement
+message-to-tool flattening with subtle call-id rules (duplicated across
+opencode/pi/kimi); product hardlinks like deepseek→`claude-code-bare` that
+skip any registry.
+
+## The three products, three stances on the waist
+
+| Project | Model | Stance on a semantic waist | Why |
+|---|---|---|---|
+| Pasture | Augment the user's own CLI (installed hooks) | CONVERGE — one narrow L1/L2 waist, differential equivalence | Governance/provenance needs all harnesses to mean the SAME thing |
+| Omnigent | OWN/drive the vendor CLI (subprocess) | BROKER — no semantic waist; per-vendor bridges + dispatch registry | Product is breadth of vendors |
+| Open Interpreter | EMULATE the vendor harness (one engine) | DIVERGE — no semantic waist; N request skins | Product is per-model performance; the difference IS the value |
+
+Only Pasture has a true semantic waist, because only its product demands one.
+Convergent lesson across all three: each independently centralizes DISPATCH
+(omnigent's registry, Pasture's Stage-2 `frontendRegistry`, Open Interpreter's
+`(wire_api, harness)` routing table) — and each finishes it only partially,
+leaving a scattered second layer (omnigent's ~49 residual branches, Pasture's
+install/codegen enumerations, Open Interpreter's 44-branch `harness_aliases`).
