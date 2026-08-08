@@ -1,0 +1,5 @@
+Act as the epoch agent, and when we approach the right phase, the architect agent, then the supervisor agent. We should handle the UX epoch as a single REQUEST. This will be the kicking off of a new epoch.
+
+Run a separate Sol agent to simulate their requirements during the URE and {plan, impl} UAT phases. I'm going to go to bed, so we should skip the real live URE and UAT phases. The only gate will be a real human IMPL UAT in the morning. Don't merge anything in yet. Can open PRs, but don't merge them in. A review team should be 3 Terra agents, during the proposal-review cycle and during the worker-review cycle. The worker agent should be a Terra high effort agent. Once all 3 Terra reviewers hit 0/0/0, we pass it off to one Sol reviewer at xhigh effort. Proceed autonomously until we reach the last IMPL UAT gate.
+
+We can also go through a simulated Sol IMPL UAT, but it should stop after the simulated IMPL UAT results in no issues, repeating the worker-reviewer cycle until it does. Things are held open until the user runs a real IMPL UAT, don't merge any PRs in.

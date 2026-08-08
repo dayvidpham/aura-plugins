@@ -3531,3 +3531,19 @@ Test observable contracts and persistence behavior:
 
 - Exact retry returns the original committed result.
 - Changed operation identity report
+
+# Extra explicit instructions for Codex orchestrators in OpenCode.
+
+Had to provide this explicit instruction, as the orchestrator was not passing the Beads task IDs around to workers or reviewers.
+
+<instructions>
+As an extra step to the Epoch workflow: we can use mostly reviewer-mini agents for review, until we achieve a clean 0/0/0. Then use one more review wave with full `review` agents, to see if we reach the 0/0/0 clean review. If all the work is already specified and planned out, and all the API surfaces are determined, then we can use worker-mini for implementation. If there is vague spec, and the work is cross-repo, then we should use the `worker` agent. When we get back the results of a review, run an architect planning subagent to consolidate the results, figure out a internally consistent fix instead of monkey-patching each issue, and write new impl leaves as children of the review nodes. Reviews and fix waves should suggest the minimal amount of code changes needed. We need to ship faster, we don't need extensively robust test code right now that will cover every possible case.
+
+(later on ...)
+
+Whenever we run a worker, workers should be given the relevant Beads task IDs (reviewer Beads tasks, implementation plan, slices, URE/URDs, etc.), Git commit hashes, and aboslute filesystem paths to properly ground the work, and for them to understand what they even have to implement or fix. If there are any findings, let's run a `worker` agent for the remainder of the work, not a `worker-mini`.
+
+This is the same with the reviewers too. They should receive appropriate grounding for their review tasks. They need the UREs, URDs, ratified proposal, the implementation plan, and the relevant slices.
+
+Don't just blindly list the Beads task IDs, deliver them in a concise bulleted list, with some context about why they're relevant and their description. Can also deliver them this Beads context in YAML frontmatter format, before any other handwritten instructions.
+</instructions>

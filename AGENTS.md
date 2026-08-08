@@ -2,8 +2,8 @@
 
 This repository contains the remaining Aura-side operational tooling:
 
-- `bin/aura-swarm` for worktree and tmux orchestration.
-- `scripts/aura_protocol/session_registry.py` for `aura-swarm` session state.
+- **DEPRECATED**: `bin/aura-swarm` do NOT use this for orchestration and handoff.
+- **DEPRECATED**: `scripts/aura_protocol/session_registry.py` for `aura-swarm` session state.
 - `nix/hm-module.nix` for Home Manager sync.
 - `skills/protocol/` for reference protocol documentation.
 - `.claude-plugin/marketplace.json` for marketplace registry entries.
@@ -49,7 +49,7 @@ OpenCode paths used by the module:
 
 Claude Code paths used by the module:
 
-- Skills: `~/.claude/skills/<name>/SKILL.md`
+- Skills: `~/.claude/skills/<name>/skill.md`
 - Agents: `~/.claude/agents/<role>.md`
 
 Codex paths used by the module (opt-in, disabled by default):
