@@ -52,6 +52,14 @@
           '';
         in
         {
+          aggregate-release = pkgs.writeShellApplication {
+            name = "aura-aggregate-release";
+            runtimeInputs = [ pkgs.python3 ];
+            text = ''
+              exec python3 "${self}/bin/aura-aggregate-release" "$@"
+            '';
+          };
+
           aura-swarm = pkgs.writeShellApplication {
             name = "aura-swarm";
             runtimeInputs = [ pkgs.python3 ];
@@ -82,6 +90,7 @@
           default = pkgs.symlinkJoin {
             name = "aura-plugins";
             paths = [
+              self.packages.${system}.aggregate-release
               self.packages.${system}.aura-swarm
             ];
           };
