@@ -28,33 +28,39 @@ rejected. Artifact paths are relative to the document unless absolute.
     {
       "id": "claude-code/skills",
       "artifact": "build/claude-skills.tgz",
+      "asset": "pasture-1.2.0-claude-skills.tgz",
       "bundle_id": "artifact.bundle.v1:sha256:<64 lowercase hex>"
     }
   ]
 }
 ```
 
-The array must contain exactly one record for every combination of
-`claude-code`, `opencode`, and `codex` with `skills`, `agents`, and `hooks`.
-The `bundle_id` comes from the corresponding Pasture target bundle; Aura does
-not recreate that target-owned identity.
+The array must contain exactly one record for every component returned by
+Pasture's typed `artifact.ComponentIDs`. The `bundle_id` comes from the
+corresponding Pasture target bundle. The `asset` is supplied explicitly and is
+accepted only when Pasture's aggregate constructor recognizes it as the exact
+canonical immutable basename. Aura does not recreate either identity.
 
 ## Frozen output
 
 The producer:
 
-- derives `final` versus `prerelease` from canonical SemVer rather than taking
-  a second mutable classification input;
-- derives each canonical versioned asset name and the harness's registered
-  runtime contract;
-- computes each archive's exact SHA-256 digest;
+- parses version, revisions, component IDs, and bundle IDs with Pasture's typed
+  constructors and derives `final` versus `prerelease` from the typed version;
+- obtains each harness's registered runtime contract from Pasture and validates
+  supplied asset names through Pasture's aggregate constructor;
+- computes each archive's digest with Pasture's typed digest function;
 - binds every component and the aggregate to the same exact Aura and Pasture
   revisions and one inclusive installer compatibility range;
-- emits `pasture-aggregate-manifest.json` and its canonical two-space checksum
-  sidecar; and
+- marshals Pasture's typed aggregate manifest and emits Pasture's canonical
+  checksum sidecar bytes; and
 - atomically claims a new output directory and refuses to overwrite it.
 
 There is no channel alias, latest-version lookup, fallback selection, per-cell
 version input, catalog mutation, or publication operation in this producer.
-Pasture's public typed `artifact.VerifyAggregate` path is the acceptance
-boundary for the emitted directory.
+The shipped Go producer is compiled against Pasture commit
+`f5cbf4f92bb458eb0baff64f6adec603bcf0d74f`, pinned by source hash in
+`flake.nix`. It runs the same commit's public `artifact.VerifyAggregate` before
+freezing a completed directory. The normal `aggregate-release-test` flake check
+builds and tests this direct typed production path; there is no optional or
+skipping compatibility adapter.

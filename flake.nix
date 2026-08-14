@@ -37,6 +37,11 @@
       # ── Packages ──────────────────────────────────────────────
       packages = forAllSystems ({ pkgs, system }:
         let
+          pastureAggregateContract = pkgs.fetchzip {
+            url = "https://github.com/dayvidpham/pasture/archive/f5cbf4f92bb458eb0baff64f6adec603bcf0d74f.tar.gz";
+            hash = "sha256-8RRNB6Is8xhVGGj1dOQ1gfcoee6nyApQYIr1Ke6ihn0=";
+          };
+
           # Deprecation stub: a package that was removed still resolves as an
           # output, but fails at run time with an actionable pointer to its
           # replacement — instead of a cryptic "attribute 'X' missing" for
@@ -52,11 +57,18 @@
           '';
         in
         {
-          aggregate-release = pkgs.writeShellApplication {
-            name = "aura-aggregate-release";
-            runtimeInputs = [ pkgs.python3 ];
-            text = ''
-              exec python3 "${self}/bin/aura-aggregate-release" "$@"
+          aggregate-release = pkgs.buildGoModule {
+            pname = "aura-aggregate-release";
+            version = "0.1.0";
+            src = ./aggregate-release;
+            vendorHash = null;
+            postPatch = ''
+              go mod edit -replace github.com/dayvidpham/pasture=${pastureAggregateContract}
+            '';
+            preBuild = ''export GOFLAGS="$GOFLAGS -mod=mod"'';
+            preCheck = ''export GOFLAGS="$GOFLAGS -mod=mod"'';
+            postInstall = ''
+              mv "$out/bin/aggregate-release" "$out/bin/aura-aggregate-release"
             '';
           };
 
@@ -104,6 +116,7 @@
       checks = forAllSystems ({ pkgs, ... }:
         {
           hm-module-test = import ./nix/hm-module-test.nix { inherit pkgs; };
+          aggregate-release-test = self.packages.${pkgs.system}.aggregate-release;
         }
       );
 
