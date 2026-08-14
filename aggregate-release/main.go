@@ -11,6 +11,8 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"strconv"
+	"strings"
 	"syscall"
 
 	"github.com/dayvidpham/pasture/artifact"
@@ -47,6 +49,28 @@ type options struct {
 	components, outputDir               string
 }
 
+type singleOption struct {
+	name  string
+	value *string
+	isSet bool
+}
+
+func (option *singleOption) String() string {
+	if option.value == nil {
+		return ""
+	}
+	return *option.value
+}
+
+func (option *singleOption) Set(value string) error {
+	if option.isSet {
+		return fmt.Errorf("option --%s was specified more than once", option.name)
+	}
+	option.isSet = true
+	*option.value = value
+	return nil
+}
+
 type outputOperations struct {
 	writeFile func(string, []byte, fs.FileMode) error
 	rename    func(string, string) error
@@ -72,38 +96,76 @@ func actionable(stage, location string, cause error, impact, fix string) error {
 func parseOptions(arguments []string, stderr io.Writer) (options, error) {
 	var result options
 	flags := flag.NewFlagSet("aura-aggregate-release", flag.ContinueOnError)
-	flags.SetOutput(stderr)
-	flags.StringVar(&result.version, "version", "", "canonical aggregate SemVer without a leading v")
-	flags.StringVar(&result.installerMin, "installer-min", "", "inclusive minimum compatible Pasture installer SemVer")
-	flags.StringVar(&result.installerMax, "installer-max", "", "inclusive maximum compatible Pasture installer SemVer")
-	flags.StringVar(&result.pastureRevision, "pasture-revision", "", "exact 40-character lowercase Pasture commit")
-	flags.StringVar(&result.auraRevision, "aura-revision", "", "exact 40-character lowercase Aura commit")
-	flags.StringVar(&result.components, "components", "", "strict nine-cell component-set JSON path")
-	flags.StringVar(&result.outputDir, "output-dir", "", "new version-specific output directory; never overwritten")
-	flags.Usage = func() {
+	flags.SetOutput(io.Discard)
+	register := func(name, usage string, value *string) {
+		flags.Var(&singleOption{name: name, value: value}, name, usage)
+	}
+	register("version", "canonical aggregate SemVer without a leading v", &result.version)
+	register("installer-min", "inclusive minimum compatible Pasture installer SemVer", &result.installerMin)
+	register("installer-max", "inclusive maximum compatible Pasture installer SemVer", &result.installerMax)
+	register("pasture-revision", "exact 40-character lowercase Pasture commit", &result.pastureRevision)
+	register("aura-revision", "exact 40-character lowercase Aura commit", &result.auraRevision)
+	register("components", "strict nine-cell component-set JSON path", &result.components)
+	register("output-dir", "new version-specific output directory; never overwritten", &result.outputDir)
+	printUsage := func() {
 		fmt.Fprintln(stderr, "Build one immutable nine-cell aggregate release without publishing it.")
 		fmt.Fprintf(stderr, "Usage: %s [options]\n", flags.Name())
+		flags.SetOutput(stderr)
 		flags.PrintDefaults()
+		flags.SetOutput(io.Discard)
+	}
+	flags.Usage = func() {}
+	for _, argument := range arguments {
+		if argument != "--help" && argument != "-h" {
+			continue
+		}
+		if len(arguments) == 1 {
+			printUsage()
+			return options{}, flag.ErrHelp
+		}
+		return options{}, actionable("validating CLI argument shape", argument, errors.New("help cannot be combined with generation options or positional arguments"), "no aggregate was generated", "run --help by itself, or remove it and provide every required generation option")
 	}
 	if err := flags.Parse(arguments); err != nil {
-		return options{}, err
+		if errors.Is(err, flag.ErrHelp) {
+			return options{}, err
+		}
+		return options{}, actionable("parsing CLI options", "command-line arguments", err, "no aggregate was generated", "run --help and provide every option exactly once using the documented value syntax")
 	}
 	if flags.NArg() != 0 {
-		return options{}, fmt.Errorf("unexpected positional arguments %q", flags.Args())
+		return options{}, actionable("validating CLI argument shape", "command-line arguments", fmt.Errorf("unexpected positional arguments %q", flags.Args()), "no aggregate was generated", "remove positional arguments and use only the named options shown by --help")
 	}
-	for field, value := range map[string]string{
-		"version": result.version, "installer-min": result.installerMin, "installer-max": result.installerMax,
-		"pasture-revision": result.pastureRevision, "aura-revision": result.auraRevision,
-		"components": result.components, "output-dir": result.outputDir,
+	for _, required := range []struct{ name, value string }{
+		{"version", result.version},
+		{"installer-min", result.installerMin},
+		{"installer-max", result.installerMax},
+		{"pasture-revision", result.pastureRevision},
+		{"aura-revision", result.auraRevision},
+		{"components", result.components},
+		{"output-dir", result.outputDir},
 	} {
-		if value == "" {
-			return options{}, fmt.Errorf("required option --%s is empty", field)
+		if required.value == "" {
+			return options{}, actionable("validating required CLI option", "--"+required.name, errors.New("required option is missing or empty"), "no aggregate was generated", "provide this option exactly once with the value described by --help")
 		}
 	}
 	return result, nil
 }
 
-func rejectDuplicateJSONFields(data []byte) error {
+func allowedComponentSetFields(location string) map[string]struct{} {
+	if location == "component set" {
+		return map[string]struct{}{"schema": {}, "components": {}}
+	}
+	const componentPrefix = "component set.components["
+	if !strings.HasPrefix(location, componentPrefix) || !strings.HasSuffix(location, "]") {
+		return nil
+	}
+	index := strings.TrimSuffix(strings.TrimPrefix(location, componentPrefix), "]")
+	if _, err := strconv.ParseUint(index, 10, 64); err != nil {
+		return nil
+	}
+	return map[string]struct{}{"id": {}, "artifact": {}, "asset": {}, "bundle_id": {}}
+}
+
+func validateComponentSetJSONFields(data []byte) error {
 	decoder := json.NewDecoder(bytes.NewReader(data))
 	var walk func(string) error
 	walk = func(location string) error {
@@ -118,6 +180,7 @@ func rejectDuplicateJSONFields(data []byte) error {
 		switch delimiter {
 		case '{':
 			seen := map[string]bool{}
+			allowed := allowedComponentSetFields(location)
 			for decoder.More() {
 				keyToken, err := decoder.Token()
 				if err != nil {
@@ -131,6 +194,11 @@ func rejectDuplicateJSONFields(data []byte) error {
 					return fmt.Errorf("field %q appears more than once at %s", key, location)
 				}
 				seen[key] = true
+				if allowed != nil {
+					if _, ok := allowed[key]; !ok {
+						return fmt.Errorf("field %q is not an exact allowed field at %s", key, location)
+					}
+				}
 				if err := walk(location + "." + key); err != nil {
 					return err
 				}
@@ -164,8 +232,8 @@ func parseComponentSet(path string) ([]componentInput, error) {
 	if err != nil {
 		return nil, actionable("reading the component set", path, err, "the nine immutable artifacts cannot be identified", "provide one readable UTF-8 JSON component-set document")
 	}
-	if err := rejectDuplicateJSONFields(data); err != nil {
-		return nil, actionable("validating component-set JSON", path, err, "producer input has multiple interpretations", "provide one strict JSON object without duplicate or trailing fields")
+	if err := validateComponentSetJSONFields(data); err != nil {
+		return nil, actionable("validating component-set JSON", path, err, "producer input has multiple interpretations", "use the exact documented root and component field names without case variants, unknown fields, duplicates, or trailing data")
 	}
 	var document componentDocument
 	decoder := json.NewDecoder(bytes.NewReader(data))

@@ -18,8 +18,10 @@ nix run .#aggregate-release -- \
   --output-dir ./dist/1.2.0
 ```
 
-The component-set document is strict JSON. Unknown or duplicate fields are
-rejected. Artifact paths are relative to the document unless absolute.
+The component-set document is strict JSON. Root and component-record field names
+must match the documented lowercase spellings exactly; unknown, case-variant,
+or duplicate fields are rejected. Artifact paths are relative to the document
+unless absolute.
 
 ```json
 {

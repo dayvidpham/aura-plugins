@@ -215,7 +215,7 @@ func TestStrictInputFailuresAreIndependentAndLeaveNoOutput(t *testing.T) {
 		{"unknown cell", "parsing component identity", func(f *fixture) { f.records[0]["id"] = "unknown/skills" }},
 		{"malformed bundle", "parsing target-owned bundle identity", func(f *fixture) { f.records[0]["bundle_id"] = "not-a-bundle" }},
 		{"missing record field", "validating component paths", func(f *fixture) { delete(f.records[0], "asset") }},
-		{"unknown record field", "decoding the component set", func(f *fixture) { f.records[0]["moving_alias"] = "pasture-stable" }},
+		{"unknown record field", "validating component-set JSON", func(f *fixture) { f.records[0]["moving_alias"] = "pasture-stable" }},
 		{"wrong schema", "validating component-set schema", func(f *fixture) {}},
 	}
 	for _, test := range tests {
@@ -237,7 +237,7 @@ func TestStrictInputFailuresAreIndependentAndLeaveNoOutput(t *testing.T) {
 	for _, test := range []struct{ name, data, want string }{
 		{"duplicate JSON key", `{"schema":"aura.aggregate-components/v1","schema":"aura.aggregate-components/v1","components":[]}`, "appears more than once"},
 		{"malformed JSON", `{"schema":`, "validating component-set JSON"},
-		{"unknown top-level field", `{"schema":"aura.aggregate-components/v1","components":[],"moving_alias":"pasture-stable"}`, "decoding the component set"},
+		{"unknown top-level field", `{"schema":"aura.aggregate-components/v1","components":[],"moving_alias":"pasture-stable"}`, "validating component-set JSON"},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			fixture := newFixture(t, "1.2.0")
@@ -249,6 +249,92 @@ func TestStrictInputFailuresAreIndependentAndLeaveNoOutput(t *testing.T) {
 				t.Fatalf("code=%d stderr=%s", code, stderr)
 			}
 		})
+	}
+}
+
+func TestComponentSetRootRejectsCaseVariantFields(t *testing.T) {
+	for _, data := range []string{
+		`{"Schema":"aura.aggregate-components/v1","components":[]}`,
+		`{"schema":"aura.aggregate-components/v1","Schema":"aura.aggregate-components/v1","components":[]}`,
+	} {
+		fixture := newFixture(t, "1.2.0")
+		if err := os.WriteFile(fixture.componentSet, []byte(data), 0o600); err != nil {
+			t.Fatal(err)
+		}
+		code, stderr := runFixture(t, fixture, "1.2.0", "release")
+		if code != 2 || !strings.Contains(stderr, `field "Schema" is not an exact allowed field at component set`) || pathExists(filepath.Join(fixture.root, "release")) {
+			t.Fatalf("code=%d stderr=%s", code, stderr)
+		}
+	}
+}
+
+func TestComponentSetRecordRejectsCaseVariantFields(t *testing.T) {
+	for _, semanticDuplicate := range []bool{false, true} {
+		fixture := newFixture(t, "1.2.0")
+		record := cloneRecord(fixture.records[0])
+		if !semanticDuplicate {
+			delete(record, "id")
+		}
+		record["ID"] = fixture.records[0]["id"]
+		fixture.records[0] = record
+		fixture.write(t, map[string]any{"schema": componentSetSchema, "components": fixture.records})
+		code, stderr := runFixture(t, fixture, "1.2.0", "release")
+		if code != 2 || !strings.Contains(stderr, `field "ID" is not an exact allowed field at component set.components[0]`) || pathExists(filepath.Join(fixture.root, "release")) {
+			t.Fatalf("semanticDuplicate=%t code=%d stderr=%s", semanticDuplicate, code, stderr)
+		}
+	}
+}
+
+func TestCLIArgumentFailuresAreSingleActionableDiagnostic(t *testing.T) {
+	fixture := newFixture(t, "1.2.0")
+	valid := fixture.arguments("1.2.0", "release")
+	tests := []struct {
+		name      string
+		arguments []string
+		stage     string
+		location  string
+		cause     string
+	}{
+		{"unknown option", []string{"--unknown", "value"}, "parsing CLI options", "command-line arguments", "flag provided but not defined"},
+		{"malformed option", []string{"--version"}, "parsing CLI options", "command-line arguments", "flag needs an argument"},
+		{"positional argument", append(append([]string{}, valid...), "unexpected"), "validating CLI argument shape", "command-line arguments", "unexpected positional arguments"},
+		{"duplicate option", append(append([]string{}, valid...), "--version", "1.2.0"), "parsing CLI options", "command-line arguments", "specified more than once"},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			var stderr bytes.Buffer
+			code := run(test.arguments, &stderr)
+			diagnostic := stderr.String()
+			for _, want := range []string{test.stage, test.location, test.cause, "impact:", "fix:"} {
+				if !strings.Contains(diagnostic, want) {
+					t.Fatalf("code=%d diagnostic=%q missing=%q", code, diagnostic, want)
+				}
+			}
+			if code != 2 || strings.Count(diagnostic, "error:") != 1 || strings.Contains(diagnostic, "Usage:") || pathExists(filepath.Join(fixture.root, "release")) {
+				t.Fatalf("code=%d diagnostic=%q", code, diagnostic)
+			}
+		})
+	}
+
+	for index := 0; index < len(valid); index += 2 {
+		name := strings.TrimPrefix(valid[index], "--")
+		t.Run("missing "+name, func(t *testing.T) {
+			arguments := append([]string{}, valid[:index]...)
+			arguments = append(arguments, valid[index+2:]...)
+			var stderr bytes.Buffer
+			code := run(arguments, &stderr)
+			diagnostic := stderr.String()
+			if code != 2 || strings.Count(diagnostic, "error:") != 1 || !strings.Contains(diagnostic, "validating required CLI option") || !strings.Contains(diagnostic, "at --"+name) || !strings.Contains(diagnostic, "required option is missing or empty") || !strings.Contains(diagnostic, "impact:") || !strings.Contains(diagnostic, "fix:") {
+				t.Fatalf("code=%d diagnostic=%q", code, diagnostic)
+			}
+		})
+	}
+}
+
+func TestCLIHelpRemainsSuccessful(t *testing.T) {
+	var stderr bytes.Buffer
+	if code := run([]string{"--help"}, &stderr); code != 0 || !strings.Contains(stderr.String(), "Usage: aura-aggregate-release [options]") || strings.Contains(stderr.String(), "error:") {
+		t.Fatalf("code=%d help=%q", code, stderr.String())
 	}
 }
 
