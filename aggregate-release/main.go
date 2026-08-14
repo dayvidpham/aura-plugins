@@ -126,9 +126,6 @@ func parseOptions(arguments []string, stderr io.Writer) (options, error) {
 		return options{}, actionable("validating CLI argument shape", argument, errors.New("help cannot be combined with generation options or positional arguments"), "no aggregate was generated", "run --help by itself, or remove it and provide every required generation option")
 	}
 	if err := flags.Parse(arguments); err != nil {
-		if errors.Is(err, flag.ErrHelp) {
-			return options{}, err
-		}
 		return options{}, actionable("parsing CLI options", "command-line arguments", err, "no aggregate was generated", "run --help and provide every option exactly once using the documented value syntax")
 	}
 	if flags.NArg() != 0 {

@@ -332,9 +332,52 @@ func TestCLIArgumentFailuresAreSingleActionableDiagnostic(t *testing.T) {
 }
 
 func TestCLIHelpRemainsSuccessful(t *testing.T) {
-	var stderr bytes.Buffer
-	if code := run([]string{"--help"}, &stderr); code != 0 || !strings.Contains(stderr.String(), "Usage: aura-aggregate-release [options]") || strings.Contains(stderr.String(), "error:") {
-		t.Fatalf("code=%d help=%q", code, stderr.String())
+	for _, argument := range []string{"--help", "-h"} {
+		t.Run(argument, func(t *testing.T) {
+			fixture := newFixture(t, "1.2.0")
+			output := filepath.Join(fixture.root, "release")
+			var stderr bytes.Buffer
+			code := run([]string{argument}, &stderr)
+			help := stderr.String()
+			if code != 0 || !strings.Contains(help, "Usage: aura-aggregate-release [options]") || strings.Contains(help, "error:") || pathExists(output) {
+				t.Fatalf("code=%d help=%q output=%t", code, help, pathExists(output))
+			}
+		})
+	}
+}
+
+func TestUnsupportedAndMixedHelpFormsFailActionablyWithoutOutput(t *testing.T) {
+	fixture := newFixture(t, "1.2.0")
+	valid := fixture.arguments("1.2.0", "release")
+	tests := []struct {
+		name      string
+		arguments []string
+	}{
+		{"help value", []string{"--help=true"}},
+		{"long h", []string{"--h"}},
+		{"single dash help", []string{"-help"}},
+		{"exact long help mixed with generation", append([]string{"--help"}, valid...)},
+		{"exact short help mixed with generation", append([]string{"-h"}, valid...)},
+		{"help value mixed with generation", append([]string{"--help=true"}, valid...)},
+		{"long h mixed with generation", append([]string{"--h"}, valid...)},
+		{"single dash help mixed with generation", append([]string{"-help"}, valid...)},
+		{"multiple unsupported help forms", []string{"--h", "-help"}},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			output := filepath.Join(fixture.root, "release")
+			var stderr bytes.Buffer
+			code := run(test.arguments, &stderr)
+			diagnostic := stderr.String()
+			for _, want := range []string{"aggregate generation failed while", " at ", " because ", "impact:", "fix:"} {
+				if !strings.Contains(diagnostic, want) {
+					t.Fatalf("code=%d diagnostic=%q missing=%q", code, diagnostic, want)
+				}
+			}
+			if code != 2 || strings.Count(diagnostic, "error:") != 1 || strings.Contains(diagnostic, "Usage:") || pathExists(output) {
+				t.Fatalf("code=%d diagnostic=%q output=%t", code, diagnostic, pathExists(output))
+			}
+		})
 	}
 }
 
