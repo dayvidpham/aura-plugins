@@ -1,9 +1,27 @@
 # Installer Portfolio: Next Milestones
 
 Original date: 2026-08-15
-Last updated: 2026-08-16
+Last updated: 2026-08-21
 
-> STATUS UPDATE: Pasture #39 global harness implementation (registry, release
+> STATUS UPDATE 2026-08-21: Pasture #39 LANDED. PR pasture#99 merged to `main`
+> as merge commit `be01293` (epic head `8aceff3` = `9d8a02d` + three residue
+> commits). Aura `main` `02d02bd` bumps the pasture flake input and submodule
+> pointer `64316a7 -> be01293` (intentional landing) and adds
+> `aggregate-release/output_failures_test.go` (`485c1fe`). All historical
+> `#39-SLICE-*-REVIEW-*` and Aura IP-1 review leaves were reconciled (closed
+> with evidence; 34 previously unconfirmed findings re-verified RESOLVED by
+> three independent Opus-5 read-only reviewers; residues fixed under
+> `aura-plugins-rwmps5`, closed). Implementation UAT was NOT presented before
+> merge — the user explicitly chose to land first. Still open on the epic:
+> `opbgi6.8` global validation (gated on Aura IP-2 `yr93f9.2`) and the UAT.
+> `internal/install/releasecatalog` has no production caller yet; the
+> published-release verification in `opbgi6.8` is its first end-to-end proof.
+> The stop boundary recorded 2026-08-15 on `opbgi6` was session-scoped and is
+> lifted. `worker-mini-openai`/`reviewer-mini-openai` were unavailable in the
+> landing session; `pasture:worker` subagents and independent Opus reviewers
+> were used instead.
+
+> STATUS UPDATE (2026-08-16): Pasture #39 global harness implementation (registry, release
 > catalog, service, all three global controllers, and the CLI frontend) is
 > COMPLETE and integrated on `epic/39-global-installer-delivery`. The
 > interactive TUI was deferred by explicit user decision. Remaining #39 work is
