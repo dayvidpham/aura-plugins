@@ -1,0 +1,182 @@
+name: Release
+
+# Publication half of the release ceremony, triggered by the immutable annotated
+# tag that release-tag.yml pushes with the release App token.
+#
+# The guard job below is the enforcement point for "a release can only come from
+# a merged release PR". The enforcement rests on the guard alone: it refuses any
+# tag not pushed by the release App, so a hand-pushed `v*` tag produces a failed
+# run and never a published release.
+#
+# Note what is NOT true — anyone with push access CAN create a `v*` tag and it
+# WILL start this workflow. (The rule that a GITHUB_TOKEN-pushed ref does not
+# trigger workflows constrains tokens, not people.) The guard is therefore the
+# only thing standing between a hand-pushed tag and a published release, which
+# is why it fails closed when the expected identity is unconfigured. Configure a
+# tag-creation ruleset for `v*` as defence in depth — see docs/releasing.md.
+#
+# STATUS — the publication path is NOT yet wired end to end.
+# Building the nine aggregate component assets requires the Pasture-side
+# `pasture bundle export` verb, which does not exist yet — see
+# https://github.com/dayvidpham/pasture/issues/39 and docs/releasing.md
+# § "Pending: component export". Until that verb lands, the
+# build-components job stops with an actionable error instead of publishing a
+# partial or invented release. The guard job is fully live and useful today.
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+concurrency:
+  # Never cancelled: a half-finished publication is worse than a slow one.
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions: {}
+
+jobs:
+  guard:
+    name: guard
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    outputs:
+      version: ${{ steps.tag.outputs.version }}
+      tag: ${{ steps.tag.outputs.tag }}
+      kind: ${{ steps.tag.outputs.kind }}
+    env:
+      TAG: ${{ github.ref_name }}
+    steps:
+      # Actor guard. The expected identity is configured as repository variables
+      # rather than hardcoded, because the App's bot login and numeric id are
+      # installation-specific — see docs/releasing.md for how to read them off
+      # the first App-created tag. Both are public identifiers, not secrets.
+      - name: Verify the tag was pushed by the release App
+        env:
+          RELEASE_ACTOR: ${{ github.actor }}
+          RELEASE_ACTOR_ID: ${{ github.actor_id }}
+          EXPECTED_ACTOR: ${{ vars.RELEASE_APP_BOT_LOGIN }}
+          EXPECTED_ACTOR_ID: ${{ vars.RELEASE_APP_BOT_ID }}
+        run: |
+          set -euo pipefail
+          if [ -z "$EXPECTED_ACTOR" ] || [ -z "$EXPECTED_ACTOR_ID" ]; then
+            echo "::error::tag ${TAG} was pushed by ${RELEASE_ACTOR} (id ${RELEASE_ACTOR_ID}), but the expected release-App identity is not configured, so that actor cannot be checked. Impact: publication is refused, because an unguarded tag could publish a release that never passed the release-PR gates. Fix: set the repository variables RELEASE_APP_BOT_LOGIN and RELEASE_APP_BOT_ID to the release App's bot login and numeric id, as described in docs/releasing.md."
+            exit 1
+          fi
+          if [ "$RELEASE_ACTOR" != "$EXPECTED_ACTOR" ] || [ "$RELEASE_ACTOR_ID" != "$EXPECTED_ACTOR_ID" ]; then
+            echo "::error::tag ${TAG} was pushed by ${RELEASE_ACTOR} (id ${RELEASE_ACTOR_ID}), not the release App ${EXPECTED_ACTOR} (id ${EXPECTED_ACTOR_ID}). Impact: nothing was published; this tag did not come from the protected release-PR flow. Fix: delete the hand-pushed tag and cut the release by opening and merging a 'release(${TAG}): <summary>' pull request instead."
+            exit 1
+          fi
+          echo "tag ${TAG} was pushed by the release App ✓"
+
+      - name: Checkout repository (full history + tags)
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+
+      - name: Parse and classify the tag
+        id: tag
+        run: scripts/release/release-grammar.sh parse-tag "$TAG" >> "$GITHUB_OUTPUT"
+
+      # An annotated tag carries author, date, and the release summary. A
+      # lightweight tag carries none of that, so a release built from one has no
+      # durable record of who cut it or why.
+      - name: Assert the tag is annotated
+        run: |
+          set -euo pipefail
+          tag_type="$(git cat-file -t "refs/tags/${TAG}")"
+          if [ "$tag_type" != "tag" ]; then
+            echo "::error::tag ${TAG} is a ${tag_type} (lightweight) tag, not an annotated tag, so it carries no tagger identity, date, or release summary. Impact: nothing was published, because the release would have no durable provenance. Fix: delete the tag and let a merged release PR mint it, which always creates an annotated tag."
+            exit 1
+          fi
+          echo "tag ${TAG} is annotated ✓"
+
+      # Reachability guard: refuse to publish from a commit that is not on main.
+      - name: Assert the tagged commit is reachable from main
+        run: |
+          set -euo pipefail
+          git fetch --no-tags origin main
+          tagged="$(git rev-list -n 1 "refs/tags/${TAG}")"
+          if ! git merge-base --is-ancestor "$tagged" origin/main; then
+            echo "::error::tag ${TAG} points at ${tagged}, which is not an ancestor of origin/main, so the release would not be reproducible from the default branch. Impact: nothing was published. Fix: confirm main was not force-pushed after the release PR merged, then cut a fresh release from current main."
+            exit 1
+          fi
+          echo "tagged commit ${tagged} is reachable from origin/main ✓"
+
+  # The same full gate set the release PR ran, re-run against the exact tagged
+  # commit. The PR gate proves the merge candidate; this proves what was
+  # actually tagged, which is what gets published.
+  gates:
+    name: gates (tagged commit)
+    needs: guard
+    permissions:
+      contents: read
+    uses: ./.github/workflows/gates.yml
+
+  build-components:
+    name: build aggregate components
+    needs: [guard, gates]
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    steps:
+      # ── NOT YET IMPLEMENTED — blocked on the Pasture export verb ──────────
+      #
+      # `aggregate-release` is a packager, not a builder: it requires each of
+      # the nine cells to arrive already built, with an archive named
+      # pasture-<version>-<claude|opencode|codex>-<skills|agents|hooks>.tgz and
+      # a bundle_id emitted by the Pasture target bundle. Neither the archives
+      # nor the bundle IDs can be produced from Aura: the per-harness bundle
+      # composition rules live in Pasture's unexported internal/target packages
+      # and differ per harness, and no component archive format is defined by
+      # the artifact contract. Inventing either here would freeze a guess into
+      # a permanently unpublishable-over release.
+      #
+      # Tracked at https://github.com/dayvidpham/pasture/issues/39.
+      # When `pasture bundle export` lands, this job becomes:
+      #
+      #   pasture bundle export \
+      #     --version "${VERSION}" \
+      #     --out "${RUNNER_TEMP}/components"
+      #
+      #   nix run .#aggregate-release -- \
+      #     --version          "${VERSION}" \
+      #     --installer-min    "${INSTALLER_MIN}" \
+      #     --installer-max    "${INSTALLER_MAX}" \
+      #     --pasture-revision "${PASTURE_REVISION}" \
+      #     --aura-revision    "${GITHUB_SHA}" \
+      #     --components       "${RUNNER_TEMP}/components/components.json" \
+      #     --output-dir       "${RUNNER_TEMP}/aggregate-${VERSION}"
+      #
+      # followed by uploading ${RUNNER_TEMP}/aggregate-${VERSION} as the artifact
+      # the publish job consumes.
+      - name: Component export is not yet available
+        env:
+          TAG: ${{ needs.guard.outputs.tag }}
+        run: |
+          echo "::error::release ${TAG} cannot be published yet: building the nine aggregate component assets requires the Pasture 'bundle export' verb, which does not exist in the pinned Pasture revision. Impact: the tag ${TAG} exists and is valid, but no GitHub Release was created and no assets were attached — nothing partial or invented was published. Fix: land the 'pasture bundle export' verb (https://github.com/dayvidpham/pasture/issues/39), pin the Pasture revision that contains it, replace this step with the documented export + aggregate-release invocation in this file, then re-run this workflow from the Actions tab to publish the existing tag."
+          exit 1
+
+  # ── Remaining jobs, deliberately not written yet ───────────────────────────
+  #
+  # publish  (needs build-components): verify the produced directory before it
+  #          is published — recompute the sha256 of pasture-aggregate-manifest
+  #          .json and compare it against the .sha256 sidecar, and assert that
+  #          the manifest's revisions.aura equals the tagged commit and that its
+  #          version equals the tag without the leading v — then create the
+  #          GitHub Release with prerelease classification taken from
+  #          guard.outputs.kind, attaching the manifest, the checksum sidecar,
+  #          and the nine component assets.
+  #
+  # smoke    (needs publish): re-download the published assets from the Release
+  #          and re-verify every checksum against the manifest, proving what is
+  #          actually downloadable matches what was built.
+  #
+  # These are intentionally absent rather than stubbed: an unreachable job full
+  # of never-executed publication logic would look wired without being wired.
+  # They land together with build-components, in the same change, once the
+  # component export verb exists and the whole path can be exercised for real.

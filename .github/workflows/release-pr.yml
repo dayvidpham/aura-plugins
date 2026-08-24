@@ -1,0 +1,112 @@
+name: Release PR
+
+# Pre-merge half of the release ceremony: everything that must be true while a
+# `release(vX.Y.Z[-rcN]): ...` PR is still OPEN.
+#
+#   1. The title parses under the single shared version grammar.
+#   2. The PR author is a maintainer (admin or maintain on this repository).
+#   3. The version is not already released — refused here, at PR time, rather
+#      than after merge when the only remaining options are a force-push or a
+#      burned version number.
+#   4. The FULL gate set runs, regardless of which paths the PR touches.
+#
+# The post-merge half — minting the immutable annotated tag — lives in
+# release-tag.yml. Publication lives in release.yml.
+
+on:
+  pull_request:
+    types: [opened, edited, synchronize, reopened]
+    branches: [main]
+
+concurrency:
+  group: release-pr-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  validate:
+    name: validate release PR
+    # Ordinary PRs are simply not release PRs; they skip silently rather than
+    # failing, so this workflow adds no burden outside the release ceremony.
+    if: startsWith(github.event.pull_request.title, 'release(')
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    outputs:
+      version: ${{ steps.title.outputs.version }}
+      tag: ${{ steps.title.outputs.tag }}
+      kind: ${{ steps.title.outputs.kind }}
+    env:
+      # Read through env, never interpolated into the shell, so a PR title can
+      # never inject shell syntax into a job that holds repository permissions.
+      PR_TITLE: ${{ github.event.pull_request.title }}
+      PR_AUTHOR: ${{ github.event.pull_request.user.login }}
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - name: Checkout repository (full history + tags)
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+
+      - name: Validate release PR title grammar
+        id: title
+        run: scripts/release/release-grammar.sh parse-title "$PR_TITLE" >> "$GITHUB_OUTPUT"
+
+      - name: Assert the author is a maintainer
+        run: |
+          set -euo pipefail
+          permission="$(gh api "repos/${GITHUB_REPOSITORY}/collaborators/${PR_AUTHOR}/permission" \
+            --jq '.permission' 2>/dev/null || echo 'none')"
+          case "$permission" in
+            admin|maintain)
+              echo "release PR author ${PR_AUTHOR} holds '${permission}' ✓"
+              ;;
+            *)
+              echo "::error::release PR author ${PR_AUTHOR} holds '${permission}' on ${GITHUB_REPOSITORY}, but cutting a release requires 'admin' or 'maintain'. Impact: this PR must not be merged, because merging it mints a permanent, non-overwritable release tag. Fix: have a maintainer open the release PR, or grant ${PR_AUTHOR} the maintain role in repository settings."
+              exit 1
+              ;;
+          esac
+
+      - name: Refuse a version that is already released
+        env:
+          TAG: ${{ steps.title.outputs.tag }}
+        run: |
+          set -euo pipefail
+          if git rev-parse -q --verify "refs/tags/${TAG}" >/dev/null \
+             || git ls-remote --exit-code --tags origin "refs/tags/${TAG}" >/dev/null 2>&1; then
+            echo "::error::tag ${TAG} already exists, so this release PR would try to republish a version that is already permanently published. Impact: merging it would fail at tag time, and the version number is spent either way. Fix: retitle this PR with the next unused version, for example by bumping the patch or rc number."
+            exit 1
+          fi
+          echo "${TAG} is unused ✓"
+
+      - name: Summarise the pending release
+        env:
+          VERSION: ${{ steps.title.outputs.version }}
+          TAG: ${{ steps.title.outputs.tag }}
+          KIND: ${{ steps.title.outputs.kind }}
+        run: |
+          {
+            echo "### Pending release"
+            echo
+            echo "| field | value |"
+            echo "| --- | --- |"
+            echo "| tag | \`${TAG}\` |"
+            echo "| aggregate version | \`${VERSION}\` |"
+            echo "| classification | ${KIND} |"
+            echo
+            echo "Merging this pull request mints the annotated tag \`${TAG}\`."
+            echo "The tag is immutable and is never moved or overwritten."
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  # The full gate set, demanded explicitly rather than by path filter — a
+  # release PR usually touches too little to trigger path-filtered CI, and a
+  # release must never be cut on an unproven tree.
+  gates:
+    name: gates (release PR)
+    needs: validate
+    permissions:
+      contents: read
+    uses: ./.github/workflows/gates.yml
