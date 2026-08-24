@@ -1,0 +1,137 @@
+name: Release Tag
+
+# Post-merge half of the release ceremony: mint the immutable annotated tag.
+#
+# This is the only place in the repository that creates a release tag, and it
+# runs only when a `release(vX.Y.Z[-rcN]): ...` PR actually MERGES. The tag is
+# annotated (not lightweight) so it carries an author, a date, and the release
+# summary from the PR title as durable provenance.
+#
+# Why a GitHub App token rather than the default GITHUB_TOKEN: GitHub refuses to
+# fire workflows for refs pushed with GITHUB_TOKEN (its recursive-workflow
+# guard), so a tag pushed that way would never trigger release.yml. An App token
+# also gives the tag a real bot identity, which release.yml's actor guard then
+# requires — that pairing is what makes "a release tag can only come from a
+# merged release PR" enforceable rather than merely conventional.
+#
+# Required repository secrets (see docs/releasing.md):
+#   RELEASE_APP_ID           — the release App's ID
+#   RELEASE_APP_PRIVATE_KEY  — the release App's private key, PEM
+# The App installation needs Contents: write on this repository.
+
+on:
+  pull_request:
+    types: [closed]
+    branches: [main]
+
+concurrency:
+  # Never cancelled: interrupting this job half-way could leave a tag pushed
+  # with no record of why, or a release PR merged with no tag at all.
+  group: release-tag-${{ github.event.pull_request.number }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  tag:
+    name: tag merged release
+    if: >-
+      github.event.pull_request.merged == true &&
+      startsWith(github.event.pull_request.title, 'release(')
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      PR_TITLE: ${{ github.event.pull_request.title }}
+      MERGE_SHA: ${{ github.event.pull_request.merge_commit_sha }}
+    steps:
+      - name: Assert the release App credentials are configured
+        env:
+          APP_ID: ${{ secrets.RELEASE_APP_ID }}
+          APP_KEY: ${{ secrets.RELEASE_APP_PRIVATE_KEY }}
+        run: |
+          set -euo pipefail
+          missing=''
+          [ -n "$APP_ID" ]  || missing="${missing} RELEASE_APP_ID"
+          [ -n "$APP_KEY" ] || missing="${missing} RELEASE_APP_PRIVATE_KEY"
+          if [ -n "$missing" ]; then
+            echo "::error::the release PR merged but the release App is not configured: missing secret(s)${missing}. Impact: no tag was created, so nothing was published; the merge itself is fine and the release can still be completed. Fix: add the secret(s) under Settings → Secrets and variables → Actions as described in docs/releasing.md, then re-run this workflow from the Actions tab."
+            exit 1
+          fi
+
+      - name: "Mint App token (Contents: write, to push the tag)"
+        id: app-token
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3
+        with:
+          app-id: ${{ secrets.RELEASE_APP_ID }}
+          private-key: ${{ secrets.RELEASE_APP_PRIVATE_KEY }}
+
+      - name: Checkout repository (full history + tags)
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+          token: ${{ steps.app-token.outputs.token }}
+          # The default GITHUB_TOKEN must not be persisted as a git credential:
+          # its http.extraheader would take precedence over the App token in the
+          # push below and the push would be rejected as github-actions[bot].
+          persist-credentials: false
+
+      - name: Derive the version from the PR title
+        id: title
+        run: scripts/release/release-grammar.sh parse-title "$PR_TITLE" >> "$GITHUB_OUTPUT"
+
+      - name: Refuse to move or overwrite an existing tag
+        env:
+          TAG: ${{ steps.title.outputs.tag }}
+        run: |
+          set -euo pipefail
+          if git rev-parse -q --verify "refs/tags/${TAG}" >/dev/null; then
+            echo "::error::tag ${TAG} already exists locally; refusing to move a published release tag. Impact: no tag was written and the existing release is untouched. Fix: cut a new release PR with the next unused version — published versions are permanent and are never reused."
+            exit 1
+          fi
+          if git ls-remote --exit-code --tags origin "refs/tags/${TAG}" >/dev/null 2>&1; then
+            echo "::error::tag ${TAG} already exists on origin; refusing to overwrite a published release tag. Impact: no tag was written and the existing release is untouched. Fix: cut a new release PR with the next unused version — published versions are permanent and are never reused."
+            exit 1
+          fi
+          echo "${TAG} is unused ✓"
+
+      # Reachability guard: the commit about to be tagged must actually be part
+      # of main. Without this, a merge race or a rewritten branch could pin a
+      # permanent release tag to a commit that no longer exists on the default
+      # branch — an unreproducible release.
+      - name: Assert the merge commit is reachable from main
+        run: |
+          set -euo pipefail
+          if [ -z "${MERGE_SHA}" ]; then
+            echo "::error::the pull request reports no merge commit, so there is no commit to tag. Impact: no tag was written. Fix: confirm the PR was merged (not closed unmerged); if it was merged, re-run this workflow once GitHub has populated merge_commit_sha."
+            exit 1
+          fi
+          if ! git cat-file -e "${MERGE_SHA}^{commit}" 2>/dev/null; then
+            echo "::error::merge commit ${MERGE_SHA} is not present in this checkout, so its contents cannot be verified before tagging. Impact: no tag was written. Fix: re-run this workflow; if it persists, confirm the commit still exists on main and was not removed by a force-push."
+            exit 1
+          fi
+          git fetch --no-tags origin main
+          if ! git merge-base --is-ancestor "${MERGE_SHA}" origin/main; then
+            echo "::error::merge commit ${MERGE_SHA} is not an ancestor of origin/main, so tagging it would publish a release from a commit that is not on the default branch. Impact: no tag was written. Fix: confirm main was not force-pushed or rolled back after this PR merged, then cut a fresh release PR from current main."
+            exit 1
+          fi
+          echo "${MERGE_SHA} is reachable from origin/main ✓"
+
+      - name: Push the immutable annotated tag
+        env:
+          TAG: ${{ steps.title.outputs.tag }}
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+        run: |
+          set -euo pipefail
+          git config user.name  "aura-release[bot]"
+          git config user.email "noreply@users.noreply.github.com"
+          git tag -a "${TAG}" "${MERGE_SHA}" -m "${PR_TITLE}"
+          git push "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" "refs/tags/${TAG}"
+          echo "::notice::pushed annotated tag ${TAG} on ${MERGE_SHA}"
+          {
+            echo "### Release tag created"
+            echo
+            echo "Annotated tag \`${TAG}\` now points at \`${MERGE_SHA}\`."
+            echo "Publication continues in the Release workflow."
+          } >> "$GITHUB_STEP_SUMMARY"

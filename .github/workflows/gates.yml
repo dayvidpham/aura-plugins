@@ -1,0 +1,103 @@
+name: Gates
+
+# The complete aura-plugins quality gate, factored into a reusable workflow so
+# that the release-PR ceremony can demand it in full REGARDLESS of which files a
+# release PR happens to touch.
+#
+# This matters because a release PR is typically a version-marker commit that
+# touches almost nothing. A path-filtered CI workflow would skip entirely on
+# such a PR, producing a green tick that proves nothing right before the most
+# irreversible action in the repository. release-pr.yml therefore calls this
+# workflow directly rather than relying on path filters.
+#
+# It is `workflow_call` only: it deliberately does not register itself as a
+# check on every ordinary pull request, so adding it changes no existing
+# required-check configuration.
+
+on:
+  workflow_call:
+
+permissions:
+  contents: read
+
+jobs:
+  nix:
+    name: nix flake check + package builds
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          submodules: recursive
+
+      - name: Install Nix
+        uses: DeterminateSystems/nix-installer-action@ef8a148080ab6020fd15196c2084a2eea5ff2d25 # v22
+
+      # Builds every flake check, which is where hm-module-test (the Home
+      # Manager projection proof) and aggregate-release-test (the aggregate
+      # producer's own Go test suite, run as part of its buildGoModule check
+      # phase) actually execute. `--no-build` is NOT used here: on a release PR
+      # the point is to run them, not merely to evaluate them.
+      - name: nix flake check
+        run: nix flake check -L
+
+      - name: nix build .#aggregate-release
+        run: nix build .#aggregate-release --no-link -L
+
+      # Proves the producer binary is present, runnable, and still exposes the
+      # seven-flag contract the publication job depends on.
+      - name: Assert the aggregate producer's option contract
+        run: |
+          set -euo pipefail
+          producer="$(nix build .#aggregate-release --no-link --print-out-paths -L)/bin/aura-aggregate-release"
+          test -x "$producer" || {
+            echo "::error::aura-aggregate-release was not built as an executable at ${producer}"
+            exit 1
+          }
+          # --help exits 0 and documents every option the publication job passes.
+          help="$("$producer" --help 2>&1)"
+          echo "$help"
+          for option in version installer-min installer-max pasture-revision aura-revision components output-dir; do
+            if ! printf '%s' "$help" | grep -q -- "-${option}"; then
+              echo "::error::the aggregate producer no longer documents --${option}; the release publication job passes it and would fail at tag time. Reconcile .github/workflows/release.yml with aggregate-release/main.go."
+              exit 1
+            fi
+          done
+
+      - name: nix build .#aura-swarm
+        run: nix build .#aura-swarm --no-link -L
+
+      - name: nix run .#aura-swarm -- --help
+        run: nix run .#aura-swarm -- --help
+
+  release-scripts:
+    name: release helper scripts
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+
+      - name: shellcheck the release helpers
+        run: shellcheck scripts/release/*.sh
+
+      # Exercises the real scripts/release/release-grammar.sh — the same entry
+      # point release-pr.yml, release-tag.yml, and release.yml invoke — so the
+      # version grammar cannot drift from what the workflows enforce.
+      - name: Test the release version grammar
+        run: scripts/release/release-grammar_test.sh
+
+  workflows:
+    name: workflow lint
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+
+      - name: Install Nix
+        uses: DeterminateSystems/nix-installer-action@ef8a148080ab6020fd15196c2084a2eea5ff2d25 # v22
+
+      - name: actionlint
+        run: nix run nixpkgs#actionlint -- -color
