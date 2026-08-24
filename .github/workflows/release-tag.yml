@@ -2,17 +2,25 @@ name: Release Tag
 
 # Post-merge half of the release ceremony: mint the immutable annotated tag.
 #
-# This is the only place in the repository that creates a release tag, and it
+# This is the only place in the release flow that creates a release tag, and it
 # runs only when a `release(vX.Y.Z[-rcN]): ...` PR actually MERGES. The tag is
-# annotated (not lightweight) so it carries an author, a date, and the release
+# annotated (not lightweight) so it carries a tagger, a date, and the release
 # summary from the PR title as durable provenance.
 #
-# Why a GitHub App token rather than the default GITHUB_TOKEN: GitHub refuses to
-# fire workflows for refs pushed with GITHUB_TOKEN (its recursive-workflow
-# guard), so a tag pushed that way would never trigger release.yml. An App token
-# also gives the tag a real bot identity, which release.yml's actor guard then
-# requires — that pairing is what makes "a release tag can only come from a
-# merged release PR" enforceable rather than merely conventional.
+# Why a GitHub App token rather than the default GITHUB_TOKEN — two reasons,
+# neither of which is "it makes the flow enforceable":
+#   1. GitHub refuses to fire workflows for refs pushed with GITHUB_TOKEN (its
+#      recursive-workflow guard), so a tag pushed that way would never trigger
+#      release.yml and would silently publish nothing.
+#   2. It gives the tag a real bot identity for release.yml's actor guard to
+#      recognise.
+#
+# What actually enforces "a release can only come from a merged release PR" is
+# release.yml's guard: it refuses any tag not pushed by the release App. This
+# workflow does not, and cannot, prevent someone with push access from creating
+# a `v*` tag by hand — such a tag still starts release.yml, and the guard is
+# what rejects it. A `v*` tag-creation ruleset is the defence in depth that
+# stops the tag from being created at all; see docs/releasing.md.
 #
 # Required repository secrets (see docs/releasing.md):
 #   RELEASE_APP_ID           — the release App's ID

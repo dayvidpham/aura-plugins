@@ -242,7 +242,7 @@ The resolution is a Pasture-side verb, tracked at
 <https://github.com/dayvidpham/pasture/issues/39>:
 
 ```bash
-pasture install export-components --version X.Y.Z --out DIR
+pasture bundle export --version X.Y.Z --out DIR
 ```
 
 emitting the nine canonical archives plus a ready `aura.aggregate-components/v1`

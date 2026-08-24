@@ -17,7 +17,7 @@ name: Release
 #
 # STATUS — the publication path is NOT yet wired end to end.
 # Building the nine aggregate component assets requires the Pasture-side
-# `pasture install export-components` verb, which does not exist yet — see
+# `pasture bundle export` verb, which does not exist yet — see
 # https://github.com/dayvidpham/pasture/issues/39 and docs/releasing.md
 # § "Pending: component export". Until that verb lands, the
 # build-components job stops with an actionable error instead of publishing a
@@ -137,9 +137,9 @@ jobs:
       # a permanently unpublishable-over release.
       #
       # Tracked at https://github.com/dayvidpham/pasture/issues/39.
-      # When `pasture install export-components` lands, this job becomes:
+      # When `pasture bundle export` lands, this job becomes:
       #
-      #   pasture install export-components \
+      #   pasture bundle export \
       #     --version "${VERSION}" \
       #     --out "${RUNNER_TEMP}/components"
       #
@@ -158,7 +158,7 @@ jobs:
         env:
           TAG: ${{ needs.guard.outputs.tag }}
         run: |
-          echo "::error::release ${TAG} cannot be published yet: building the nine aggregate component assets requires the Pasture 'install export-components' verb, which does not exist in the pinned Pasture revision. Impact: the tag ${TAG} exists and is valid, but no GitHub Release was created and no assets were attached — nothing partial or invented was published. Fix: land the 'pasture install export-components' verb (https://github.com/dayvidpham/pasture/issues/39), pin the Pasture revision that contains it, replace this step with the documented export + aggregate-release invocation in this file, then re-run this workflow from the Actions tab to publish the existing tag."
+          echo "::error::release ${TAG} cannot be published yet: building the nine aggregate component assets requires the Pasture 'bundle export' verb, which does not exist in the pinned Pasture revision. Impact: the tag ${TAG} exists and is valid, but no GitHub Release was created and no assets were attached — nothing partial or invented was published. Fix: land the 'pasture bundle export' verb (https://github.com/dayvidpham/pasture/issues/39), pin the Pasture revision that contains it, replace this step with the documented export + aggregate-release invocation in this file, then re-run this workflow from the Actions tab to publish the existing tag."
           exit 1
 
   # ── Remaining jobs, deliberately not written yet ───────────────────────────
