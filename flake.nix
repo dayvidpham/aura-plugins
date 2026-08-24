@@ -117,6 +117,22 @@
         {
           hm-module-test = import ./nix/hm-module-test.nix { inherit pkgs pasture; };
           aggregate-release-test = self.packages.${pkgs.system}.aggregate-release;
+          # Runs the release-grammar test suite on every `nix flake check`, so
+          # grammar regressions surface on ordinary changes instead of first
+          # appearing on a release PR. The producer-acceptance probe stays in
+          # the release gates (it needs the built producer binary and network-
+          # free component fixtures are irrelevant to it).
+          release-grammar = pkgs.runCommand "release-grammar-test"
+            {
+              src = ./scripts/release;
+              nativeBuildInputs = [ pkgs.bash ];
+            } ''
+            cp -r "$src" release
+            chmod -R u+w release
+            patchShebangs release
+            bash release/release-grammar_test.sh
+            touch "$out"
+          '';
         }
       );
 
