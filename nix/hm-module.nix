@@ -72,9 +72,12 @@ let
 
       enabled = cfg.enable && harnessCfg.enable && cellCfg.enable;
 
+      # A harness root may be the home directory itself; a cell destination may
+      # not, because a cell owns a directory subtree.
       rootResult = normalizeTarget {
         inherit homeDirectory;
         value = harnessCfg.targetRoot;
+        allowHomeRoot = true;
       };
 
       overrideResult =
@@ -87,11 +90,19 @@ let
       # A per-cell target replaces the harness-root-derived destination.
       derived = (rootResult.components or [ ]) ++ splitComponents spec.subdir;
 
-      targetOk =
+      normalizedOk =
         if usesOverride then overrideResult.ok else rootResult.ok;
 
       targetComponents =
         if usesOverride then (overrideResult.components or [ ]) else derived;
+
+      # Layout-locked cells are pinned to their generated destination: the
+      # payload's own public configuration references that exact path.
+      locked = spec.layoutLocked or false;
+      lockedTarget = hmlib.defaultTargetComponents harness axis;
+      lockViolated = locked && targetComponents != lockedTarget;
+
+      targetOk = normalizedOk && !lockViolated;
 
       failedOption =
         if usesOverride then "${cellPath harness axis}.target" else "${harnessPath harness}.targetRoot";
@@ -100,34 +111,77 @@ let
         if usesOverride then cellCfg.target else harnessCfg.targetRoot;
 
       failedReason =
-        if targetOk then null
+        if normalizedOk then null
         else if usesOverride then overrideResult.reason else rootResult.reason;
 
-      sourceDir = "${sourceRoot}/${spec.sourceDir}";
-
-      files =
+      projected =
         if enabled && targetOk && pastureSource != null
         then projectCell { source = sourceRoot; cell = spec; inherit targetComponents; }
+        else { files = { }; sourceDir = "${sourceRoot}/${spec.sourceDir}"; };
+    in
+    {
+      inherit harness axis enabled targetOk targetComponents;
+      inherit failedOption failedValue failedReason locked lockedTarget lockViolated;
+      inherit (projected) files sourceDir;
+      # Nine-cell members own their whole destination subtree.
+      ownsDirectory = true;
+      label = "${harness} ${axis}";
+      path = cellPath harness axis;
+      destinations = lib.attrNames projected.files;
+    };
+
+  harnessCells = lib.concatMap (harness: map (axis: resolveCell harness axis) axisNames) harnessNames;
+
+  # The optional local protocol docs are not a harness cell, but they land in
+  # the same managed home, so they are resolved through the same normalization
+  # and take part in the same collision and overlap checks. They are file-level
+  # additions to an existing directory rather than an owned subtree, so
+  # ownsDirectory is false: other cells may legitimately live below .claude.
+  protocolCell =
+    let
+      requested = if cfg.protocol.target == "global" then ".claude" else ".config/aura/protocol";
+      result = normalizeTarget { inherit homeDirectory; value = requested; };
+      targetComponents = result.components or [ ];
+      docs = builtins.filter (rel: lib.hasSuffix ".md" rel) (hmlib.relativeFiles protocolDir);
+      files =
+        if cfg.enable && cfg.protocol.enable && result.ok
+        then builtins.listToAttrs (map
+          (rel: { name = joinComponents (targetComponents ++ splitComponents rel); value = "${protocolDir}/${rel}"; })
+          docs)
         else { };
     in
     {
-      inherit harness axis enabled targetOk targetComponents files sourceDir;
-      inherit failedOption failedValue failedReason;
-      path = cellPath harness axis;
+      harness = "protocol";
+      axis = "docs";
+      label = "protocol docs";
+      path = "${optionRoot}.protocol";
+      enabled = cfg.enable && cfg.protocol.enable;
+      targetOk = result.ok;
+      inherit targetComponents files;
+      failedOption = "${optionRoot}.protocol.target";
+      failedValue = requested;
+      failedReason = if result.ok then null else result.reason;
+      locked = false;
+      lockViolated = false;
+      lockedTarget = targetComponents;
+      ownsDirectory = false;
+      sourceDir = protocolDir;
       destinations = lib.attrNames files;
     };
 
-  cells = lib.concatMap (harness: map (axis: resolveCell harness axis) axisNames) harnessNames;
+  cells = harnessCells ++ [ protocolCell ];
 
   enabledCells = builtins.filter (cell: cell.enabled) cells;
 
-  anyEnabled = enabledCells != [ ];
+  enabledHarnessCells = builtins.filter (cell: cell.enabled) harnessCells;
+
+  anyEnabled = enabledHarnessCells != [ ];
 
   # ── Assertions ───────────────────────────────────────────────────────────
   sourceAssertion = {
     assertion = !anyEnabled || pastureSource != null;
     message = ''
-      ${optionRoot}: no Pasture source is configured, but ${toString (builtins.length enabledCells)} harness cell(s) are enabled.
+      ${optionRoot}: no Pasture source is configured, but ${toString (builtins.length enabledHarnessCells)} harness cell(s) are enabled.
       Why: ${optionRoot}.pasture.source is null, so there is no pinned tree to project from; this is evaluated while building the Home Manager generation.
       Where: nix/hm-module.nix, source assertion.
       Impact: none of the enabled skills/agents/hooks files can be placed in the managed home.
@@ -136,26 +190,46 @@ let
   };
 
   targetReasonText = cell:
-    if cell.failedReason == "traversal" then
+    if cell.failedReason == "tilde" then
+      "the path starts with '~', which Nix does not expand — it would be realized as a literal directory named '~' inside the home"
+    else if cell.failedReason == "traversal" then
       "the path contains a '..' segment, which would escape the destination it is written under"
     else if cell.failedReason == "outside-home" then
       "the absolute path does not resolve beneath home.homeDirectory (${toString homeDirectory})"
+    else if cell.failedReason == "home-root" then
+      "the path resolves to the home directory itself, which would make this cell the owner of every unrelated file in the home"
     else
       "the path is absolute but home.homeDirectory is not set, so it cannot be proven to stay inside the managed home";
 
   targetAssertions = map
     (cell: {
-      assertion = cell.targetOk;
+      assertion = false;
       message = ''
-        ${cell.failedOption}: rejected destination "${toString cell.failedValue}" for the ${cell.harness} ${cell.axis} cell.
+        ${cell.failedOption}: rejected destination "${toString cell.failedValue}" for the ${cell.label} cell.
         Why: ${targetReasonText cell}. Home Manager may only own paths inside the managed home.
         Where: nix/hm-module.nix, destination normalization for ${cell.path}.
         When: while resolving destinations, before any file is realized.
-        Impact: the ${cell.harness} ${cell.axis} files are not projected and the generation is refused.
-        Fix: use a path relative to the home directory (for example "${joinComponents (splitComponents harnesses.${cell.harness}.defaultRoot ++ splitComponents harnesses.${cell.harness}.cells.${cell.axis}.subdir)}") or an absolute path beneath home.homeDirectory, with no '..' segments.
+        Impact: the ${cell.label} files are not projected and the generation is refused.
+        Fix: use a path relative to the home directory (for example "${joinComponents cell.lockedTarget}") or an absolute path beneath home.homeDirectory, with no '~' prefix and no '..' segments.
       '';
     })
-    (builtins.filter (cell: cell.enabled && !cell.targetOk) cells);
+    (builtins.filter (cell: cell.enabled && cell.failedReason != null) cells);
+
+  # A layout-locked cell normalized to a legal path that is not the one its own
+  # generated configuration references.
+  lockAssertions = map
+    (cell: {
+      assertion = false;
+      message = ''
+        ${cell.failedOption}: rejected destination "${toString cell.failedValue}" because the ${cell.label} cell is layout-locked to "${joinComponents cell.lockedTarget}".
+        Why: ${harnesses.${cell.harness}.cells.${cell.axis}.lockedBecause}, so relocating the cell would leave that configuration pointing at files that are no longer there and the cell would be installed but inert.
+        Where: nix/hm-module.nix, layout lock for ${cell.path}.
+        When: while resolving destinations, before any file is realized.
+        Impact: the ${cell.label} files are not projected and the generation is refused rather than producing a silently broken hook payload.
+        Fix: leave ${cell.path}.target unset and ${harnessPath cell.harness}.targetRoot at its default so this cell stays at "${joinComponents cell.lockedTarget}", or set ${cell.path}.enable = false. If you need it elsewhere, Pasture must regenerate the payload for that layout first.
+      '';
+    })
+    (builtins.filter (cell: cell.enabled && cell.lockViolated) cells);
 
   missingSourceAssertions = map
     (cell: {
@@ -171,7 +245,7 @@ let
     })
     (builtins.filter
       (cell: cell.enabled && cell.targetOk && pastureSource != null && cell.files == { })
-      cells);
+      harnessCells);
 
   # Destination collisions: two enabled cells claiming the same home path.
   allDestinations = lib.concatMap
@@ -212,14 +286,14 @@ let
               cell.destinations;
           in
           if inside == [ ] then [ ] else [{ inherit cell other; example = builtins.head inside; }])
-      (builtins.filter (candidate: candidate.targetOk) enabledCells))
+      (builtins.filter (candidate: candidate.targetOk && candidate.ownsDirectory) enabledCells))
     (builtins.filter (candidate: candidate.targetOk) enabledCells);
 
   overlapAssertions = map
     (pair: {
       assertion = false;
       message = ''
-        ${optionRoot}: the ${pair.cell.harness} ${pair.cell.axis} cell writes "${pair.example}" inside the destination directory owned by ${pair.other.path} ("${joinComponents pair.other.targetComponents}").
+        ${optionRoot}: the ${pair.cell.label} cell writes "${pair.example}" inside the destination directory owned by ${pair.other.path} ("${joinComponents pair.other.targetComponents}").
         Why: overlapping destinations make two cells co-own one directory subtree, so disabling or removing either cell would corrupt the other's files.
         Where: nix/hm-module.nix, destination overlap check.
         When: while resolving destinations, before any file is realized.
@@ -379,6 +453,7 @@ in
     {
       assertions = [ sourceAssertion ]
         ++ targetAssertions
+        ++ lockAssertions
         ++ missingSourceAssertions
         ++ collisionAssertions
         ++ overlapAssertions;
@@ -391,22 +466,12 @@ in
     })
 
     {
+      # `executable` is deliberately left unset: Home Manager then preserves the
+      # mode of the source file, so an executable hook script stays executable
+      # and everything else stays non-executable. Forcing it either way here
+      # would silently diverge from the bytes and modes Pasture generated.
       home.file = lib.mapAttrs (_: source: { inherit source; }) projectedFiles;
     }
 
-    (mkIf cfg.protocol.enable (
-      let
-        prefix =
-          if cfg.protocol.target == "global"
-          then ".claude"
-          else ".config/aura/protocol";
-        protocolFiles = builtins.filter (rel: lib.hasSuffix ".md" rel) (hmlib.relativeFiles protocolDir);
-      in
-      {
-        home.file = builtins.listToAttrs (map
-          (rel: { name = "${prefix}/${rel}"; value.source = "${protocolDir}/${rel}"; })
-          protocolFiles);
-      }
-    ))
   ]);
 }

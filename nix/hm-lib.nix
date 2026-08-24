@@ -35,28 +35,42 @@ let
 
   # Normalize a user-supplied destination into home-relative components.
   #
+  # `allowHomeRoot` distinguishes a harness root (which may legitimately be the
+  # home directory itself — Codex's native layout spans ~/.agents and ~/.codex)
+  # from a cell destination (which may not: a cell owns a directory subtree, and
+  # owning the whole home would put every unrelated file under its ownership).
+  #
   # Returns { ok = true; components = [...]; } or
   #         { ok = false; reason = <string>; } where reason is one of
-  #         "traversal", "home-unknown", "outside-home".
+  #         "tilde", "traversal", "home-unknown", "outside-home", "home-root".
   normalizeTarget =
-    { homeDirectory, value }:
+    { homeDirectory, value, allowHomeRoot ? false }:
     let
       raw = toString value;
       absolute = hasPrefix "/" raw;
       components = splitComponents raw;
       homeComponents = splitComponents (toString (if homeDirectory == null then "" else homeDirectory));
       homeKnown = homeDirectory != null && homeComponents != [ ];
+      relative = { ok = true; components = components; };
+      accept = result:
+        if result.ok && result.components == [ ] && !allowHomeRoot
+        then { ok = false; reason = "home-root"; }
+        else result;
     in
-    if elem ".." components then
+    # Nix performs no tilde expansion, so "~/x" would be realized as a literal
+    # directory named "~" inside the home. Reject it rather than create it.
+    if raw == "~" || hasPrefix "~/" raw then
+      { ok = false; reason = "tilde"; }
+    else if elem ".." components then
       { ok = false; reason = "traversal"; }
     else if !absolute then
-      { ok = true; components = components; }
+      accept relative
     else if !homeKnown then
       { ok = false; reason = "home-unknown"; }
     else if !(isComponentPrefix homeComponents components) then
       { ok = false; reason = "outside-home"; }
     else
-      { ok = true; components = drop (length homeComponents) components; };
+      accept { ok = true; components = drop (length homeComponents) components; };
 
   # Parent of a destination; the home root is its own parent.
   parentComponents = components:
@@ -91,6 +105,18 @@ let
   # Sources are the harness-specific generated trees committed in Pasture. A
   # harness is never fed another harness's tree: the frontmatter schemas differ
   # and cross-wiring ships files the host cannot load.
+  #
+  # KNOWN DUPLICATION — this table restates layout facts that Pasture also
+  # holds as Go constants (its per-harness host controllers and the frozen
+  # component layouts under testdata/install/global/). Nothing machine-checks
+  # the two against each other today: Pasture exposes no machine-readable
+  # export of these facts as of the pinned revision, so the table is
+  # hand-transcribed and the byte-identity checks in nix/hm-module-test.nix are
+  # what catch a source tree that moved or disappeared.
+  # The intended future drift seam is a component-export manifest from Pasture's
+  # installer (a `pasture install export-components`-style verb, not yet
+  # implemented upstream): when it lands, generate this table from that manifest
+  # instead of restating it, and assert equality in the flake check.
   harnesses = {
     "claude-code" = {
       defaultRoot = ".claude";
@@ -104,7 +130,7 @@ let
         hooks = {
           sourceDir = "hooks";
           subdir = "hooks";
-          exclude = rel: hasSuffix ".go" rel;
+          excludeSuffixes = [ ".go" ];
         };
       };
     };
@@ -138,9 +164,18 @@ let
         # configuration and the activation report are siblings of it, exactly
         # as in the harness layout Pasture's installer targets. They are public
         # configuration, never private trust state.
+        #
+        # This cell is layout-locked: the generated .codex/hooks.json invokes
+        # its event scripts as `sh .codex/hooks/events/<Event>.sh`, a path fixed
+        # when Pasture generated the payload. Relocating the cell would move the
+        # scripts out from under that hard-coded path and leave the public
+        # configuration pointing at nothing, so a destination override is
+        # refused instead of silently producing an inert cell.
         hooks = {
           sourceDir = ".codex/hooks";
           subdir = ".codex/hooks";
+          layoutLocked = true;
+          lockedBecause = "the generated .codex/hooks.json invokes each event script as `sh .codex/hooks/events/<Event>.sh`, a path fixed when Pasture generated the payload";
           siblings = [
             { source = ".codex/hooks.json"; name = "hooks.json"; }
             { source = ".codex/pasture-codex-activation.json"; name = "pasture-codex-activation.json"; }
@@ -154,29 +189,32 @@ let
   axisNames = [ "skills" "agents" "hooks" ];
 
   # ── Projection ───────────────────────────────────────────────────────────
-  # Build { "<home-relative dest>" = "<absolute source>"; } for one cell.
+  # Build { files = { "<home-relative dest>" = "<source file>"; }; sourceDir; }
+  # for one cell. `sourceDir` is returned rather than recomputed by callers so
+  # the path quoted in a missing-source error is exactly the path that was read.
   projectCell =
     { source, cell, targetComponents }:
     let
       sourceDir = "${source}/${cell.sourceDir}";
-      exclude = cell.exclude or (_: false);
+      # Exclusions are declared as data (suffixes) so the byte-identity checks in
+      # nix/hm-module-test.nix can reuse the same list as diff -x patterns.
+      excluded = rel: builtins.any (suffix: hasSuffix suffix rel) (cell.excludeSuffixes or [ ]);
       renames = cell.renames or { };
       siblings = cell.siblings or [ ];
 
-      wanted = filter (rel: !(exclude rel)) (relativeFiles sourceDir);
+      wanted = filter (rel: !(excluded rel)) (relativeFiles sourceDir);
 
-      destOf = rel:
-        let
-          parts = splitComponents rel;
-          last = elemAt parts (length parts - 1);
-          renamed = renames.${last} or last;
-        in
-        joinComponents (targetComponents ++ take (length parts - 1) parts ++ [ renamed ]);
+      # Renames are keyed on the full source-relative path, so a rename can
+      # never fire on an unrelated file that happens to share a basename.
+      destOf = rel: joinComponents (targetComponents ++ splitComponents (renames.${rel} or rel));
 
       subtree = builtins.listToAttrs (map
         (rel: { name = destOf rel; value = "${sourceDir}/${rel}"; })
         wanted);
 
+      # Sibling members are public configuration that the generated payload
+      # itself references by a fixed path, so they are anchored to the parent of
+      # the cell destination rather than placed inside it.
       siblingRoot = parentComponents targetComponents;
       siblingFiles = builtins.listToAttrs (map
         (entry: {
@@ -185,7 +223,18 @@ let
         })
         (filter (entry: builtins.pathExists "${source}/${entry.source}") siblings));
     in
-    subtree // siblingFiles;
+    {
+      inherit sourceDir;
+      files = subtree // siblingFiles;
+    };
+
+  # Destination a cell occupies when neither its harness root nor its own
+  # target is overridden. Single source of truth for the module's defaults and
+  # for the byte-identity checks in nix/hm-module-test.nix.
+  defaultTargetComponents = harness: axis:
+    splitComponents harnesses.${harness}.defaultRoot
+    ++ splitComponents harnesses.${harness}.cells.${axis}.subdir;
+
 in
 {
   inherit
@@ -199,5 +248,6 @@ in
     harnessNames
     axisNames
     projectCell
+    defaultTargetComponents
     ;
 }

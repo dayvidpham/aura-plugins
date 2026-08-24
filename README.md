@@ -84,7 +84,41 @@ during evaluation, before any file is realized.
 Hook cells project hook *payload files* only. The module never installs a Git
 hook, never touches `core.hooksPath`, and never edits a harness's private trust
 or enablement state; switching a projected hook payload on remains a deliberate
-action in the harness's own configuration.
+action in the harness's own configuration:
+
+- **Claude Code** — the projected `~/.claude/hooks/hooks.json` is the payload's
+  own manifest, not a file Claude Code reads. To enable it, merge that file's
+  `hooks` object into the `hooks` key of your `~/.claude/settings.json` (this
+  module does not manage that file) and replace each `${CLAUDE_PLUGIN_ROOT}`
+  placeholder with `~/.claude`, so the commands read e.g.
+  `bash ~/.claude/hooks/scripts/git-discipline.sh` and
+  `cat ~/.claude/hooks/bd-prime.md`.
+- **OpenCode** — plugins are discovered directly from
+  `~/.config/opencode/plugins/`, so the projected `pasture-hooks.ts` is loaded
+  without any configuration edit; no OpenCode config file is written by Aura or
+  by Pasture.
+- **Codex** — the projected `~/.codex/hooks.json` and `~/.codex/hooks/events/*.sh`
+  are public configuration only. Installing them does not claim execution:
+  review and approve the hooks through Codex's native hooks interface. Neither
+  Aura nor Pasture reads or modifies private trust state. This cell is also
+  layout-locked — its public configuration invokes each script as
+  `sh .codex/hooks/events/<Event>.sh`, so a `target`/`targetRoot` that would
+  move it is rejected rather than installed inert.
+
+**Host-load proof is deferred.** The flake check proves byte identity, file
+modes, destinations, cell isolation, and that no harness receives another
+harness's schema — it does *not* prove that a live Claude Code, OpenCode, or
+Codex process loads each projected cell. That per-cell native host-load evidence
+is still outstanding and tracked in
+<https://github.com/dayvidpham/aura-plugins/issues/8>; treat the hooks cells in
+particular as unverified in-host until it lands.
+
+**Claude Code has two possible controllers.** This module writes payload files
+into `~/.claude`, while `pasture install claude-code …` drives Claude Code's
+native plugin manager for the same cells. Choose one per cell: Home Manager
+rewrites its projected paths on every activation, and Pasture treats
+declaratively owned destinations as externally controlled — it will not adopt or
+remove them.
 
 The previous flat options (`commands.*`, `agents.*`, `opencode.*`, `codex.*`)
 were removed rather than aliased. Defining any of them fails evaluation with the

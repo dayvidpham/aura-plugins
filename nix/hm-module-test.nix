@@ -50,9 +50,12 @@ let
     };
   };
 
+  # worker.md exists so a protocol destination can be made to collide with a
+  # harness cell, proving the docs take part in the same destination checks.
   protocolFixture = pkgs.runCommand "aura-protocol-fixture" { } ''
     mkdir -p "$out/skills/protocol"
     echo "protocol doc" > "$out/skills/protocol/PROCESS.md"
+    echo "protocol worker doc" > "$out/skills/protocol/worker.md"
   '';
 
   self = {
@@ -152,8 +155,7 @@ let
 
   sorted = list: lib.sort (a: b: a < b) list;
 
-  harnessNames = [ "claude-code" "codex" "opencode" ];
-  axisNames = [ "skills" "agents" "hooks" ];
+  inherit (hmlib) harnessNames axisNames;
 
   # ── Evaluations ──────────────────────────────────────────────────────────
   allOff = evaluate { };
@@ -212,6 +214,37 @@ let
       CUSTOM.programs.aura-config-sync.harnesses."claude-code".agents.target = ".claude/nest/inner";
     });
 
+  # A layout-locked cell refuses relocation instead of installing an inert
+  # payload whose own public configuration points at the old path.
+  codexHooksTargetOverride = evaluate (lib.recursiveUpdate
+    (onlyCell "codex" "hooks")
+    { CUSTOM.programs.aura-config-sync.harnesses.codex.hooks.target = "somewhere/else"; });
+
+  codexHooksRootOverride = evaluate (lib.recursiveUpdate
+    (onlyCell "codex" "hooks")
+    { CUSTOM.programs.aura-config-sync.harnesses.codex.targetRoot = "relocated"; });
+
+  codexSkillsRootOverride = evaluate (lib.recursiveUpdate
+    (onlyCell "codex" "skills")
+    { CUSTOM.programs.aura-config-sync.harnesses.codex.targetRoot = "relocated"; });
+
+  tildeTarget = evaluate (lib.recursiveUpdate
+    (onlyCell "claude-code" "skills")
+    { CUSTOM.programs.aura-config-sync.harnesses."claude-code".skills.target = "~/claude/skills"; });
+
+  homeRootTarget = evaluate (lib.recursiveUpdate
+    (onlyCell "claude-code" "skills")
+    { CUSTOM.programs.aura-config-sync.harnesses."claude-code".skills.target = "."; });
+
+  protocolCollides = evaluate {
+    CUSTOM.programs.aura-config-sync.protocol.enable = true;
+    CUSTOM.programs.aura-config-sync.harnesses."claude-code" = {
+      enable = true;
+      skills.enable = false;
+      agents.target = ".claude";
+    };
+  };
+
   missingSource = evaluate (lib.recursiveUpdate
     (harnessConfig "opencode" { })
     { CUSTOM.programs.aura-config-sync.pasture.source = emptySource; });
@@ -225,16 +258,26 @@ let
   };
 
   removedCases = [
-    { path = "commands.enable"; config.CUSTOM.programs.aura-config-sync.commands.enable = true; needle = "harnesses.\"claude-code\".skills.enable"; }
-    { path = "commands.roles"; config.CUSTOM.programs.aura-config-sync.commands.roles.enableAll = false; needle = "Per-role skill filtering was removed"; }
-    { path = "commands.extraCommands"; config.CUSTOM.programs.aura-config-sync.commands.extraCommands = { }; needle = "home.file"; }
-    { path = "agents.enable"; config.CUSTOM.programs.aura-config-sync.agents.enable = true; needle = "harnesses.\"claude-code\".agents.enable"; }
-    { path = "agents.extraAgents"; config.CUSTOM.programs.aura-config-sync.agents.extraAgents = { }; needle = "home.file"; }
-    { path = "opencode.skills.enable"; config.CUSTOM.programs.aura-config-sync.opencode.skills.enable = true; needle = "harnesses.opencode.skills.enable"; }
-    { path = "opencode.agents.enable"; config.CUSTOM.programs.aura-config-sync.opencode.agents.enable = true; needle = "harnesses.opencode.agents.enable"; }
-    { path = "codex.skills.enable"; config.CUSTOM.programs.aura-config-sync.codex.skills.enable = true; needle = "harnesses.codex.skills.enable"; }
-    { path = "codex.agents.enable"; config.CUSTOM.programs.aura-config-sync.codex.agents.enable = true; needle = "harnesses.codex.agents.enable"; }
+    { path = "commands.enable"; config.CUSTOM.programs.aura-config-sync.commands.enable = true; needle = "${optionRoot}.harnesses.\"claude-code\".skills.enable"; }
+    { path = "commands.roles"; config.CUSTOM.programs.aura-config-sync.commands.roles.enableAll = false; needle = "${optionRoot}.harnesses.\"claude-code\".skills.enable"; }
+    { path = "commands.extraCommands"; config.CUSTOM.programs.aura-config-sync.commands.extraCommands = { }; needle = "home.file.\".claude/skills/my-skill/SKILL.md\".source"; }
+    { path = "agents.enable"; config.CUSTOM.programs.aura-config-sync.agents.enable = true; needle = "${optionRoot}.harnesses.\"claude-code\".agents.enable"; }
+    { path = "agents.extraAgents"; config.CUSTOM.programs.aura-config-sync.agents.extraAgents = { }; needle = "home.file.\".claude/agents/my-agent.md\".source"; }
+    { path = "opencode.skills.enable"; config.CUSTOM.programs.aura-config-sync.opencode.skills.enable = true; needle = "${optionRoot}.harnesses.opencode.skills.enable"; }
+    { path = "opencode.agents.enable"; config.CUSTOM.programs.aura-config-sync.opencode.agents.enable = true; needle = "${optionRoot}.harnesses.opencode.agents.enable"; }
+    { path = "codex.skills.enable"; config.CUSTOM.programs.aura-config-sync.codex.skills.enable = true; needle = "${optionRoot}.harnesses.codex.skills.enable"; }
+    { path = "codex.agents.enable"; config.CUSTOM.programs.aura-config-sync.codex.agents.enable = true; needle = "${optionRoot}.harnesses.codex.agents.enable"; }
   ];
+
+  # A removed option must be inert as well as loud: defining the legacy option
+  # (with a valid source present) must project nothing at all, proving it is not
+  # a functional alias for the cell that replaced it.
+  legacyAliasProjectsNothing = evaluateRaw (lib.recursiveUpdate baseConfig {
+    CUSTOM.programs.aura-config-sync.commands.enable = true;
+    CUSTOM.programs.aura-config-sync.agents.enable = true;
+    CUSTOM.programs.aura-config-sync.opencode.skills.enable = true;
+    CUSTOM.programs.aura-config-sync.codex.agents.enable = true;
+  });
 
   # The pinned Pasture input is the source Home Manager users actually consume.
   # These cases prove every one of the nine generated trees exists in it, so a
@@ -311,7 +354,15 @@ let
     { name = "overlapping parent/child destinations are rejected"; ok = failsWith overlappingTargets "inside the destination directory owned by"; }
     { name = "missing generated tree is rejected with the expected source path"; ok = failsWith missingSource "contains no opencode skills tree" && failsWith missingSource ".opencode/skill"; }
     { name = "missing pasture source is rejected"; ok = failsWith missingPastureSource "no Pasture source is configured"; }
-    { name = "protocol docs opt-in still projects local documentation"; ok = passes protocolDocs && destinations protocolDocs == [ ".claude/PROCESS.md" ]; }
+    { name = "protocol docs opt-in still projects local documentation"; ok = passes protocolDocs && destinations protocolDocs == sorted [ ".claude/PROCESS.md" ".claude/worker.md" ]; }
+    { name = "protocol docs take part in the collision check"; ok = failsWith protocolCollides "claim the same destination"; }
+    { name = "codex hooks refuse a per-cell target override"; ok = failsWith codexHooksTargetOverride "layout-locked" && failsWith codexHooksTargetOverride ".codex/hooks.json" && destinations codexHooksTargetOverride == [ ]; }
+    { name = "codex hooks refuse a harness targetRoot that moves them"; ok = failsWith codexHooksRootOverride "layout-locked"; }
+    { name = "a codex targetRoot override is still allowed for unlocked cells"; ok = passes codexSkillsRootOverride && destinations codexSkillsRootOverride == [ "relocated/.agents/skills/example/SKILL.md" ]; }
+    { name = "tilde-prefixed target is rejected"; ok = failsWith tildeTarget "does not expand"; }
+    { name = "target resolving to the home directory itself is rejected"; ok = failsWith homeRootTarget "home directory itself"; }
+    { name = "a removed option is inert as well as loud"; ok = builtins.attrNames legacyAliasProjectsNothing.config.home.file == [ ]; }
+    { name = "the pinned Pasture input is wired into this check"; ok = pastureConfigured; }
   ]
   ++ harnessAloneCases
   ++ cellIsolationCases
@@ -345,37 +396,105 @@ let
     then realize "aura-hm-pasture-projection" pastureEvaluation
     else pkgs.runCommand "aura-hm-pasture-projection-absent" { } ''mkdir -p "$out"'';
 
-  # Compare one projected subtree against the exact source subtree it came from.
-  compareTree = projection: source: relDestination: relSource: excludes: ''
-    echo "byte identity: ${relDestination} <- ${relSource}"
-    diff -r ${lib.concatMapStrings (pattern: "-x ${lib.escapeShellArg pattern} ") excludes} \
-      ${source}/${relSource} ${projection}/${relDestination}
+  # ── Byte identity, derived from the layout table ─────────────────────────
+  # The comparison plan is generated from hmlib.harnesses so this file never
+  # restates the layout a third time: a cell added to or moved in the table is
+  # compared automatically.
+  hmlib = import ./hm-lib.nix { inherit lib; };
+
+  quote = lib.escapeShellArg;
+
+  cellPlan = harness: axis:
+    let
+      spec = hmlib.harnesses.${harness}.cells.${axis};
+      target = hmlib.joinComponents (hmlib.defaultTargetComponents harness axis);
+      siblingRoot = hmlib.joinComponents (hmlib.parentComponents (hmlib.defaultTargetComponents harness axis));
+      renames = spec.renames or { };
+      excludes = map (suffix: "*${suffix}") (spec.excludeSuffixes or [ ]);
+    in
+    source: projection: ''
+      echo "byte identity: ${harness}/${axis}  ${spec.sourceDir} -> ${target}"
+      compare_dir ${quote "${source}/${spec.sourceDir}"} ${quote "${projection}/${target}"} \
+        ${lib.concatMapStringsSep " " (rename: "--rename ${quote rename}")
+          (lib.mapAttrsToList (from: to: "${from}:${to}") renames)} \
+        ${lib.concatMapStringsSep " " (pattern: "--exclude ${quote pattern}") excludes}
+      ${lib.concatMapStrings
+        (entry: ''
+          compare_file ${quote "${source}/${entry.source}"} \
+            ${quote "${projection}/${if siblingRoot == "" then entry.name else "${siblingRoot}/${entry.name}"}"}
+        '')
+        (spec.siblings or [ ])}
+    '';
+
+  identityScript = projection: source: lib.concatStrings (lib.concatMap
+    (harness: map (axis: cellPlan harness axis source projection) axisNames)
+    harnessNames)
+  + ''
+    # Native harness configuration and trust state must never be projected.
+    test ! -e ${quote "${projection}/.codex/codex.toml"}
+    # The one script-bearing member Pasture ships executable must stay executable.
+    test -x ${quote "${projection}/.claude/hooks/scripts/git-discipline.sh"}
   '';
 
-  compareFile = projection: source: relDestination: relSource: ''
-    cmp ${source}/${relSource} ${projection}/${relDestination}
+  comparisonHelpers = ''
+    compare_file() {
+      cmp "$1" "$2"
+      local left right
+      left=$(stat -c %a "$1")
+      right=$(stat -c %a "$2")
+      if [ "$left" != "$right" ]; then
+        echo "mode mismatch: $2 is $right but its source $1 is $left" >&2
+        echo "The projection must preserve the mode Pasture generated, so an" >&2
+        echo "executable hook script stays executable." >&2
+        exit 1
+      fi
+    }
+
+    compare_dir() {
+      local src="$1" dst="$2"; shift 2
+      local -a excludes=() renames=()
+      while [ "$#" -gt 0 ]; do
+        case "$1" in
+          --exclude) excludes+=(-x "$2"); shift 2 ;;
+          --rename) renames+=("$2"); shift 2 ;;
+          *) echo "compare_dir: unexpected argument $1" >&2; exit 1 ;;
+        esac
+      done
+
+      local compare="$src"
+      if [ "''${#renames[@]}" -gt 0 ]; then
+        compare=$(mktemp -d)
+        cp -r "$src/." "$compare"
+        chmod -R u+w "$compare"
+        local pair
+        for pair in "''${renames[@]}"; do
+          mv "$compare/''${pair%%:*}" "$compare/''${pair##*:}"
+        done
+        # Restore the read-only store modes the copy relaxed, so the mode
+        # comparison below still compares against what Pasture shipped.
+        chmod -R a-w "$compare"
+      fi
+
+      diff -r "''${excludes[@]}" "$compare" "$dst"
+
+      local relative
+      while IFS= read -r relative; do
+        compare_file "$compare/$relative" "$dst/$relative"
+      done < <(cd "$dst" && find . -type f | sort)
+    }
   '';
 
-  identityScript = projection: source: ''
-    ${compareTree projection source ".claude/skills" "skills" [ ]}
-    ${compareTree projection source ".claude/agents" "agents" [ ]}
-    ${compareTree projection source ".claude/hooks" "hooks" [ "*.go" ]}
-    ${compareTree projection source ".config/opencode/skills" ".opencode/skill" [ ]}
-    ${compareTree projection source ".config/opencode/agent" ".opencode/agent" [ ]}
-    ${compareFile projection source ".config/opencode/plugins/pasture-hooks.ts" ".opencode/plugins/pasture-lifecycle.ts"}
-    ${compareTree projection source ".agents/skills" ".agents/skills" [ ]}
-    ${compareTree projection source ".codex/agents" ".codex/agents" [ ]}
-    ${compareTree projection source ".codex/hooks" ".codex/hooks" [ ]}
-    ${compareFile projection source ".codex/hooks.json" ".codex/hooks.json"}
-    ${compareFile projection source ".codex/pasture-codex-activation.json" ".codex/pasture-codex-activation.json"}
-    test ! -e ${projection}/.codex/codex.toml
-  '';
+  # The full destination set of the pinned input is pinned in-tree: bumping the
+  # pasture input must show up as a reviewable diff of exactly which files a
+  # user's home gains or loses, not as a silent change.
+  pinnedDestinations = lib.concatMapStrings (dest: "${dest}\n")
+    (destinations pastureEvaluation);
 
 in
 pkgs.runCommand "aura-config-sync-hm-module-test"
 {
-  inherit report;
-  passAsFile = [ "report" ];
+  inherit report pinnedDestinations;
+  passAsFile = [ "report" "pinnedDestinations" ];
   nativeBuildInputs = [ pkgs.diffutils ];
 } ''
   cat "$reportPath"
@@ -386,9 +505,22 @@ pkgs.runCommand "aura-config-sync-hm-module-test"
     exit 1
   fi
 
+  ${comparisonHelpers}
+
   ${identityScript fixtureProjection "${./hm-module-test-data/full}"}
 
-  ${lib.optionalString pastureConfigured (identityScript pastureProjection "${pasture}")}
+  ${lib.optionalString pastureConfigured ''
+    ${identityScript pastureProjection "${pasture}"}
+
+    if ! diff -u ${./hm-module-test-data/pinned-destinations.txt} "$pinnedDestinationsPath"; then
+      echo "The set of files projected from the pinned Pasture input changed." >&2
+      echo "If that is intended (for example after bumping the pasture flake input)," >&2
+      echo "refresh nix/hm-module-test-data/pinned-destinations.txt from the '+'/'-'" >&2
+      echo "lines above and review the diff: it is exactly what a user's home gains" >&2
+      echo "or loses on the next activation." >&2
+      exit 1
+    fi
+  ''}
 
   touch "$out"
 ''
