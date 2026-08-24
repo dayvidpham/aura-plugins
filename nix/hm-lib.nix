@@ -113,10 +113,11 @@ let
   # export of these facts as of the pinned revision, so the table is
   # hand-transcribed and the byte-identity checks in nix/hm-module-test.nix are
   # what catch a source tree that moved or disappeared.
-  # The intended future drift seam is a component-export manifest from Pasture's
-  # installer (a `pasture install export-components`-style verb, not yet
-  # implemented upstream): when it lands, generate this table from that manifest
-  # instead of restating it, and assert equality in the flake check.
+  # The intended future drift seam is the component manifest emitted by
+  # Pasture's top-level `pasture bundle export` verb, which is not implemented
+  # upstream at the pinned revision: when it lands, generate this table from
+  # that manifest instead of restating it, and assert equality in the flake
+  # check.
   harnesses = {
     "claude-code" = {
       defaultRoot = ".claude";
