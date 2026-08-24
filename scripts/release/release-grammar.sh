@@ -32,13 +32,24 @@ set -euo pipefail
 
 readonly PROGRAM_NAME="scripts/release/release-grammar.sh"
 
-# A canonical numeric component: 0, or a non-zero digit followed by any digits.
+# A canonical numeric component: 0, or a non-zero digit followed by more digits.
 # Leading zeros are rejected because the producer rejects them.
-readonly NUMBER='(0|[1-9][0-9]*)'
-readonly TAG_PATTERN="^v${NUMBER}\.${NUMBER}\.${NUMBER}(-rc[1-9][0-9]*)?$"
+#
+# Width is bounded to 17 digits. The producer parses each numeric component with
+# a 64-bit unsigned parser, so an unbounded pattern would let this grammar
+# accept a version that the producer rejects at build time — after the tag is
+# already permanent. Capping at 17 digits keeps every accepted value below
+# 10^17, far inside uint64, so grammar-accepted is a strict subset of
+# producer-accepted. The bound is deliberately CONSERVATIVE: the producer would
+# accept some wider values, but no real release needs them, and the gate in
+# .github/workflows/gates.yml proves the subset relation against the real
+# producer binary rather than assuming it.
+readonly NUMBER='(0|[1-9][0-9]{0,16})'
+readonly RC_NUMBER='[1-9][0-9]{0,16}'
+readonly TAG_PATTERN="^v${NUMBER}\.${NUMBER}\.${NUMBER}(-rc${RC_NUMBER})?$"
 readonly TITLE_PATTERN="^release\(([^)]*)\): (.+)$"
 
-readonly GRAMMAR_HELP='the accepted grammar is release(vMAJOR.MINOR.PATCH): <summary> for a final release, or release(vMAJOR.MINOR.PATCH-rcN): <summary> for a release candidate — for example "release(v0.1.0): first immutable aggregate" or "release(v0.1.0-rc1): first aggregate candidate". Every numeric component must be canonical base-10 with no leading zero, N must be 1 or greater, and build metadata (+...) is not accepted because the aggregate producer rejects it.'
+readonly GRAMMAR_HELP='the accepted grammar is release(vMAJOR.MINOR.PATCH): <summary> for a final release, or release(vMAJOR.MINOR.PATCH-rcN): <summary> for a release candidate — for example "release(v0.1.0): first immutable aggregate" or "release(v0.1.0-rc1): first aggregate candidate". Every numeric component must be canonical base-10 with no leading zero, N must be 1 or greater, no numeric component may exceed 17 digits, and build metadata (+...) is not accepted because the aggregate producer rejects it.'
 
 # fail <what-went-wrong> <why> <impact> <how-to-fix>
 fail() {
@@ -64,6 +75,23 @@ emit_version() {
   printf 'kind=%s\n' "$kind"
 }
 
+# reject_control_characters <value> <what> <source-description>
+#
+# POSIX regex matching treats a newline as an ordinary character, so an anchored
+# pattern alone does NOT stop a multi-line value: ".+$" happily spans newlines.
+# Every caller appends this script's stdout to $GITHUB_OUTPUT and feeds the PR
+# title to `git tag -m`, so a multi-line value is refused outright rather than
+# relied upon to be harmless downstream.
+reject_control_characters() {
+  local value="$1" what="$2" source="$3"
+  if [[ "$value" =~ [[:cntrl:]] ]]; then
+    fail "validating ${what}" \
+      "${source} contains a control character such as a newline or tab" \
+      "the value would be written into a workflow output and a Git tag message, where an embedded newline can inject content that was never reviewed" \
+      "put the whole release marker on a single line with no tab or newline characters"
+  fi
+}
+
 # require_tag_grammar <tag> <source-description>
 require_tag_grammar() {
   local tag="$1" source="$2"
@@ -83,6 +111,7 @@ parse_title() {
       "the release PR cannot be classified and must not be merged" \
       "$GRAMMAR_HELP"
   fi
+  reject_control_characters "$title" "the release PR title" "the title"
   if [[ ! "$title" =~ $TITLE_PATTERN ]]; then
     fail "validating the release PR title" \
       "the title \"${title}\" does not match release(<version>): <summary>" \
@@ -110,6 +139,7 @@ parse_tag() {
       "the tagged build cannot be classified and must not publish a release" \
       "$GRAMMAR_HELP"
   fi
+  reject_control_characters "$tag" "the release tag" "the tag"
   require_tag_grammar "$tag" "the pushed tag"
   emit_version "$tag"
 }

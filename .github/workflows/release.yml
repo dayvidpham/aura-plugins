@@ -4,14 +4,22 @@ name: Release
 # tag that release-tag.yml pushes with the release App token.
 #
 # The guard job below is the enforcement point for "a release can only come from
-# a merged release PR": because only the App can push a tag that fires this
-# workflow, and because the guard refuses any tag whose actor is not the App,
-# a hand-pushed `v*` tag produces a failed run and never a published release.
+# a merged release PR". The enforcement rests on the guard alone: it refuses any
+# tag not pushed by the release App, so a hand-pushed `v*` tag produces a failed
+# run and never a published release.
+#
+# Note what is NOT true — anyone with push access CAN create a `v*` tag and it
+# WILL start this workflow. (The rule that a GITHUB_TOKEN-pushed ref does not
+# trigger workflows constrains tokens, not people.) The guard is therefore the
+# only thing standing between a hand-pushed tag and a published release, which
+# is why it fails closed when the expected identity is unconfigured. Configure a
+# tag-creation ruleset for `v*` as defence in depth — see docs/releasing.md.
 #
 # STATUS — the publication path is NOT yet wired end to end.
-# Building the nine aggregate component assets requires a Pasture-side export
-# verb that does not exist yet (tracked as aura-plugins-kcxbma; see
-# docs/releasing.md § "Pending: component export"). Until it lands, the
+# Building the nine aggregate component assets requires the Pasture-side
+# `pasture install export-components` verb, which does not exist yet — see
+# https://github.com/dayvidpham/pasture/issues/39 and docs/releasing.md
+# § "Pending: component export". Until that verb lands, the
 # build-components job stops with an actionable error instead of publishing a
 # partial or invented release. The guard job is fully live and useful today.
 
@@ -128,7 +136,8 @@ jobs:
       # the artifact contract. Inventing either here would freeze a guess into
       # a permanently unpublishable-over release.
       #
-      # Tracked as aura-plugins-kcxbma. When that verb lands, this job becomes:
+      # Tracked at https://github.com/dayvidpham/pasture/issues/39.
+      # When `pasture install export-components` lands, this job becomes:
       #
       #   pasture install export-components \
       #     --version "${VERSION}" \
@@ -149,7 +158,7 @@ jobs:
         env:
           TAG: ${{ needs.guard.outputs.tag }}
         run: |
-          echo "::error::release ${TAG} cannot be published yet: building the nine aggregate component assets requires the Pasture 'install export-components' verb, which does not exist in the pinned Pasture revision. Impact: the tag ${TAG} exists and is valid, but no GitHub Release was created and no assets were attached — nothing partial or invented was published. Fix: land the Pasture export verb (tracked as aura-plugins-kcxbma), pin the Pasture revision that contains it, replace this step with the documented export + aggregate-release invocation in this file, then re-run this workflow from the Actions tab to publish the existing tag."
+          echo "::error::release ${TAG} cannot be published yet: building the nine aggregate component assets requires the Pasture 'install export-components' verb, which does not exist in the pinned Pasture revision. Impact: the tag ${TAG} exists and is valid, but no GitHub Release was created and no assets were attached — nothing partial or invented was published. Fix: land the 'pasture install export-components' verb (https://github.com/dayvidpham/pasture/issues/39), pin the Pasture revision that contains it, replace this step with the documented export + aggregate-release invocation in this file, then re-run this workflow from the Actions tab to publish the existing tag."
           exit 1
 
   # ── Remaining jobs, deliberately not written yet ───────────────────────────

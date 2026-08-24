@@ -12,9 +12,18 @@ Two rules shape everything below:
 - **There is no moving alias.** No `pasture-stable` branch, tag, or "latest"
   pointer exists. Consumers select one exact version.
 
-> **Status: the pipeline is not yet able to publish.** Tag creation and every
-> gate are wired and live; asset publication is blocked on a Pasture-side
-> component export verb. See [Pending: component export](#pending-component-export).
+> **Status: the pipeline cannot publish yet, and has never run.**
+>
+> Tag creation and every gate are wired; asset publication is blocked on a
+> Pasture-side component export verb — see
+> [Pending: component export](#pending-component-export).
+>
+> Separately, and independently of that gap: **none of these workflows has ever
+> executed on GitHub.** They are validated locally (actionlint, shellcheck, the
+> grammar suite, `nix flake check`, and a real invocation of the aggregate
+> producer), but local validation proves syntax and logic, not runtime
+> behaviour. Expect first-run breakage and treat the first release as a
+> supervised operation.
 
 ## The pipeline at a glance
 
@@ -23,12 +32,18 @@ Two rules shape everything below:
 | `.github/workflows/gates.yml` | `workflow_call` only | The full quality gate: `nix flake check -L` (which runs `hm-module-test` and `aggregate-release-test`), `nix build .#aggregate-release`, an assertion that the producer still exposes its seven-option contract, `nix build .#aura-swarm`, `nix run .#aura-swarm -- --help`, `shellcheck` + the release-grammar test suite, and `actionlint`. |
 | `.github/workflows/release-pr.yml` | `pull_request` (opened/edited/synchronize/reopened) into `main` | On a `release(...)`-titled PR: validates the title grammar, asserts the author is a maintainer, refuses a version that is already released, then calls `gates.yml` in full. |
 | `.github/workflows/release-tag.yml` | `pull_request` `closed` into `main` | When a `release(...)` PR **merges**: mints the immutable annotated tag with the release App token, refusing duplicate tags and unreachable commits. |
-| `.github/workflows/release.yml` | `push` of a `v*` tag | Guards the tag (App actor, annotated, reachable from `main`), re-runs `gates.yml` against the tagged commit, then builds and publishes the aggregate. |
+| `.github/workflows/release.yml` | `push` of a `v*` tag | Guards the tag (App actor, annotated, reachable from `main`) and re-runs `gates.yml` against the tagged commit. It then **stops**: the component build hard-fails, so no GitHub Release is created and no assets are attached. Publication lands with the export verb. |
 
-Only `release-tag.yml` ever creates a tag, and only the release App can push a
-tag that fires `release.yml`. Together those two facts are what make "a release
-can only come from a merged release PR" an enforced property rather than a
-convention: a hand-pushed `v*` tag produces a failed run and no release.
+Only `release-tag.yml` ever creates a tag as part of this flow, and
+`release.yml`'s guard refuses any tag that was not pushed by the release App.
+That guard is what makes "a release can only come from a merged release PR" an
+enforced property rather than a convention: a hand-pushed `v*` tag still starts
+the workflow, but the guard rejects it and no release is produced.
+
+Note the guard is doing that work alone. Anyone with push access *can* create a
+`v*` tag, and it *will* trigger `release.yml` — the rule that refs pushed with
+`GITHUB_TOKEN` do not trigger workflows constrains tokens, not people. Add the
+tag ruleset described below as defence in depth.
 
 ## Version grammar
 
@@ -48,6 +63,13 @@ intersection of the PR ceremony and what the aggregate producer's own parser
 - no leading zeros in any numeric component;
 - no build metadata (`+...`);
 - prereleases are `-rcN` only, with `N` ≥ 1;
+- no numeric component exceeds 17 digits, so every accepted version stays well
+  inside the 64-bit parser the producer uses — the bound is deliberately
+  conservative, and `gates.yml` proves the subset relation by feeding every
+  representative accepted version to the real producer binary;
+- the whole marker must be a single line: control characters, including
+  newlines, are refused, because the parsed values are written to workflow
+  outputs and into the annotated tag message;
 - the summary after the colon must be non-empty — it becomes the annotated tag
   message, and is the durable record of *why* the release was cut.
 
@@ -118,6 +140,24 @@ publish rather than accepting an unverified tag.
 `main` should require the `validate release PR` and `gates (release PR)` checks,
 so a release PR cannot be merged before the full gate set is green.
 
+### 5. A `v*` tag-creation ruleset
+
+`release.yml`'s actor guard already refuses a tag that the release App did not
+push, so a hand-pushed tag cannot produce a release. A ruleset stops that tag
+from being *created* in the first place, which is better: it removes the
+failed-run noise and the momentary existence of a bogus `v*` ref.
+
+Settings → Rules → Rulesets → New ruleset:
+
+- **Target:** Tags, with the pattern `v*`.
+- **Rule:** *Restrict creations*.
+- **Bypass list:** the release App only.
+
+With this in place, tag creation is possible only through a merged release PR.
+The guard in `release.yml` remains as the enforcing check — the ruleset is
+defence in depth, not a replacement, and the guard is what fails closed if the
+ruleset is ever relaxed.
+
 ## Cutting a release
 
 1. **Open the release PR.** Branch off current `main`. The PR may contain the
@@ -139,9 +179,21 @@ so a release PR cannot be merged before the full gate set is green.
    merge commit, after re-confirming the tag does not already exist locally or
    on the remote and that the merge commit is reachable from `main`.
 
-4. **Publication runs automatically** from the tag: the guard verifies actor,
-   annotation, and reachability; the gates re-run against the tagged commit;
-   then the aggregate is built and published.
+4. **`release.yml` runs from the tag.** The guard verifies the actor,
+   annotation, and reachability, and the gates re-run against the tagged
+   commit.
+
+   **Today this run then fails, by design.** The component build stops with an
+   actionable error because the Pasture export verb does not exist yet, so no
+   GitHub Release is created and no assets are attached. That failure does not
+   damage anything: the tag is valid, annotated, and permanent, and it stays
+   publishable. Once the export verb lands and this workflow is completed,
+   re-run it from the Actions tab and the existing tag publishes — the tag is
+   never recreated.
+
+   Once publication is wired, this step completes on its own and produces the
+   GitHub Release with the aggregate manifest, checksum sidecar, and the nine
+   component assets.
 
 5. **Afterwards**, bump the aura-plugins entry in
    `.claude-plugin/marketplace.json` if the release should be offered through
@@ -186,7 +238,8 @@ Choosing either unilaterally in Aura would make Aura the derivation authority
 for provenance that belongs to Pasture's target descriptors — and would freeze
 that guess into a release that can never be overwritten.
 
-The resolution is a Pasture-side verb (tracked as `aura-plugins-kcxbma`):
+The resolution is a Pasture-side verb, tracked at
+<https://github.com/dayvidpham/pasture/issues/39>:
 
 ```bash
 pasture install export-components --version X.Y.Z --out DIR
