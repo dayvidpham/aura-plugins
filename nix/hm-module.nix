@@ -1,3 +1,12 @@
+# Home Manager module: declaratively project Pasture's generated harness trees
+# into the managed home.
+#
+# The module is a pure Nix projection. It reads the pinned Pasture flake input
+# and declares `home.file` entries; it never runs Pasture's installer, never
+# drives a native plugin manager, never touches the network, and never writes
+# Pasture's operational installation inventory. Hook cells project hook *files*
+# only — never Git hooks, never core.hooksPath, never private harness trust
+# state (enabling a projected hook payload stays a deliberate user action).
 { self, pasture ? null }:
 
 { config
@@ -6,6 +15,8 @@
 , ...
 }:
 let
+  hmlib = import ./hm-lib.nix { inherit lib; };
+
   cfg = config.CUSTOM.programs.aura-config-sync;
 
   inherit (lib)
@@ -13,10 +24,24 @@ let
     mkIf
     mkMerge
     mkOption
+    mkRemovedOptionModule
     types
     ;
 
-  roleNames = [ "architect" "supervisor" "worker" "reviewer" "epoch" ];
+  inherit (hmlib)
+    axisNames
+    harnessNames
+    harnesses
+    isComponentPrefix
+    joinComponents
+    normalizeTarget
+    projectCell
+    splitComponents
+    ;
+
+  optionRoot = "CUSTOM.programs.aura-config-sync";
+  harnessPath = harness: "${optionRoot}.harnesses.\"${harness}\"";
+  cellPath = harness: axis: "${harnessPath harness}.${axis}";
 
   pastureSourceDefault =
     if pasture == null
@@ -25,123 +50,376 @@ let
 
   pastureSource = cfg.pasture.source;
 
-  # Pasture emits distinct generated trees. Claude Code, OpenCode, and Codex must each
-  # source from their own tree — they carry different frontmatter schemas (OpenCode
-  # uses mode/permission + provider-qualified model ids; Claude Code uses tools/model).
-  # Cross-wiring them ships wrong-schema files (breaks OpenCode agent loading).
-  pastureSkillsDir = "${pastureSource}/skills";              # Claude Code target
-  pastureAgentsDir = "${pastureSource}/agents";              # Claude Code target
-  pastureOpenCodeSkillsDir = "${pastureSource}/.opencode/skill"; # OpenCode target
-  pastureOpenCodeAgentsDir = "${pastureSource}/.opencode/agent"; # OpenCode target
-  pastureCodexSkillsDir = "${pastureSource}/.agents/skills";     # Codex target
-  pastureCodexAgentsDir = "${pastureSource}/.codex/agents";      # Codex target
+  # Interpolated (not toString'd) so a plain-path override is copied into the
+  # store rather than referenced from an impure filesystem location.
+  sourceRoot = if pastureSource == null then null else "${pastureSource}";
+
   protocolDir = "${self}/skills/protocol";
 
-  listMdFiles = dir:
+  # home.homeDirectory is mandatory in a real Home Manager evaluation, but the
+  # module only needs it to validate absolute destinations. Reading it lazily
+  # keeps purely relative configurations evaluable even before the user sets it.
+  homeDirectory =
+    let probe = builtins.tryEval config.home.homeDirectory;
+    in if probe.success then probe.value else null;
+
+  # ── Per-cell resolution ──────────────────────────────────────────────────
+  resolveCell = harness: axis:
     let
-      entries = builtins.readDir dir;
-      mdFiles = lib.filterAttrs (name: type: type == "regular" && lib.hasSuffix ".md" name) entries;
-    in
-    lib.mapAttrs (name: _: "${dir}/${name}") mdFiles;
+      harnessCfg = cfg.harnesses.${harness};
+      cellCfg = harnessCfg.${axis};
+      spec = harnesses.${harness}.cells.${axis};
 
-  listSkillFiles = dir:
+      enabled = cfg.enable && harnessCfg.enable && cellCfg.enable;
+
+      # A harness root may be the home directory itself; a cell destination may
+      # not, because a cell owns a directory subtree.
+      rootResult = normalizeTarget {
+        inherit homeDirectory;
+        value = harnessCfg.targetRoot;
+        allowHomeRoot = true;
+      };
+
+      overrideResult =
+        if cellCfg.target == null
+        then null
+        else normalizeTarget { inherit homeDirectory; value = cellCfg.target; };
+
+      usesOverride = overrideResult != null;
+
+      # A per-cell target replaces the harness-root-derived destination.
+      derived = (rootResult.components or [ ]) ++ splitComponents spec.subdir;
+
+      normalizedOk =
+        if usesOverride then overrideResult.ok else rootResult.ok;
+
+      targetComponents =
+        if usesOverride then (overrideResult.components or [ ]) else derived;
+
+      # Layout-locked cells are pinned to their generated destination: the
+      # payload's own public configuration references that exact path.
+      locked = spec.layoutLocked or false;
+      lockedTarget = hmlib.defaultTargetComponents harness axis;
+      lockViolated = locked && targetComponents != lockedTarget;
+
+      targetOk = normalizedOk && !lockViolated;
+
+      failedOption =
+        if usesOverride then "${cellPath harness axis}.target" else "${harnessPath harness}.targetRoot";
+
+      failedValue =
+        if usesOverride then cellCfg.target else harnessCfg.targetRoot;
+
+      failedReason =
+        if normalizedOk then null
+        else if usesOverride then overrideResult.reason else rootResult.reason;
+
+      projected =
+        if enabled && targetOk && pastureSource != null
+        then projectCell { source = sourceRoot; cell = spec; inherit targetComponents; }
+        else { files = { }; sourceDir = "${sourceRoot}/${spec.sourceDir}"; };
+    in
+    {
+      inherit harness axis enabled targetOk targetComponents;
+      inherit failedOption failedValue failedReason locked lockedTarget lockViolated;
+      inherit (projected) files sourceDir;
+      # Nine-cell members own their whole destination subtree.
+      ownsDirectory = true;
+      label = "${harness} ${axis}";
+      path = cellPath harness axis;
+      destinations = lib.attrNames projected.files;
+    };
+
+  harnessCells = lib.concatMap (harness: map (axis: resolveCell harness axis) axisNames) harnessNames;
+
+  # The optional local protocol docs are not a harness cell, but they land in
+  # the same managed home, so they are resolved through the same normalization
+  # and take part in the same collision and overlap checks. They are file-level
+  # additions to an existing directory rather than an owned subtree, so
+  # ownsDirectory is false: other cells may legitimately live below .claude.
+  protocolCell =
     let
-      entries = builtins.readDir dir;
-      subdirs = lib.filterAttrs (name: type: type == "directory") entries;
+      requested = if cfg.protocol.target == "global" then ".claude" else ".config/aura/protocol";
+      result = normalizeTarget { inherit homeDirectory; value = requested; };
+      targetComponents = result.components or [ ];
+      docs = builtins.filter (rel: lib.hasSuffix ".md" rel) (hmlib.relativeFiles protocolDir);
+      files =
+        if cfg.enable && cfg.protocol.enable && result.ok
+        then builtins.listToAttrs (map
+          (rel: { name = joinComponents (targetComponents ++ splitComponents rel); value = "${protocolDir}/${rel}"; })
+          docs)
+        else { };
     in
-    lib.filterAttrs (name: path: builtins.pathExists path)
-      (lib.mapAttrs (name: _: "${dir}/${name}/SKILL.md") subdirs);
+    {
+      harness = "protocol";
+      axis = "docs";
+      label = "protocol docs";
+      path = "${optionRoot}.protocol";
+      enabled = cfg.enable && cfg.protocol.enable;
+      targetOk = result.ok;
+      inherit targetComponents files;
+      failedOption = "${optionRoot}.protocol.target";
+      failedValue = requested;
+      failedReason = if result.ok then null else result.reason;
+      locked = false;
+      lockViolated = false;
+      lockedTarget = targetComponents;
+      ownsDirectory = false;
+      sourceDir = protocolDir;
+      destinations = lib.attrNames files;
+    };
 
-  listTomlFiles = dir:
-    let
-      entries = builtins.readDir dir;
-      tomlFiles = lib.filterAttrs
-        (name: type: type == "regular" && lib.hasPrefix "pasture-" name && lib.hasSuffix ".toml" name)
-        entries;
-    in
-    lib.mapAttrs (name: _: "${dir}/${name}") tomlFiles;
+  cells = harnessCells ++ [ protocolCell ];
 
-  readDirSucceeds = dir:
-    builtins.pathExists dir
-    && (builtins.tryEval (builtins.readDir dir)).success;
+  enabledCells = builtins.filter (cell: cell.enabled) cells;
 
-  # A local pasture.source override may not have generated the OpenCode target tree.
-  # The `pastureSource != null &&` short-circuit keeps the "${null}/…" path from ever
-  # being forced (Nix laziness) when no source is configured.
-  pastureOpenCodeSkillsAvailable = pastureSource != null && builtins.pathExists pastureOpenCodeSkillsDir;
-  pastureOpenCodeAgentsAvailable = pastureSource != null && builtins.pathExists pastureOpenCodeAgentsDir;
-  pastureCodexSkillsAvailable =
-    pastureSource != null
-    && readDirSucceeds pastureCodexSkillsDir
-    && builtins.length (builtins.attrNames (listSkillFiles pastureCodexSkillsDir)) > 0;
-  pastureCodexAgentsAvailable =
-    pastureSource != null
-    && readDirSucceeds pastureCodexAgentsDir
-    && builtins.length (builtins.attrNames (listTomlFiles pastureCodexAgentsDir)) > 0;
+  enabledHarnessCells = builtins.filter (cell: cell.enabled) harnessCells;
 
-  # Apply the role enable/disable filtering to a given skills dir. Core (non-role)
-  # skills are always installed; role skills only when that role is enabled. Shared
-  # by both the Claude Code and OpenCode targets so they stay in lockstep.
-  enabledSkillFilesFrom = skillsDir:
-    let
-      allSkills = listSkillFiles skillsDir;
-      coreSkills =
-        lib.filterAttrs
-          (name: _: !(builtins.any (role: lib.hasPrefix role name) roleNames))
-          allSkills;
-      roleSkills = builtins.foldl'
-        (acc: role:
-          if cfg.commands.roles.${role}.enable
-          then acc // (lib.filterAttrs (name: _: lib.hasPrefix role name) allSkills)
-          else acc
-        )
-        { }
-        roleNames;
-    in
-    coreSkills // roleSkills;
+  anyEnabled = enabledHarnessCells != [ ];
 
-  # Claude Code sets (installed to ~/.claude/…).
-  enabledPastureSkillFiles = (enabledSkillFilesFrom pastureSkillsDir) // cfg.commands.extraCommands;
-  enabledPastureAgentFiles = (listMdFiles pastureAgentsDir) // cfg.agents.extraAgents;
+  # ── Assertions ───────────────────────────────────────────────────────────
+  sourceAssertion = {
+    assertion = !anyEnabled || pastureSource != null;
+    message = ''
+      ${optionRoot}: no Pasture source is configured, but ${toString (builtins.length enabledHarnessCells)} harness cell(s) are enabled.
+      Why: ${optionRoot}.pasture.source is null, so there is no pinned tree to project from; this is evaluated while building the Home Manager generation.
+      Where: nix/hm-module.nix, source assertion.
+      Impact: none of the enabled skills/agents/hooks files can be placed in the managed home.
+      Fix: consume this module through the aura-plugins flake (which passes its pinned pasture input automatically), or set ${optionRoot}.pasture.source to a Pasture checkout that contains the generated harness trees.
+    '';
+  };
 
-  # OpenCode sets (installed to ~/.config/opencode/…) — sourced from the .opencode
-  # target tree, or empty if that tree is absent (guarded by the assertion below).
-  enabledOpenCodeSkillFiles =
-    if pastureOpenCodeSkillsAvailable then enabledSkillFilesFrom pastureOpenCodeSkillsDir else { };
-  enabledOpenCodeAgentFiles =
-    if pastureOpenCodeAgentsAvailable then listMdFiles pastureOpenCodeAgentsDir else { };
+  targetReasonText = cell:
+    if cell.failedReason == "tilde" then
+      "the path starts with '~', which Nix does not expand — it would be realized as a literal directory named '~' inside the home"
+    else if cell.failedReason == "traversal" then
+      "the path contains a '..' segment, which would escape the destination it is written under"
+    else if cell.failedReason == "outside-home" then
+      "the absolute path does not resolve beneath home.homeDirectory (${toString homeDirectory})"
+    else if cell.failedReason == "home-root" then
+      "the path resolves to the home directory itself, which would make this cell the owner of every unrelated file in the home"
+    else
+      "the path is absolute but home.homeDirectory is not set, so it cannot be proven to stay inside the managed home";
 
-  # Codex skills are installed to ~/.agents/… and custom agents to ~/.codex/… —
-  # both are sourced only from Pasture's generated Codex trees. Codex agents are
-  # standalone TOML files, not plugin manifests.
-  enabledCodexSkillFiles =
-    if pastureCodexSkillsAvailable then listSkillFiles pastureCodexSkillsDir else { };
-  enabledCodexAgentFiles =
-    if pastureCodexAgentsAvailable then listTomlFiles pastureCodexAgentsDir else { };
+  targetAssertions = map
+    (cell: {
+      assertion = false;
+      message = ''
+        ${cell.failedOption}: rejected destination "${toString cell.failedValue}" for the ${cell.label} cell.
+        Why: ${targetReasonText cell}. Home Manager may only own paths inside the managed home.
+        Where: nix/hm-module.nix, destination normalization for ${cell.path}.
+        When: while resolving destinations, before any file is realized.
+        Impact: the ${cell.label} files are not projected and the generation is refused.
+        Fix: use a path relative to the home directory (for example "${joinComponents cell.lockedTarget}") or an absolute path beneath home.homeDirectory, with no '~' prefix and no '..' segments.
+      '';
+    })
+    (builtins.filter (cell: cell.enabled && cell.failedReason != null) cells);
 
-  usesPastureGenerated =
-    cfg.commands.enable
-    || cfg.agents.enable
-    || cfg.opencode.skills.enable
-    || cfg.opencode.agents.enable
-    || cfg.codex.skills.enable
-    || cfg.codex.agents.enable;
+  # A layout-locked cell normalized to a legal path that is not the one its own
+  # generated configuration references.
+  lockAssertions = map
+    (cell: {
+      assertion = false;
+      message = ''
+        ${cell.failedOption}: rejected destination "${toString cell.failedValue}" because the ${cell.label} cell is layout-locked to "${joinComponents cell.lockedTarget}".
+        Why: ${harnesses.${cell.harness}.cells.${cell.axis}.lockedBecause}, so relocating the cell would leave that configuration pointing at files that are no longer there and the cell would be installed but inert.
+        Where: nix/hm-module.nix, layout lock for ${cell.path}.
+        When: while resolving destinations, before any file is realized.
+        Impact: the ${cell.label} files are not projected and the generation is refused rather than producing a silently broken hook payload.
+        Fix: leave ${cell.path}.target unset and ${harnessPath cell.harness}.targetRoot at its default so this cell stays at "${joinComponents cell.lockedTarget}", or set ${cell.path}.enable = false. If you need it elsewhere, Pasture must regenerate the payload for that layout first.
+      '';
+    })
+    (builtins.filter (cell: cell.enabled && cell.lockViolated) cells);
 
-  usesOpenCode = cfg.opencode.skills.enable || cfg.opencode.agents.enable;
+  missingSourceAssertions = map
+    (cell: {
+      assertion = false;
+      message = ''
+        ${cell.path}.enable is true, but the Pasture source contains no ${cell.harness} ${cell.axis} tree.
+        Why: no files were found under ${cell.sourceDir}; Aura consumes committed Pasture output only and will never synthesize harness files or substitute another harness's tree.
+        Where: nix/hm-module.nix, projection of ${cell.path}.
+        When: while enumerating the pinned Pasture source, before any file is realized.
+        Impact: enabling this cell would silently install nothing, so the generation is refused instead.
+        Fix: point ${optionRoot}.pasture.source at a Pasture revision whose generated ${cell.harness} ${cell.axis} tree exists (run `make generate` in Pasture and commit the output), or set ${cell.path}.enable = false.
+      '';
+    })
+    (builtins.filter
+      (cell: cell.enabled && cell.targetOk && pastureSource != null && cell.files == { })
+      harnessCells);
+
+  # Destination collisions: two enabled cells claiming the same home path.
+  allDestinations = lib.concatMap
+    (cell: map (dest: { inherit dest; owner = cell.path; }) cell.destinations)
+    (builtins.filter (cell: cell.targetOk) enabledCells);
+
+  duplicateDestinations = lib.unique (map (entry: entry.dest)
+    (builtins.filter
+      (entry: builtins.length (builtins.filter (other: other.dest == entry.dest) allDestinations) > 1)
+      allDestinations));
+
+  collisionAssertions = map
+    (dest: {
+      assertion = false;
+      message = ''
+        ${optionRoot}: two enabled harness cells claim the same destination "${dest}".
+        Why: the cells ${lib.concatStringsSep " and " (lib.unique (map (entry: entry.owner) (builtins.filter (entry: entry.dest == dest) allDestinations)))} resolve to one home path, so Home Manager would be asked to own the same file twice with different contents.
+        Where: nix/hm-module.nix, destination collision check.
+        When: while resolving destinations, before any file is realized.
+        Impact: the projected tree would be ambiguous and the generation is refused.
+        Fix: give one of those cells a distinct destination via its own `target` option, or via its harness `targetRoot`.
+      '';
+    })
+    duplicateDestinations;
+
+  # Ownership overlap: a cell's file landing inside another cell's directory.
+  overlapPairs = lib.concatMap
+    (cell: lib.concatMap
+      (other:
+        if other.path == cell.path then [ ]
+        else
+          let
+            inside = builtins.filter
+              (dest:
+                let parts = splitComponents dest; in
+                isComponentPrefix other.targetComponents parts
+                && builtins.length parts > builtins.length other.targetComponents)
+              cell.destinations;
+          in
+          if inside == [ ] then [ ] else [{ inherit cell other; example = builtins.head inside; }])
+      (builtins.filter (candidate: candidate.targetOk && candidate.ownsDirectory) enabledCells))
+    (builtins.filter (candidate: candidate.targetOk) enabledCells);
+
+  overlapAssertions = map
+    (pair: {
+      assertion = false;
+      message = ''
+        ${optionRoot}: the ${pair.cell.label} cell writes "${pair.example}" inside the destination directory owned by ${pair.other.path} ("${joinComponents pair.other.targetComponents}").
+        Why: overlapping destinations make two cells co-own one directory subtree, so disabling or removing either cell would corrupt the other's files.
+        Where: nix/hm-module.nix, destination overlap check.
+        When: while resolving destinations, before any file is realized.
+        Impact: the generation is refused rather than producing a tree with ambiguous ownership.
+        Fix: move one cell to a disjoint destination with its `target` option, or change the harness `targetRoot` so the two subtrees no longer nest.
+      '';
+    })
+    overlapPairs;
+
+  projectedFiles = lib.foldl' (acc: cell: acc // cell.files) { }
+    (builtins.filter (cell: cell.targetOk) enabledCells);
+
+  # ── Option construction ──────────────────────────────────────────────────
+  hooksNote = ''
+    This cell places hook payload *files* only. It never writes Git hooks, never
+    sets core.hooksPath, and never edits the harness's private trust or enablement
+    state — turning a projected hook payload on stays a deliberate user action in
+    the harness's own configuration.
+  '';
+
+  cellOption = harness: axis: defaultEnable: {
+    enable = mkOption {
+      type = types.bool;
+      default = defaultEnable;
+      description = ''
+        Project Pasture's generated ${harness} ${axis} tree into the managed home.
+        Inert unless ${harnessPath harness}.enable is also true.
+        ${lib.optionalString (axis == "hooks") hooksNote}
+      '';
+    };
+
+    target = mkOption {
+      type = types.nullOr types.str;
+      default = null;
+      description = ''
+        Destination directory for the ${harness} ${axis} cell, overriding the
+        destination derived from ${harnessPath harness}.targetRoot. Accepts a
+        path relative to the home directory, or an absolute path that resolves
+        beneath home.homeDirectory. The per-cell value always wins.
+      '';
+      example = joinComponents (splitComponents harnesses.${harness}.defaultRoot
+        ++ splitComponents harnesses.${harness}.cells.${axis}.subdir);
+    };
+  };
+
+  harnessOption = harness: {
+    enable = mkOption {
+      type = types.bool;
+      default = false;
+      description = "Project Pasture's generated ${harness} trees into the managed home.";
+    };
+
+    targetRoot = mkOption {
+      type = types.str;
+      default = harnesses.${harness}.defaultRoot;
+      description = ''
+        Destination root for the ${harness} harness. Each enabled cell is placed
+        below this root at its harness-native subdirectory unless the cell sets
+        its own `target`. Accepts a home-relative path or an absolute path
+        beneath home.homeDirectory.
+      '';
+    };
+
+    skills = cellOption harness "skills" true;
+    agents = cellOption harness "agents" true;
+    hooks = cellOption harness "hooks" false;
+  };
+
+  removedFlatOption = pathTail: replacement:
+    mkRemovedOptionModule ([ "CUSTOM" "programs" "aura-config-sync" ] ++ pathTail) replacement;
 in
 {
+  imports = [
+    (removedFlatOption [ "commands" "enable" ] ''
+      Use ${optionRoot}.harnesses."claude-code".enable = true; together with
+      ${optionRoot}.harnesses."claude-code".skills.enable (default true).
+    '')
+    (removedFlatOption [ "commands" "roles" ] ''
+      Per-role skill filtering was removed. A harness cell projects the complete
+      generated tree, so use ${optionRoot}.harnesses."claude-code".skills.enable
+      to turn the Claude Code skills cell on or off as a whole.
+    '')
+    (removedFlatOption [ "commands" "extraCommands" ] ''
+      Aura projects Pasture-generated trees only. Declare your own skills with a
+      plain home.file entry, for example
+      home.file.".claude/skills/my-skill/SKILL.md".source = ./my-skill/SKILL.md;
+    '')
+    (removedFlatOption [ "agents" "enable" ] ''
+      Use ${optionRoot}.harnesses."claude-code".enable = true; together with
+      ${optionRoot}.harnesses."claude-code".agents.enable (default true).
+    '')
+    (removedFlatOption [ "agents" "extraAgents" ] ''
+      Aura projects Pasture-generated trees only. Declare your own agents with a
+      plain home.file entry, for example
+      home.file.".claude/agents/my-agent.md".source = ./my-agent.md;
+    '')
+    (removedFlatOption [ "opencode" "skills" "enable" ] ''
+      Use ${optionRoot}.harnesses.opencode.enable = true; together with
+      ${optionRoot}.harnesses.opencode.skills.enable (default true).
+    '')
+    (removedFlatOption [ "opencode" "agents" "enable" ] ''
+      Use ${optionRoot}.harnesses.opencode.enable = true; together with
+      ${optionRoot}.harnesses.opencode.agents.enable (default true).
+    '')
+    (removedFlatOption [ "codex" "skills" "enable" ] ''
+      Use ${optionRoot}.harnesses.codex.enable = true; together with
+      ${optionRoot}.harnesses.codex.skills.enable (default true).
+    '')
+    (removedFlatOption [ "codex" "agents" "enable" ] ''
+      Use ${optionRoot}.harnesses.codex.enable = true; together with
+      ${optionRoot}.harnesses.codex.agents.enable (default true).
+    '')
+  ];
+
   options.CUSTOM.programs.aura-config-sync = {
-    enable = mkEnableOption "Aura config sync: aura-swarm plus Pasture-generated skills and agents";
+    enable = mkEnableOption "Aura config sync: aura-swarm plus Pasture-generated harness trees";
 
     pasture.source = mkOption {
       type = types.nullOr (types.either types.path types.str);
       default = pastureSourceDefault;
       defaultText = lib.literalExpression "pasture flake input";
       description = ''
-        Source checkout for Pasture-generated skills/ and agents/ (and their
-          .opencode/ OpenCode- and .agents/skills plus .codex/agents Codex-target counterparts). The
-        aura-plugins flake passes the dayvidpham/pasture input by default. Override
-        this for local Pasture development checkouts.
+        Pinned source checkout holding Pasture's generated harness trees. The
+        aura-plugins flake passes its dayvidpham/pasture input by default;
+        override this for local Pasture development checkouts. Activation reads
+        this tree only — it never fetches anything.
       '';
       example = lib.literalExpression "../pasture";
     };
@@ -152,82 +430,9 @@ in
       description = "Install aura-swarm.";
     };
 
-    commands = {
-      enable = mkOption {
-        type = types.bool;
-        default = true;
-        description = "Install Pasture-generated skills into ~/.claude/skills/<name>/SKILL.md.";
-      };
-
-      roles = {
-        enableAll = mkOption {
-          type = types.bool;
-          default = true;
-          description = "Enable all generated role skills. Set false to pick individual roles.";
-        };
-      } // (builtins.listToAttrs (map
-        (role: {
-          name = role;
-          value.enable = mkOption {
-            type = types.bool;
-            default = cfg.commands.roles.enableAll;
-            description = "Install generated ${role} role skills.";
-          };
-        })
-        roleNames
-      ));
-
-      extraCommands = mkOption {
-        type = types.attrsOf (types.either types.path types.str);
-        default = { };
-        description = "Additional skill files to install. Keys are skill directory names; values are SKILL.md paths.";
-        example = lib.literalExpression ''
-          { "my-custom-skill" = ./my-skill/SKILL.md; }
-        '';
-      };
-    };
-
-    agents = {
-      enable = mkOption {
-        type = types.bool;
-        default = true;
-        description = "Install Pasture-generated agent definitions into ~/.claude/agents/.";
-      };
-
-      extraAgents = mkOption {
-        type = types.attrsOf (types.either types.path types.str);
-        default = { };
-        description = "Additional Claude Code agent .md files to install.";
-      };
-    };
-
-    opencode = {
-      skills.enable = mkOption {
-        type = types.bool;
-        default = true;
-        description = "Install Pasture OpenCode-target skills (.opencode/skill) into ~/.config/opencode/skills/<name>/SKILL.md.";
-      };
-
-      agents.enable = mkOption {
-        type = types.bool;
-        default = true;
-        description = "Install Pasture OpenCode-target agents (.opencode/agent) into ~/.config/opencode/agent/<role>.md.";
-      };
-    };
-
-    codex = {
-      skills.enable = mkOption {
-        type = types.bool;
-        default = false;
-        description = "Install Pasture Codex-target skills (.agents/skills) into ~/.agents/skills/<name>/SKILL.md.";
-      };
-
-      agents.enable = mkOption {
-        type = types.bool;
-        default = false;
-        description = "Install Pasture Codex custom agents (.codex/agents) into ~/.codex/agents/pasture-<role>.toml.";
-      };
-    };
+    harnesses = builtins.listToAttrs (map
+      (harness: { name = harness; value = harnessOption harness; })
+      harnessNames);
 
     protocol = {
       enable = mkOption {
@@ -246,152 +451,27 @@ in
 
   config = mkIf cfg.enable (mkMerge [
     {
-      assertions = [
-        {
-          assertion = !usesPastureGenerated || pastureSource != null;
-          message = ''
-            CUSTOM.programs.aura-config-sync needs a Pasture source when generated
-            skills or agents are enabled (evaluated during Home Manager activation).
-            Without it, no Pasture-generated skills or agents can be installed under
-            ~/.claude, ~/.config/opencode, ~/.agents, or ~/.codex. Set
-            CUSTOM.programs.aura-config-sync.pasture.source to a Pasture checkout, or
-            use the aura-plugins flake so its pasture input is supplied automatically.
-          '';
-        }
-        {
-          assertion = !cfg.codex.skills.enable
-            || pastureSource == null
-            || pastureCodexSkillsAvailable;
-          message = ''
-            CUSTOM.programs.aura-config-sync.codex.skills.enable is true, but the
-            Pasture source does not contain the generated Codex skill tree
-            (expected ${pastureCodexSkillsDir}/<name>/SKILL.md). Aura only consumes
-            committed Pasture output and will not recreate protocol prose here.
-            Generate Pasture's Codex target or point
-            CUSTOM.programs.aura-config-sync.pasture.source at a checkout containing
-            .agents/skills, then re-evaluate Home Manager.
-          '';
-        }
-        {
-          assertion = !cfg.codex.agents.enable
-            || pastureSource == null
-            || pastureCodexAgentsAvailable;
-          message = ''
-            CUSTOM.programs.aura-config-sync.codex.agents.enable is true, but the
-            Pasture source does not contain the generated Codex custom-agent tree
-            (expected ${pastureCodexAgentsDir}/pasture-<role>.toml). Aura only
-            consumes committed Pasture TOMLs and will not invent a plugin manifest
-            or agent definition. Generate Pasture's Codex target or point
-            CUSTOM.programs.aura-config-sync.pasture.source at a checkout containing
-            .codex/agents, then re-evaluate Home Manager.
-          '';
-        }
-        {
-          assertion = !usesOpenCode
-            || pastureSource == null
-            || (pastureOpenCodeSkillsAvailable && pastureOpenCodeAgentsAvailable);
-          message = ''
-            CUSTOM.programs.aura-config-sync.opencode.{skills,agents} is enabled, but
-            the Pasture source does not contain the OpenCode target tree (expected
-            ${pastureOpenCodeSkillsDir} and ${pastureOpenCodeAgentsDir}). This is
-            evaluated during Home Manager activation; without that tree no OpenCode
-            skills/agents can be installed, and installing the Claude Code tree in its
-            place would ship files with the wrong (mode/permission-less) frontmatter.
-            Fix by generating Pasture's OpenCode target (its .opencode/skill and
-            .opencode/agent outputs), by pointing
-            CUSTOM.programs.aura-config-sync.pasture.source at a checkout that has
-            them, or by setting
-            CUSTOM.programs.aura-config-sync.opencode.skills.enable = false and
-            CUSTOM.programs.aura-config-sync.opencode.agents.enable = false.
-          '';
-        }
-      ];
+      assertions = [ sourceAssertion ]
+        ++ targetAssertions
+        ++ lockAssertions
+        ++ missingSourceAssertions
+        ++ collisionAssertions
+        ++ overlapAssertions;
     }
 
-    # ── Packages ──
     (mkIf cfg.packages.enable {
       home.packages = [
         self.packages.${pkgs.system}.aura-swarm
       ];
     })
 
-    # ── Claude Code skills → ~/.claude/skills/<name>/SKILL.md ──
-    (mkIf cfg.commands.enable {
-      home.file = lib.mapAttrs'
-        (name: path: {
-          name = ".claude/skills/${name}/SKILL.md";
-          value.source = path;
-        })
-        enabledPastureSkillFiles;
-    })
+    {
+      # `executable` is deliberately left unset: Home Manager then preserves the
+      # mode of the source file, so an executable hook script stays executable
+      # and everything else stays non-executable. Forcing it either way here
+      # would silently diverge from the bytes and modes Pasture generated.
+      home.file = lib.mapAttrs (_: source: { inherit source; }) projectedFiles;
+    }
 
-    # ── Claude Code agents → ~/.claude/agents/<role>.md ──
-    (mkIf cfg.agents.enable {
-      home.file = lib.mapAttrs'
-        (name: path: {
-          name = ".claude/agents/${name}";
-          value.source = path;
-        })
-        enabledPastureAgentFiles;
-    })
-
-    # ── OpenCode skills → ~/.config/opencode/skills/<name>/SKILL.md ──
-    (mkIf cfg.opencode.skills.enable {
-      home.file = lib.mapAttrs'
-        (name: path: {
-          name = ".config/opencode/skills/${name}/SKILL.md";
-          value.source = path;
-        })
-        enabledOpenCodeSkillFiles;
-    })
-
-    # ── OpenCode agents → ~/.config/opencode/agent/<role>.md ──
-    (mkIf cfg.opencode.agents.enable {
-      home.file = lib.mapAttrs'
-        (name: path: {
-          name = ".config/opencode/agent/${name}";
-          value.source = path;
-        })
-        enabledOpenCodeAgentFiles;
-    })
-
-    # Codex skills → ~/.agents/skills/<name>/SKILL.md
-    (mkIf cfg.codex.skills.enable {
-      home.file = lib.mapAttrs'
-        (name: path: {
-          name = ".agents/skills/${name}/SKILL.md";
-          value.source = path;
-        })
-        enabledCodexSkillFiles;
-    })
-
-    # Codex custom agents → ~/.codex/agents/pasture-<role>.toml
-    (mkIf cfg.codex.agents.enable {
-      home.file = lib.mapAttrs'
-        (name: path: {
-          name = ".codex/agents/${name}";
-          value.source = path;
-        })
-        enabledCodexAgentFiles;
-    })
-
-    # ── Protocol docs (opt-in) ──
-    (mkIf cfg.protocol.enable (
-      let
-        prefix =
-          if cfg.protocol.target == "global"
-          then ".claude"
-          else ".config/aura/protocol";
-        protocolFiles = listMdFiles protocolDir;
-      in
-      {
-        home.file = lib.mapAttrs'
-          (name: path: {
-            name = "${prefix}/${name}";
-            value.source = path;
-          })
-          protocolFiles;
-      }
-    ))
   ]);
 }

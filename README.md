@@ -32,11 +32,14 @@ The default package is a symlink join containing `aura-swarm`.
 
 ### Home Manager
 
-The module installs `aura-swarm` and symlinks Pasture-generated skills and
-agents into Claude Code, OpenCode, and Codex config locations. Codex skills come
-from Pasture's generated `.agents/skills/` tree and custom agents from
-`.codex/agents/`; Aura does not recreate protocol content or write Codex private
-state.
+The module installs `aura-swarm` and projects Pasture's generated harness trees
+into the managed home with pure Nix file ownership. The schema is a closed
+three-by-three matrix: three harnesses (`claude-code`, `opencode`, `codex`) each
+with a `skills`, `agents`, and `hooks` cell. Every cell is sourced from that
+harness's own generated tree in the pinned Pasture flake input — Aura never
+recreates protocol content, never substitutes one harness's files for another,
+never runs Pasture's installer or a native plugin manager, and never writes
+Pasture's installation inventory or any harness's private trust state.
 
 ```nix
 {
@@ -46,18 +49,81 @@ state.
     enable = true;
     packages.enable = true;
 
-    # Sources generated skills/ and agents/ from the pasture flake input by default.
-    commands.enable = true;        # ~/.claude/skills/<name>/SKILL.md
-    agents.enable = true;          # ~/.claude/agents/<role>.md
-    opencode.skills.enable = true; # ~/.config/opencode/skills/<name>/SKILL.md
-    opencode.agents.enable = true; # ~/.config/opencode/agent/<role>.md
-    codex.skills.enable = true;    # ~/.agents/skills/<name>/SKILL.md
-    codex.agents.enable = true;    # ~/.codex/agents/pasture-<role>.toml
+    # Harnesses are opt-in. Within an enabled harness, skills and agents are on
+    # by default and hooks are off by default.
+    harnesses."claude-code" = {
+      enable = true;               # ~/.claude/skills/…, ~/.claude/agents/…
+      hooks.enable = true;         # ~/.claude/hooks/… (payload files only)
+    };
+
+    harnesses.opencode.enable = true;
+      # ~/.config/opencode/skills/<name>/SKILL.md
+      # ~/.config/opencode/agent/<role>.md
+      # hooks (opt-in): ~/.config/opencode/plugins/pasture-hooks.ts
+
+    harnesses.codex = {
+      enable = true;               # ~/.agents/skills/…, ~/.codex/agents/…
+      agents.enable = true;
+      skills.target = "some/other/skills";  # per-cell destination override
+    };
 
     protocol.enable = false;       # optional local protocol docs sync
   };
 }
 ```
+
+Destinations are configurable. Each harness has a `targetRoot` (defaults:
+`.claude`, `.config/opencode`, and the home directory itself for Codex, whose
+native layout spans `~/.agents` and `~/.codex`), and each cell may set its own
+`target`, which wins over the harness-derived destination. Destinations may be
+home-relative or absolute; an absolute path is accepted only when it resolves
+beneath `home.homeDirectory`. Paths outside the managed home, `..` traversal,
+colliding destinations, and parent/child ownership overlap are all rejected
+during evaluation, before any file is realized.
+
+Hook cells project hook *payload files* only. The module never installs a Git
+hook, never touches `core.hooksPath`, and never edits a harness's private trust
+or enablement state; switching a projected hook payload on remains a deliberate
+action in the harness's own configuration:
+
+- **Claude Code** — the projected `~/.claude/hooks/hooks.json` is the payload's
+  own manifest, not a file Claude Code reads. To enable it, merge that file's
+  `hooks` object into the `hooks` key of your `~/.claude/settings.json` (this
+  module does not manage that file) and replace each `${CLAUDE_PLUGIN_ROOT}`
+  placeholder with `~/.claude`, so the commands read e.g.
+  `bash ~/.claude/hooks/scripts/git-discipline.sh` and
+  `cat ~/.claude/hooks/bd-prime.md`.
+- **OpenCode** — plugins are discovered directly from
+  `~/.config/opencode/plugins/`, so the projected `pasture-hooks.ts` is loaded
+  without any configuration edit; no OpenCode config file is written by Aura or
+  by Pasture.
+- **Codex** — the projected `~/.codex/hooks.json` and `~/.codex/hooks/events/*.sh`
+  are public configuration only. Installing them does not claim execution:
+  review and approve the hooks through Codex's native hooks interface. Neither
+  Aura nor Pasture reads or modifies private trust state. This cell is also
+  layout-locked — its public configuration invokes each script as
+  `sh .codex/hooks/events/<Event>.sh`, so a `target`/`targetRoot` that would
+  move it is rejected rather than installed inert.
+
+**Host-load proof is deferred.** The flake check proves byte identity, file
+modes, destinations, cell isolation, and that no harness receives another
+harness's schema — it does *not* prove that a live Claude Code, OpenCode, or
+Codex process loads each projected cell. That per-cell native host-load evidence
+is still outstanding and tracked in
+<https://github.com/dayvidpham/aura-plugins/issues/8>; treat the hooks cells in
+particular as unverified in-host until it lands.
+
+**Claude Code has two possible controllers.** This module writes payload files
+into `~/.claude`, while `pasture install claude-code …` drives Claude Code's
+native plugin manager for the same cells. Choose one per cell: Home Manager
+rewrites its projected paths on every activation, and Pasture treats
+declaratively owned destinations as externally controlled — it will not adopt or
+remove them.
+
+The previous flat options (`commands.*`, `agents.*`, `opencode.*`, `codex.*`)
+were removed rather than aliased. Defining any of them fails evaluation with the
+exact replacement path, for example
+`CUSTOM.programs.aura-config-sync.harnesses."claude-code".skills.enable`.
 
 These destinations follow the official [Codex skill documentation](https://learn.chatgpt.com/docs/build-skills)
 and [custom-agent documentation](https://learn.chatgpt.com/docs/agent-configuration/subagents?surface=app).
