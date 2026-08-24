@@ -115,7 +115,7 @@
 
       checks = forAllSystems ({ pkgs, ... }:
         {
-          hm-module-test = import ./nix/hm-module-test.nix { inherit pkgs; };
+          hm-module-test = import ./nix/hm-module-test.nix { inherit pkgs pasture; };
           aggregate-release-test = self.packages.${pkgs.system}.aggregate-release;
         }
       );
