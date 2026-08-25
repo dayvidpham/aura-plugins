@@ -150,6 +150,12 @@ jobs:
       - name: Test the release version grammar
         run: scripts/release/release-grammar_test.sh
 
+      # The publish and smoke jobs refuse to publish, or declare a published
+      # release broken, on this script's say-so. Its own suite therefore runs in
+      # the same gate rather than only by hand.
+      - name: Test the aggregate directory verifier
+        run: scripts/release/verify-aggregate-dir_test.sh
+
   workflows:
     name: workflow lint
     runs-on: ubuntu-latest

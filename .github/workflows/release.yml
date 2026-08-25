@@ -15,14 +15,12 @@ name: Release
 # is why it fails closed when the expected identity is unconfigured. Configure a
 # tag-creation ruleset for `v*` as defence in depth — see docs/releasing.md.
 #
-# STATUS — the publication path is NOT yet wired end to end.
-# Building the nine aggregate component assets requires the Pasture-side
-# `pasture bundle export` verb, which does not exist yet — see
-# https://github.com/dayvidpham/pasture/issues/39 and docs/releasing.md
-# § "Pending: component export". Until that verb lands, the
-# build-components job stops with an actionable error instead of publishing a
-# partial or invented release. The guard job is fully live and useful today.
-
+# STATUS — this workflow has never executed on GitHub. Every job below is
+# wired and locally validated (actionlint, shellcheck, the release-script
+# suites, `nix flake check`, and a full local dry-run of build → produce →
+# verify against a real `pasture bundle export`), but local validation proves
+# syntax and logic, not runtime behaviour. Treat the first release as a
+# supervised operation — see docs/releasing.md.
 on:
   push:
     tags:
@@ -116,67 +114,354 @@ jobs:
       contents: read
     uses: ./.github/workflows/gates.yml
 
+
+  # The producer is a packager, not a builder: every one of the nine cells must
+  # arrive already built, with a canonical asset basename and the exact BundleID
+  # its Pasture target bundle emitted. Both come from Pasture's own
+  # `bundle export` verb at the PINNED revision — nothing here re-derives an
+  # identity that belongs to Pasture's target descriptors.
+  #
+  # This job is also the end-to-end contract gate between the two repositories:
+  # it is the only place where Pasture's emitted component set meets the Aura
+  # producer's strict decoder. Its success is a required condition for
+  # publication, so a cross-repo contract break fails the release instead of
+  # being discovered by whoever installs it.
   build-components:
     name: build aggregate components
     needs: [guard, gates]
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 60
     permissions:
       contents: read
+    outputs:
+      pasture-revision: ${{ steps.pin.outputs.pasture_revision }}
+      channel: ${{ steps.channel.outputs.channel }}
+    env:
+      VERSION: ${{ needs.guard.outputs.version }}
+      TAG: ${{ needs.guard.outputs.tag }}
+      KIND: ${{ needs.guard.outputs.kind }}
+      COMPONENTS_DIR: ${{ github.workspace }}/components
+      AGGREGATE_DIR: ${{ github.workspace }}/aggregate
     steps:
-      # ── NOT YET IMPLEMENTED — blocked on the Pasture export verb ──────────
-      #
-      # `aggregate-release` is a packager, not a builder: it requires each of
-      # the nine cells to arrive already built, with an archive named
-      # pasture-<version>-<claude|opencode|codex>-<skills|agents|hooks>.tgz and
-      # a bundle_id emitted by the Pasture target bundle. Neither the archives
-      # nor the bundle IDs can be produced from Aura: the per-harness bundle
-      # composition rules live in Pasture's unexported internal/target packages
-      # and differ per harness, and no component archive format is defined by
-      # the artifact contract. Inventing either here would freeze a guess into
-      # a permanently unpublishable-over release.
-      #
-      # Tracked at https://github.com/dayvidpham/pasture/issues/39.
-      # When `pasture bundle export` lands, this job becomes:
-      #
-      #   pasture bundle export \
-      #     --version "${VERSION}" \
-      #     --out "${RUNNER_TEMP}/components"
-      #
-      #   nix run .#aggregate-release -- \
-      #     --version          "${VERSION}" \
-      #     --installer-min    "${INSTALLER_MIN}" \
-      #     --installer-max    "${INSTALLER_MAX}" \
-      #     --pasture-revision "${PASTURE_REVISION}" \
-      #     --aura-revision    "${GITHUB_SHA}" \
-      #     --components       "${RUNNER_TEMP}/components/components.json" \
-      #     --output-dir       "${RUNNER_TEMP}/aggregate-${VERSION}"
-      #
-      # followed by uploading ${RUNNER_TEMP}/aggregate-${VERSION} as the artifact
-      # the publish job consumes.
-      - name: Component export is not yet available
-        env:
-          TAG: ${{ needs.guard.outputs.tag }}
-        run: |
-          echo "::error::release ${TAG} cannot be published yet: building the nine aggregate component assets requires the Pasture 'bundle export' verb, which does not exist in the pinned Pasture revision. Impact: the tag ${TAG} exists and is valid, but no GitHub Release was created and no assets were attached — nothing partial or invented was published. Fix: land the 'pasture bundle export' verb (https://github.com/dayvidpham/pasture/issues/39), pin the Pasture revision that contains it, replace this step with the documented export + aggregate-release invocation in this file, then re-run this workflow from the Actions tab to publish the existing tag."
-          exit 1
+      # A tag push checks out the tagged commit, which is the commit recorded in
+      # the manifest as revisions.aura.
+      - name: Checkout the tagged commit
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
 
-  # ── Remaining jobs, deliberately not written yet ───────────────────────────
-  #
-  # publish  (needs build-components): verify the produced directory before it
-  #          is published — recompute the sha256 of pasture-aggregate-manifest
-  #          .json and compare it against the .sha256 sidecar, and assert that
-  #          the manifest's revisions.aura equals the tagged commit and that its
-  #          version equals the tag without the leading v — then create the
-  #          GitHub Release with prerelease classification taken from
-  #          guard.outputs.kind, attaching the manifest, the checksum sidecar,
-  #          and the nine component assets.
-  #
-  # smoke    (needs publish): re-download the published assets from the Release
-  #          and re-verify every checksum against the manifest, proving what is
-  #          actually downloadable matches what was built.
-  #
-  # These are intentionally absent rather than stubbed: an unreachable job full
-  # of never-executed publication logic would look wired without being wired.
-  # They land together with build-components, in the same change, once the
-  # component export verb exists and the whole path can be exercised for real.
+      - name: Install Nix
+        uses: DeterminateSystems/nix-installer-action@ef8a148080ab6020fd15196c2084a2eea5ff2d25 # v22
+
+      # The Pasture revision is DERIVED from flake.lock, never written here. It
+      # is the same revision the producer itself is compiled against: flake.nix
+      # refuses to evaluate when its `pastureAggregateContract` pin and this
+      # locked input disagree, so `nix build .#aggregate-release` below cannot
+      # succeed against a different Pasture than the one exporting the assets.
+      # One release therefore binds exactly one Pasture revision, by
+      # construction rather than by convention.
+      - name: Derive the pinned Pasture revision from flake.lock
+        id: pin
+        run: |
+          set -euo pipefail
+          revision="$(jq -r '.nodes.pasture.locked.rev // ""' flake.lock)"
+          if ! printf '%s' "$revision" | grep -Eq '^[0-9a-f]{40}$'; then
+            echo "::error::the pasture flake input in flake.lock has no exact 40-character commit revision (read: \"${revision}\"). Impact: release ${TAG} was not built and nothing was published, because the component assets could not be bound to a provable Pasture commit. Fix: re-lock the input with 'nix flake update pasture' on a release PR so flake.lock records a github-type pasture input with a concrete rev, then cut the release again."
+            exit 1
+          fi
+          echo "pasture_revision=${revision}" >> "$GITHUB_OUTPUT"
+          echo "::notice::building release ${TAG} against pasture ${revision}"
+
+      # The channel is derived from the version, never configured separately: a
+      # release candidate must not be publishable as a final release by editing
+      # a setting.
+      - name: Derive the release channel from the tag
+        id: channel
+        run: |
+          set -euo pipefail
+          case "${KIND}" in
+            final) channel=final ;;
+            rc)    channel=prerelease ;;
+            *)
+              echo "::error::the tag guard classified ${TAG} as kind \"${KIND}\", which is neither final nor rc. Impact: release ${TAG} was not built and nothing was published, because the aggregate channel could not be decided. Fix: reconcile the kind values emitted by scripts/release/release-grammar.sh with the mapping in .github/workflows/release.yml."
+              exit 1
+              ;;
+          esac
+          echo "channel=${channel}" >> "$GITHUB_OUTPUT"
+
+      - name: Build the pinned Pasture
+        id: pasture
+        env:
+          PASTURE_REVISION: ${{ steps.pin.outputs.pasture_revision }}
+        run: |
+          set -euo pipefail
+          out="$(nix build "github:dayvidpham/pasture/${PASTURE_REVISION}#pasture" --no-link --print-out-paths -L)"
+          binary="${out}/bin/pasture"
+          test -x "$binary" || {
+            echo "::error::pasture ${PASTURE_REVISION} built, but no executable was produced at ${binary}. Impact: release ${TAG} was not built and nothing was published. Fix: confirm the pinned Pasture revision still exposes a 'pasture' flake package, then re-lock the input on a release PR and cut the release again."
+            exit 1
+          }
+          echo "binary=${binary}" >> "$GITHUB_OUTPUT"
+          "$binary" --version
+
+      # The compatibility range is DERIVED from the pinned Pasture, not chosen
+      # here: it is exactly the installer version this release's assets were
+      # exported by. That is the narrowest claim that is provably true, and
+      # narrow is the safe direction — a too-wide range would let a future,
+      # incompatible installer accept an aggregate it cannot correctly activate,
+      # whereas a too-narrow one only makes that installer decline to offer it.
+      # Widening the accepted range is an additive decision for a later release;
+      # a published range can never be corrected in place.
+      - name: Derive the installer compatibility range from the pinned Pasture
+        id: compatibility
+        env:
+          PASTURE_BINARY: ${{ steps.pasture.outputs.binary }}
+        run: |
+          set -euo pipefail
+          reported="$("$PASTURE_BINARY" --version)"
+          installer="$(printf '%s\n' "$reported" | sed -n 's/^pasture version v\([^ ]*\)$/\1/p')"
+          if [ -z "$installer" ]; then
+            echo "::error::the pinned pasture binary reported its version as \"${reported}\", which does not match the expected 'pasture version vX.Y.Z' form, so the installer compatibility range cannot be derived. Impact: release ${TAG} was not built and nothing was published, because publishing a guessed compatibility range would freeze a false claim into an immutable release. Fix: reconcile this step in .github/workflows/release.yml with the pinned Pasture's --version output."
+            exit 1
+          fi
+          # Run the derived value through the same grammar the release version
+          # uses, so a malformed installer version is refused before it reaches
+          # the producer rather than after the tag is permanent.
+          scripts/release/release-grammar.sh parse-tag "v${installer}" > /dev/null
+          echo "installer=${installer}" >> "$GITHUB_OUTPUT"
+          echo "::notice::installer compatibility range for ${TAG} is ${installer}..${installer}"
+
+      # Emits the nine canonical archives plus the aura.aggregate-components/v1
+      # component set, with the digests and bundle IDs Pasture itself derived.
+      - name: Export the nine component archives
+        env:
+          PASTURE_BINARY: ${{ steps.pasture.outputs.binary }}
+        run: |
+          set -euo pipefail
+          # --out must not already exist; the export claims it and removes it on
+          # any failure, so a partial set can never reach the producer.
+          rm -rf "${COMPONENTS_DIR}"
+          "$PASTURE_BINARY" bundle export --version "${VERSION}" --out "${COMPONENTS_DIR}"
+
+      - name: Produce the immutable aggregate
+        env:
+          PASTURE_REVISION: ${{ steps.pin.outputs.pasture_revision }}
+          INSTALLER: ${{ steps.compatibility.outputs.installer }}
+        run: |
+          set -euo pipefail
+          producer="$(nix build .#aggregate-release --no-link --print-out-paths -L)/bin/aura-aggregate-release"
+          rm -rf "${AGGREGATE_DIR}"
+          "$producer" \
+            --version          "${VERSION}" \
+            --installer-min    "${INSTALLER}" \
+            --installer-max    "${INSTALLER}" \
+            --pasture-revision "${PASTURE_REVISION}" \
+            --aura-revision    "${GITHUB_SHA}" \
+            --components       "${COMPONENTS_DIR}/components.json" \
+            --output-dir       "${AGGREGATE_DIR}"
+
+      # The producer verifies its own output with Pasture's typed verifier. This
+      # re-checks, with independent tools, the bindings only this run knows: the
+      # tag, the tagged commit, and the pinned Pasture revision.
+      - name: Verify the produced aggregate against this run's identity
+        env:
+          PASTURE_REVISION: ${{ steps.pin.outputs.pasture_revision }}
+          CHANNEL: ${{ steps.channel.outputs.channel }}
+        run: |
+          set -euo pipefail
+          scripts/release/verify-aggregate-dir.sh \
+            "${AGGREGATE_DIR}" "${VERSION}" "${GITHUB_SHA}" "${PASTURE_REVISION}" "${CHANNEL}"
+
+      - name: Upload the aggregate for publication
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: aggregate-${{ needs.guard.outputs.version }}
+          path: ${{ github.workspace }}/aggregate
+          if-no-files-found: error
+          retention-days: 7
+
+  publish:
+    name: publish GitHub Release
+    needs: [guard, gates, build-components]
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    # The default token stays read-only: the Release is created with the same
+    # App identity that pushed the tag, so one identity owns the whole
+    # publication and the actor guard's expectation stays meaningful.
+    permissions:
+      contents: read
+    env:
+      VERSION: ${{ needs.guard.outputs.version }}
+      TAG: ${{ needs.guard.outputs.tag }}
+      CHANNEL: ${{ needs.build-components.outputs.channel }}
+      PASTURE_REVISION: ${{ needs.build-components.outputs.pasture-revision }}
+      AGGREGATE_DIR: ${{ github.workspace }}/aggregate
+    steps:
+      - name: Checkout the tagged commit
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+
+      - name: Assert the release App credentials are configured
+        env:
+          APP_ID: ${{ secrets.RELEASE_APP_ID }}
+          APP_KEY: ${{ secrets.RELEASE_APP_PRIVATE_KEY }}
+        run: |
+          set -euo pipefail
+          missing=''
+          [ -n "$APP_ID" ]  || missing="${missing} RELEASE_APP_ID"
+          [ -n "$APP_KEY" ] || missing="${missing} RELEASE_APP_PRIVATE_KEY"
+          if [ -n "$missing" ]; then
+            echo "::error::release ${TAG} was built but cannot be published: missing secret(s)${missing}. Impact: no GitHub Release was created and no assets were attached; the tag and the built aggregate are unharmed. Fix: add the secret(s) under Settings → Secrets and variables → Actions as described in docs/releasing.md, then re-run this workflow from the Actions tab — the existing tag is reused, never recreated."
+            exit 1
+          fi
+
+      - name: Download the built aggregate
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: aggregate-${{ needs.guard.outputs.version }}
+          path: ${{ github.workspace }}/aggregate
+
+      # Re-verified HERE, after the artifact round-trip, rather than trusting the
+      # build job's own check: what is published is what came out of this
+      # download, so that is what has to be proven.
+      - name: Verify the aggregate before publishing anything
+        run: |
+          set -euo pipefail
+          scripts/release/verify-aggregate-dir.sh \
+            "${AGGREGATE_DIR}" "${VERSION}" "${GITHUB_SHA}" "${PASTURE_REVISION}" "${CHANNEL}"
+
+      - name: "Mint App token (to create the Release)"
+        id: app-token
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3
+        with:
+          app-id: ${{ secrets.RELEASE_APP_ID }}
+          private-key: ${{ secrets.RELEASE_APP_PRIVATE_KEY }}
+
+      # A published version is permanent. `gh release create` would refuse an
+      # existing release on its own, but it would do so with a generic API
+      # error; this says what the situation is and what to do about it.
+      - name: Refuse to overwrite an existing release
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+        run: |
+          set -euo pipefail
+          if gh release view "${TAG}" --repo "${GITHUB_REPOSITORY}" > /dev/null 2>&1; then
+            echo "::error::a GitHub Release already exists for ${TAG}; refusing to modify or replace it. Impact: nothing was changed and the published release is untouched. Fix: published versions are permanent — cut a new release PR with the next unused version. If the existing release is incomplete because an earlier run failed midway, delete only that incomplete release by hand and re-run this workflow."
+            exit 1
+          fi
+          echo "no release exists for ${TAG} yet ✓"
+
+      - name: Create the GitHub Release
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+        run: |
+          set -euo pipefail
+          notes="${RUNNER_TEMP}/release-notes.md"
+          {
+            echo "Immutable aggregate plugin release \`${VERSION}\` (${CHANNEL})."
+            echo
+            echo "| | |"
+            echo "| --- | --- |"
+            echo "| Aura commit | \`${GITHUB_SHA}\` |"
+            echo "| Pasture commit | \`${PASTURE_REVISION}\` |"
+            echo "| Channel | ${CHANNEL} |"
+            echo
+            echo "Assets are the aggregate manifest, its SHA-256 sidecar, and one archive"
+            echo "for each harness/extension cell. Verify a download before installing it:"
+            echo
+            echo '```bash'
+            echo "sha256sum --check pasture-aggregate-manifest.json.sha256"
+            echo '```'
+            echo
+            echo "Every component digest is recorded in \`pasture-aggregate-manifest.json\`."
+            echo "This version is permanent: it is never moved, overwritten, or deleted, and"
+            echo "there is no moving alias — select this exact version."
+          } > "$notes"
+
+          prerelease=()
+          if [ "${CHANNEL}" = "prerelease" ]; then
+            prerelease=(--prerelease)
+          fi
+
+          # --verify-tag refuses to create a release for a tag that does not
+          # exist, so a typo cannot cause GitHub to mint a fresh tag here —
+          # release-tag.yml is the only thing that ever creates one.
+          mapfile -t assets < <(find "${AGGREGATE_DIR}" -mindepth 1 -maxdepth 1 -type f | sort)
+          gh release create "${TAG}" \
+            --repo "${GITHUB_REPOSITORY}" \
+            --title "${TAG}" \
+            --notes-file "$notes" \
+            --verify-tag \
+            "${prerelease[@]}" \
+            "${assets[@]}"
+          echo "::notice::published release ${TAG} with ${#assets[@]} assets"
+          {
+            echo "### Release published"
+            echo
+            echo "\`${TAG}\` (${CHANNEL}) — ${#assets[@]} assets."
+            echo
+            echo "- Aura commit: \`${GITHUB_SHA}\`"
+            echo "- Pasture commit: \`${PASTURE_REVISION}\`"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  # Everything above verifies bytes this run holds. This job verifies what a
+  # consumer can actually retrieve, which is the only thing that matters after
+  # publication: it downloads the published assets fresh and re-runs the same
+  # verifier over them.
+  smoke:
+    name: smoke (published assets)
+    needs: [guard, gates, build-components, publish]
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    env:
+      VERSION: ${{ needs.guard.outputs.version }}
+      TAG: ${{ needs.guard.outputs.tag }}
+      CHANNEL: ${{ needs.build-components.outputs.channel }}
+      PASTURE_REVISION: ${{ needs.build-components.outputs.pasture-revision }}
+      DOWNLOAD_DIR: ${{ github.workspace }}/published
+    steps:
+      - name: Checkout the tagged commit
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+
+      - name: "Mint App token (to read the Release)"
+        id: app-token
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3
+        with:
+          app-id: ${{ secrets.RELEASE_APP_ID }}
+          private-key: ${{ secrets.RELEASE_APP_PRIVATE_KEY }}
+
+      - name: Download the published assets fresh
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+        run: |
+          set -euo pipefail
+          # A new directory, never the build job's artifact: reusing those bytes
+          # would prove nothing about what was uploaded.
+          rm -rf "${DOWNLOAD_DIR}"
+          mkdir -p "${DOWNLOAD_DIR}"
+          gh release download "${TAG}" --repo "${GITHUB_REPOSITORY}" --dir "${DOWNLOAD_DIR}"
+
+      - name: Assert the published release is classified correctly
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+        run: |
+          set -euo pipefail
+          is_prerelease="$(gh release view "${TAG}" --repo "${GITHUB_REPOSITORY}" --json isPrerelease --jq '.isPrerelease')"
+          expected=false
+          [ "${CHANNEL}" = "prerelease" ] && expected=true
+          if [ "$is_prerelease" != "$expected" ]; then
+            echo "::error::the published release ${TAG} reports isPrerelease=${is_prerelease} but its aggregate manifest declares channel ${CHANNEL} (expected isPrerelease=${expected}). Impact: the release IS published, but installers that opt out of prereleases would see the wrong set of versions. Fix: correct the release's prerelease flag on the Releases page to match the manifest; the assets themselves are unaffected and must not be re-uploaded."
+            exit 1
+          fi
+          echo "published release ${TAG} is classified ${CHANNEL} ✓"
+
+      - name: Re-verify the published assets
+        run: |
+          set -euo pipefail
+          scripts/release/verify-aggregate-dir.sh \
+            "${DOWNLOAD_DIR}" "${VERSION}" "${GITHUB_SHA}" "${PASTURE_REVISION}" "${CHANNEL}"
+          {
+            echo "### Published assets verified"
+            echo
+            echo "Downloaded \`${TAG}\` fresh from the Release and re-checked the manifest"
+            echo "checksum sidecar, the identity bindings, and every component digest."
+          } >> "$GITHUB_STEP_SUMMARY"
