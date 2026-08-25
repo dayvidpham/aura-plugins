@@ -136,6 +136,8 @@ jobs:
     outputs:
       pasture-revision: ${{ steps.pin.outputs.pasture_revision }}
       channel: ${{ steps.channel.outputs.channel }}
+      installer-min: ${{ steps.compatibility.outputs.installer_min }}
+      installer-max: ${{ steps.compatibility.outputs.installer_max }}
     env:
       VERSION: ${{ needs.guard.outputs.version }}
       TAG: ${{ needs.guard.outputs.tag }}
@@ -226,7 +228,8 @@ jobs:
           # uses, so a malformed installer version is refused before it reaches
           # the producer rather than after the tag is permanent.
           scripts/release/release-grammar.sh parse-tag "v${installer}" > /dev/null
-          echo "installer=${installer}" >> "$GITHUB_OUTPUT"
+          echo "installer_min=${installer}" >> "$GITHUB_OUTPUT"
+          echo "installer_max=${installer}" >> "$GITHUB_OUTPUT"
           echo "::notice::installer compatibility range for ${TAG} is ${installer}..${installer}"
 
       # Emits the nine canonical archives plus the aura.aggregate-components/v1
@@ -244,15 +247,16 @@ jobs:
       - name: Produce the immutable aggregate
         env:
           PASTURE_REVISION: ${{ steps.pin.outputs.pasture_revision }}
-          INSTALLER: ${{ steps.compatibility.outputs.installer }}
+          INSTALLER_MIN: ${{ steps.compatibility.outputs.installer_min }}
+          INSTALLER_MAX: ${{ steps.compatibility.outputs.installer_max }}
         run: |
           set -euo pipefail
           producer="$(nix build .#aggregate-release --no-link --print-out-paths -L)/bin/aura-aggregate-release"
           rm -rf "${AGGREGATE_DIR}"
           "$producer" \
             --version          "${VERSION}" \
-            --installer-min    "${INSTALLER}" \
-            --installer-max    "${INSTALLER}" \
+            --installer-min    "${INSTALLER_MIN}" \
+            --installer-max    "${INSTALLER_MAX}" \
             --pasture-revision "${PASTURE_REVISION}" \
             --aura-revision    "${GITHUB_SHA}" \
             --components       "${COMPONENTS_DIR}/components.json" \
@@ -265,10 +269,13 @@ jobs:
         env:
           PASTURE_REVISION: ${{ steps.pin.outputs.pasture_revision }}
           CHANNEL: ${{ steps.channel.outputs.channel }}
+          INSTALLER_MIN: ${{ steps.compatibility.outputs.installer_min }}
+          INSTALLER_MAX: ${{ steps.compatibility.outputs.installer_max }}
         run: |
           set -euo pipefail
           scripts/release/verify-aggregate-dir.sh \
-            "${AGGREGATE_DIR}" "${VERSION}" "${GITHUB_SHA}" "${PASTURE_REVISION}" "${CHANNEL}"
+            "${AGGREGATE_DIR}" "${VERSION}" "${GITHUB_SHA}" "${PASTURE_REVISION}" "${CHANNEL}" \
+            "${INSTALLER_MIN}" "${INSTALLER_MAX}"
 
       - name: Upload the aggregate for publication
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
@@ -293,6 +300,8 @@ jobs:
       TAG: ${{ needs.guard.outputs.tag }}
       CHANNEL: ${{ needs.build-components.outputs.channel }}
       PASTURE_REVISION: ${{ needs.build-components.outputs.pasture-revision }}
+      INSTALLER_MIN: ${{ needs.build-components.outputs.installer-min }}
+      INSTALLER_MAX: ${{ needs.build-components.outputs.installer-max }}
       AGGREGATE_DIR: ${{ github.workspace }}/aggregate
     steps:
       - name: Checkout the tagged commit
@@ -325,7 +334,8 @@ jobs:
         run: |
           set -euo pipefail
           scripts/release/verify-aggregate-dir.sh \
-            "${AGGREGATE_DIR}" "${VERSION}" "${GITHUB_SHA}" "${PASTURE_REVISION}" "${CHANNEL}"
+            "${AGGREGATE_DIR}" "${VERSION}" "${GITHUB_SHA}" "${PASTURE_REVISION}" "${CHANNEL}" \
+            "${INSTALLER_MIN}" "${INSTALLER_MAX}"
 
       - name: "Mint App token (to create the Release)"
         id: app-token
@@ -417,6 +427,8 @@ jobs:
       TAG: ${{ needs.guard.outputs.tag }}
       CHANNEL: ${{ needs.build-components.outputs.channel }}
       PASTURE_REVISION: ${{ needs.build-components.outputs.pasture-revision }}
+      INSTALLER_MIN: ${{ needs.build-components.outputs.installer-min }}
+      INSTALLER_MAX: ${{ needs.build-components.outputs.installer-max }}
       DOWNLOAD_DIR: ${{ github.workspace }}/published
     steps:
       - name: Checkout the tagged commit
@@ -458,7 +470,8 @@ jobs:
         run: |
           set -euo pipefail
           scripts/release/verify-aggregate-dir.sh \
-            "${DOWNLOAD_DIR}" "${VERSION}" "${GITHUB_SHA}" "${PASTURE_REVISION}" "${CHANNEL}"
+            "${DOWNLOAD_DIR}" "${VERSION}" "${GITHUB_SHA}" "${PASTURE_REVISION}" "${CHANNEL}" \
+            "${INSTALLER_MIN}" "${INSTALLER_MAX}"
           {
             echo "### Published assets verified"
             echo

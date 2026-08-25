@@ -17,15 +17,20 @@
 # independent tools, the four bindings that make the release safe to publish and
 # that only the workflow knows:
 #
-#   1. the manifest's bytes match the .sha256 sidecar shipped beside it;
-#   2. the manifest's version equals the tag without its leading "v";
+#   1. the manifest's bytes match the .sha256 sidecar shipped beside it, and
+#      that sidecar is a single line naming the manifest itself;
+#   2. the manifest's version equals the tag without its leading "v", and its
+#      schema is the one this pipeline knows how to publish;
 #   3. the manifest's revisions match the exact Aura and Pasture commits the
-#      run built from;
+#      run built from, and its declared installer compatibility range is the
+#      one the workflow passed to the producer;
 #   4. every component asset named by the manifest is present, is the only
-#      thing present, and hashes to the digest the manifest records.
+#      thing present, is one of the nine canonical basenames for this version,
+#      and hashes to the digest the manifest records.
 #
 # Usage:
-#   verify-aggregate-dir.sh <dir> <version> <aura-revision> <pasture-revision> <channel>
+#   verify-aggregate-dir.sh <dir> <version> <aura-revision> <pasture-revision> \
+#     <channel> <installer-min> <installer-max>
 #
 # Exits 0 and prints a per-check trace on success; exits 1 with an actionable
 # diagnosis on stderr otherwise.
@@ -36,6 +41,14 @@ readonly PROGRAM_NAME="scripts/release/verify-aggregate-dir.sh"
 readonly MANIFEST_ASSET="pasture-aggregate-manifest.json"
 readonly CHECKSUM_ASSET="pasture-aggregate-manifest.json.sha256"
 readonly EXPECTED_COMPONENTS=9
+# The schema this pipeline knows how to publish. A manifest carrying any other
+# schema may mean something different by the very fields checked below.
+readonly EXPECTED_SCHEMA="pasture.aggregate-release/v1"
+# The canonical cell matrix. The asset basenames are derived from it below
+# rather than only counted, so a manifest that names nine internally consistent
+# but wrong assets is refused.
+readonly HARNESS_STEMS=(claude opencode codex)
+readonly EXTENSIONS=(skills agents hooks)
 
 # fail <what-went-wrong> <why> <impact> <how-to-fix>
 fail() {
@@ -51,7 +64,7 @@ usage() {
 ${PROGRAM_NAME} — verify an aggregate release directory against its claimed identity.
 
 Usage:
-  ${PROGRAM_NAME} <dir> <version> <aura-revision> <pasture-revision> <channel>
+  ${PROGRAM_NAME} <dir> <version> <aura-revision> <pasture-revision> <channel> <installer-min> <installer-max>
 
   dir              directory holding the manifest, its .sha256 sidecar, and the
                    ${EXPECTED_COMPONENTS} component assets
@@ -59,19 +72,23 @@ Usage:
   aura-revision    exact 40-character lowercase Aura commit
   pasture-revision exact 40-character lowercase Pasture commit
   channel          final | prerelease
+  installer-min    lower bound of the installer compatibility range the
+                   producer was asked to record
+  installer-max    upper bound of that range
 USAGE
 }
 
 main() {
-  if [ "$#" -ne 5 ]; then
+  if [ "$#" -ne 7 ]; then
     usage
     fail "parsing command-line arguments" \
-      "expected exactly 5 arguments but received $#" \
+      "expected exactly 7 arguments but received $#" \
       "no aggregate directory was verified, so nothing may be published from this run" \
-      "invoke it as '${PROGRAM_NAME} <dir> <version> <aura-revision> <pasture-revision> <channel>'"
+      "invoke it as '${PROGRAM_NAME} <dir> <version> <aura-revision> <pasture-revision> <channel> <installer-min> <installer-max>'"
   fi
 
   local dir="$1" version="$2" aura_revision="$3" pasture_revision="$4" channel="$5"
+  local installer_min="$6" installer_max="$7"
 
   [ -d "$dir" ] || fail "locating the aggregate directory" \
     "\"${dir}\" is not a directory" \
@@ -96,7 +113,29 @@ main() {
     "consumers could not detect a tampered or truncated manifest" \
     "re-run the component build job; the producer always emits the sidecar beside the manifest"
 
-  # 1. The manifest bytes match the sidecar. Run from inside the directory
+  # 1. The sidecar is exactly one line, and that line names the manifest.
+  #    `sha256sum --check` reports success for a file whose every listed entry
+  #    matched — including a sidecar that lists something else entirely, or an
+  #    empty one — so its shape has to be asserted before its verdict means
+  #    anything.
+  local sidecar_lines sidecar_named
+  sidecar_lines="$(wc -l < "${dir}/${CHECKSUM_ASSET}")"
+  if [ "$sidecar_lines" != "1" ]; then
+    fail "verifying the shape of the manifest checksum sidecar" \
+      "${CHECKSUM_ASSET} holds ${sidecar_lines} lines instead of exactly one" \
+      "a sidecar that lists no entry, or more than the manifest, cannot establish the manifest's identity: an empty one makes the checksum check vacuously succeed" \
+      "re-run the component build job; the producer always writes '<64 lowercase hex>  ${MANIFEST_ASSET}' followed by a newline"
+  fi
+  sidecar_named="$(sed -n 's/^[0-9a-f]\{64\}[[:space:]][[:space:]*]\(.*\)$/\1/p' "${dir}/${CHECKSUM_ASSET}")"
+  if [ "$sidecar_named" != "$MANIFEST_ASSET" ]; then
+    fail "verifying the target of the manifest checksum sidecar" \
+      "${CHECKSUM_ASSET} records a digest for \"${sidecar_named}\" rather than for ${MANIFEST_ASSET}" \
+      "the sidecar vouches for some other file, so nothing published here would detect a tampered or truncated manifest" \
+      "re-run the component build job from a clean directory; if a published release fails this check, treat the download as corrupt or tampered and do not install it"
+  fi
+  echo "checksum sidecar is a single line naming ${MANIFEST_ASSET} ✓"
+
+  #    The manifest bytes match that sidecar. Run from inside the directory
   #    because the sidecar names the manifest by bare basename.
   ( cd "$dir" && sha256sum --check --strict --status "$CHECKSUM_ASSET" ) || fail \
     "verifying the manifest against its checksum sidecar" \
@@ -118,27 +157,46 @@ main() {
     actual="$(jq -r "$field" "$manifest")"
     if [ "$actual" != "$expected" ]; then
       fail "verifying the manifest identity binding ${field}" \
-        "the manifest says ${actual} but this release run built ${expected}" \
+        "the manifest says ${actual} but this release run bound ${expected}" \
         "publishing would freeze a false provenance claim into an immutable release that can never be corrected, only superseded" \
-        "do not publish; re-run the component build job for tag v${version} and confirm the pinned Pasture revision and the tagged Aura commit are the ones intended"
+        "do not publish; re-run the component build job for tag v${version} and confirm the pinned Pasture revision, the tagged Aura commit, and the compatibility range passed to the producer are the ones intended"
     fi
     echo "manifest ${field} is ${actual} ✓"
+    # Every row is re-derived here, including the two the producer alone would
+    # otherwise attest to: a manifest whose schema or compatibility range does
+    # not match what this run asked for is published bytes making a claim no
+    # step in the pipeline checked.
   done <<EOF
+.schema $EXPECTED_SCHEMA
 .version $version
 .channel $channel
 .revisions.aura $aura_revision
 .revisions.pasture $pasture_revision
+.compatibility.installer_min $installer_min
+.compatibility.installer_max $installer_max
 EOF
 
-  # 4. Component inventory and per-asset digests.
-  local count
-  count="$(jq -r '.components | length' "$manifest")"
-  if [ "$count" != "$EXPECTED_COMPONENTS" ]; then
+  # 4. Component inventory and per-asset digests. The expectation is the nine
+  #    canonical basenames for THIS version, derived from the cell matrix, not
+  #    a count: a manifest naming nine mutually consistent but wrong assets —
+  #    a stale version in the basenames, a duplicated cell, a cell that does
+  #    not exist — is internally coherent and still unusable.
+  local expected_components actual_components
+  expected_components="$(
+    for harness in "${HARNESS_STEMS[@]}"; do
+      for extension in "${EXTENSIONS[@]}"; do
+        printf 'pasture-%s-%s-%s.tgz\n' "$version" "$harness" "$extension"
+      done
+    done | sort
+  )"
+  actual_components="$(jq -r '.components[].asset' "$manifest" | sort)"
+  if [ "$expected_components" != "$actual_components" ]; then
     fail "verifying the component inventory" \
-      "the manifest lists ${count} components instead of exactly ${EXPECTED_COMPONENTS}" \
-      "the aggregate would omit or duplicate an installation cell, so some harness could never be installed from this release" \
-      "do not publish; re-run the component build job and confirm the export emitted every harness/extension cell"
+      "the manifest names [$(echo "$actual_components" | tr '\n' ' ')] instead of the ${EXPECTED_COMPONENTS} canonical assets for ${version} [$(echo "$expected_components" | tr '\n' ' ')]" \
+      "the aggregate would omit, duplicate, or misname an installation cell, so some harness could never be installed from this release" \
+      "do not publish; re-run the component build job and confirm the export emitted every harness/extension cell for this exact version"
   fi
+  echo "manifest names the ${EXPECTED_COMPONENTS} canonical component assets for ${version} ✓"
 
   local asset digest actual_digest
   while read -r asset digest; do
