@@ -25,19 +25,19 @@ Two rules shape everything below:
 > and treat the first release as a supervised operation. This caveat stays here
 > until a release has actually been cut.
 >
-> **Publication is deliberately blocked right now.** The component build job
-> refuses to continue while the installer compatibility range has no agreed
-> source — see [Installer compatibility](#installer-compatibility). Everything
-> before that point runs; nothing after it does.
->
-> One prerequisite is outside this repository — see
+> **One prerequisite is outside this repository.** The pinned Pasture must be a
+> published Pasture release: the pipeline derives the aggregate's installer
+> compatibility floor from the pinned Pasture binary's own version and refuses
+> to publish unless that version names a real Pasture release built from
+> exactly the pinned revision. Pasture is released first, always — see
+> [Installer compatibility](#installer-compatibility) and
 > [Before the first release](#before-the-first-release).
 
 ## The pipeline at a glance
 
 | Workflow | Trigger | What it does |
 | --- | --- | --- |
-| `.github/workflows/gates.yml` | `workflow_call` only | The full quality gate: `nix flake check -L` (which runs `hm-module-test`, `aggregate-release-test`, and the release-script suites), `nix build .#aggregate-release`, an assertion that the producer still exposes its seven-option contract, the grammar-versus-producer subset proof, the **cross-repository chain** (build the pinned Pasture, assert its `--version` shape, export the nine components, package them with the real producer, verify the result), `nix build .#aura-swarm`, `nix run .#aura-swarm -- --help`, `shellcheck` + the release-script test suites, and `actionlint`. |
+| `.github/workflows/gates.yml` | `workflow_call` only | The full quality gate: `nix flake check -L` (which runs `hm-module-test`, `aggregate-release-test`, and the release-script suites), `nix build .#aggregate-release`, an assertion that the producer still exposes its seven-option contract, the grammar-versus-producer subset proof, the **cross-repository chain** (build the pinned Pasture, derive the installer compatibility range from its `--version` and assert that floor is a published Pasture release at the pinned revision, export the nine components, package them with the real producer, verify the result), `nix build .#aura-swarm`, `nix run .#aura-swarm -- --help`, `shellcheck` + the release-script test suites, and `actionlint`. |
 | `.github/workflows/release-pr.yml` | `pull_request` (opened/edited/synchronize/reopened) into `main` | On a `release(...)`-titled PR: validates the title grammar, asserts the author is a maintainer, refuses a version that is already released, then calls `gates.yml` in full. |
 | `.github/workflows/release-tag.yml` | `pull_request` `closed` into `main` | When a `release(...)` PR **merges**: mints the immutable annotated tag with the release App token, refusing duplicate tags and unreachable commits. |
 | `.github/workflows/release.yml` | `push` of a `v*` tag | Guards the tag (App actor, annotated, reachable from `main`) and emits the dereferenced tagged commit that every later job uses, re-runs `gates.yml` against the tagged commit, builds the nine component assets from the pinned Pasture and packages them with the aggregate producer, publishes the GitHub Release **as a draft first** and undrafts it only once its contents are proven, then re-downloads the published assets and verifies them. |
@@ -185,7 +185,11 @@ ruleset is ever relaxed.
 
 2. **Watch the PR checks.** `validate release PR` confirms the title grammar,
    your maintainer role, and that the version is unused. `gates (release PR)`
-   runs the full quality gate. Both must be green.
+   runs the full quality gate — including the cross-repository chain, which
+   builds the pinned Pasture, derives the installer compatibility range from it,
+   and refuses a pin that is not a published Pasture release. Both must be
+   green. A failure here is cheap: no tag exists yet, and the usual remedy is
+   `nix flake update pasture` on this same PR.
 
 3. **Merge.** `release-tag.yml` then mints the annotated tag `v0.1.0` on the
    merge commit, after re-confirming the tag does not already exist locally or
@@ -198,8 +202,10 @@ ruleset is ever relaxed.
      later job checks out, stamps into the manifest, and compares against;
    - the **gates** re-run against the tagged commit;
    - **build-components** reads the pinned Pasture revision out of `flake.lock`,
-     builds that exact Pasture, runs `pasture bundle export` for the release
-     version, and packages the result with `aura-aggregate-release`;
+     builds that exact Pasture, derives the installer compatibility range from
+     it and re-asserts that its floor is a published Pasture release at that
+     revision, runs `pasture bundle export` for the release version, and
+     packages the result with `aura-aggregate-release`;
    - **publish** re-verifies the aggregate after the artifact round-trip, then
      performs the two-phase publication described below;
    - **smoke** downloads the published assets fresh, after undrafting, and
@@ -340,46 +346,100 @@ Pasture on every release PR.
 
 ### Installer compatibility
 
-> **This is what blocks publication today.** `build-components` refuses to
-> continue at the compatibility step, on purpose, and no release can be cut
-> until the refusal is removed.
-
 An installer reads the manifest's compatibility range to decide whether it may
-activate this aggregate at all, and the range is frozen into an immutable
-manifest: it can never be corrected in place, only superseded.
+activate an aggregate at all. The range is frozen into an immutable manifest: it
+can never be corrected in place, only superseded. The policy is therefore
+**the producer declares the format and the minimum; the consumer owns the
+ceiling.**
 
-The workflow currently derives both bounds from the version the pinned Pasture
-binary reports about itself. That derivation is the right *shape* — the exported
-assets were composed by that installer, so its version is the natural bound —
-but it is not yet a claim this pipeline can prove: `pasture --version` reports a
-build-time constant that does not track the revision it was built from
-(https://github.com/dayvidpham/pasture/issues/39). Two different pinned Pasture
-revisions report the same version today, so the derived range says nothing about
-either.
+**`installer_min` is the pinned Pasture's own released version.** The nine
+component archives were composed by that installer, from its target
+descriptors, so no lower floor would be honest. It is derived from
+`pasture --version` rather than written down anywhere, and it is *asserted*
+rather than assumed, in two steps:
 
-Guessing a range instead would be worse, so the workflow stops and says so. A
-too-wide range lets a future, incompatible installer accept an aggregate it
-cannot correctly activate; a too-narrow one only makes that installer decline to
-offer the version — but neither is a reason to invent one.
+1. the reported version must have the released shape `pasture version vX.Y.Z`.
+   A development build reports a different, deliberately distinguishable shape
+   and is refused: an aggregate cannot be cut against an untagged Pasture,
+   because a floor naming no release is a claim no consumer can ever check. A
+   release candidate is refused for a different reason — the floor is what every
+   installer must *meet*, and a prerelease floor would exclude every stable
+   installer.
+2. the tag `vX.Y.Z` must exist on `dayvidpham/pasture`, **and the revision
+   pinned in this repository's `flake.lock` must be the commit that tag points
+   to.** The second half is what makes the first meaningful: without it a binary
+   could report `v1.2.3` from a commit that is not `v1.2.3`, and the manifest
+   would bind its provenance to a revision no consumer can relate to the version
+   it advertises. The check is a single unauthenticated `git ls-remote` against
+   the public Pasture repository.
 
-Everything downstream of the decision is already built and needs no further
-work: the producer takes `--installer-min` / `--installer-max`, and the verifier
-re-derives both from the published manifest against what the workflow passed.
-What is missing is only the *source* of the two bounds. Once that is settled,
-implement it in the "Derive the installer compatibility range" step of
-`.github/workflows/release.yml` and delete the refusal that follows it.
+**`installer_max` is an open ceiling, the constant `0.99.99`.** Aura cannot know
+what a future installer can do, and the aggregate format itself already answers
+the question: an installer that cannot activate a `pasture.aggregate-release/v1`
+manifest refuses it **by schema** — a check it can genuinely make about itself,
+unlike a version comparison against a number chosen before it existed. A
+numeric ceiling pinned to whatever version happened to be current would lock
+every later installer out of an aggregate it can activate perfectly well, and
+that lock-out would be permanent.
+
+`0.99.99` is a DEFERRED decision, not an absent one: it covers the 0.x Pasture
+installer line only, and it expires the day Pasture ships `1.0.0`. Every
+aggregate published before that day freezes `0.99.99` into its immutable
+manifest, so once `1.0.0` ships those already-published aggregates formally
+exclude the 1.x line by the numeric bound alone — the manifest schema remains
+the underlying format guard regardless of where the numeric ceiling sits.
+`scripts/release/release-grammar.sh installer-compatibility` also refuses to
+derive a floor that is not strictly below the ceiling, so a pinned Pasture at
+or beyond `0.99.99` fails the release PR rather than publishing an inverted or
+collapsed range. Raising or replacing the ceiling policy for `1.0.0` and beyond
+is Pasture-side contract work:
+<https://github.com/dayvidpham/pasture/issues/39>.
+
+Where each piece lives:
+
+- `scripts/release/release-grammar.sh installer-compatibility` owns the released
+  shape and the ceiling constant, and emits both bounds. It is hermetic and its
+  suite runs in `nix flake check`, so the two values a release freezes are not
+  defined by a regex embedded in a workflow file.
+- `scripts/release/assert-pasture-release-tag.sh` owns the tag-existence and
+  pinned-revision assertions. It needs the network, so it is invoked by the
+  workflows; its own suite proves its logic against local repositories through
+  the `PASTURE_TAG_REMOTE` seam and is gated by the `release helper scripts` job
+  in `gates.yml` (it needs `git`, which the flake's script sandbox has no
+  reason to carry).
+- Both assertions run **twice**: in `gates.yml`, on every release PR, before any
+  tag exists; and again in `release.yml`, on the values actually stamped into
+  the manifest. The pre-tag run is the one that matters operationally — it turns
+  "the tag is minted and the release cannot be published" into "re-lock the
+  input and push again".
+- `verify-aggregate-dir.sh` re-derives both bounds from the published manifest
+  and compares them with what the workflow passed to the producer, so the
+  published claim is checked against this run's intent rather than taken on the
+  producer's word.
 
 ## Before the first release
 
-One decision is outstanding, and one thing that used to be a manual check is now
-enforced.
+One sequencing dependency remains, and one thing that used to be a manual check
+is now enforced.
 
-1. **Decide where the installer compatibility range comes from** — see
-   [Installer compatibility](#installer-compatibility). This is a judgement
-   about what the release promises to installers, not a coding task, and it is
-   the only thing standing between this pipeline and a first release. Until it
-   is settled and the refusal in `build-components` is removed, a release PR can
-   merge and mint a tag, but the tag will not publish.
+1. **Pasture must be released first.** The aggregate's `installer_min` is the
+   pinned Pasture's own version, and it is only accepted if that version names a
+   published Pasture release at exactly the pinned revision. So the order is:
+   Pasture cuts its release; this repository re-locks its `pasture` input onto
+   that tagged commit (`nix flake update pasture`); the Aura release PR is
+   opened. Until then a release PR fails its gates — before any tag is minted —
+   with the remedy spelled out. To see where the pin stands right now:
+
+   ```bash
+   revision="$(scripts/release/pinned-pasture-revision.sh)"
+   pasture="$(nix build "github:dayvidpham/pasture/${revision}#pasture" \
+     --no-link --print-out-paths)/bin/pasture"
+   compatibility="$(scripts/release/release-grammar.sh installer-compatibility \
+     "$("$pasture" --version)")"
+   printf '%s\n' "$compatibility"
+   scripts/release/assert-pasture-release-tag.sh \
+     "$(printf '%s\n' "$compatibility" | sed -n 's/^installer_min=//p')" "$revision"
+   ```
 
 2. **The pinned Pasture revision is checked for you, before the tag exists.**
    `gates.yml` builds `github:dayvidpham/pasture/<pinned-revision>#pasture`,
@@ -398,9 +458,18 @@ enforced.
 - No release has been cut, so nothing in this pipeline has runtime evidence yet.
   The first run should be watched stage by stage, and this document's status
   banner updated once it has succeeded.
-- The installer compatibility range has no agreed source, and `build-components`
-  refuses to publish until it does — see
+- The first release cannot be cut until Pasture publishes a release whose tag is
+  the revision pinned here; the pipeline refuses an aggregate built against an
+  untagged Pasture, on the release PR rather than after the tag. The
+  compatibility policy itself is settled — see
   [Installer compatibility](#installer-compatibility).
+- The open ceiling (`0.99.99`) is a DEFERRED decision, not an absent one: it
+  covers the 0.x Pasture installer line and expires the day Pasture ships
+  `1.0.0`, at which point every aggregate published before then formally
+  excludes the 1.x line by that frozen numeric bound. Raising or replacing the
+  ceiling policy for `1.0.0` and beyond, and adding an explicit escape hatch
+  for development-build installers, is tracked in Pasture:
+  <https://github.com/dayvidpham/pasture/issues/39>.
 - The `pasture` git submodule gitlink and the `pasture` flake input point at
   different commits. Only the flake input is a release input; see
   [One release binds one Pasture revision](#one-release-binds-one-pasture-revision).

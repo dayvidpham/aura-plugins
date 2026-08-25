@@ -219,24 +219,33 @@ jobs:
           echo "binary=${binary}" >> "$GITHUB_OUTPUT"
           "$binary" --version
 
-      # The compatibility range is DERIVED from the pinned Pasture: it is the
-      # version that Pasture binary reports, on both bounds. Narrow is the safe
-      # direction — a too-wide range lets a future, incompatible installer
-      # accept an aggregate it cannot correctly activate, whereas a too-narrow
-      # one only makes that installer decline to offer it.
+      # ── Installer compatibility: the producer declares the FORMAT and the
+      #    MINIMUM; the CONSUMER owns the ceiling ────────────────────────────
       #
-      # ── PUBLICATION IS BLOCKED ON THIS STEP ──────────────────────────────
-      # `pasture --version` currently reports a build-time constant that does
-      # not track the revision it was built from, so this derivation cannot
-      # distinguish one pinned Pasture from another and the range it produces is
-      # not the provable claim the paragraph above assumes:
-      #   https://github.com/dayvidpham/pasture/issues/39
-      # The derivation is left in place because it is the mechanically correct
-      # shape once the reported version is real, but the step after it refuses
-      # to continue: a compatibility range is frozen into an immutable manifest
-      # and can never be corrected, only superseded, so it must not be guessed.
-      # Removing that tripwire is the act that records the decision.
-      # ─────────────────────────────────────────────────────────────────────
+      # installer_min is the pinned Pasture's own released version: those assets
+      # were composed by that installer, so the aggregate cannot honestly claim
+      # a floor below it. It is asserted, not assumed — the derivation refuses a
+      # development build, and the step after it proves the version names a
+      # published Pasture release built from exactly the revision pinned here.
+      #
+      # installer_max is a DEFERRED ceiling (0.99.99), not an absent one: it
+      # covers the 0.x Pasture installer line and expires the day Pasture ships
+      # 1.0.0, at which point every aggregate published before then formally
+      # excludes the 1.x line by that frozen numeric bound. Underneath it the
+      # manifest SCHEMA remains the format guard: an installer that cannot
+      # activate pasture.aggregate-release/v1 refuses the aggregate by schema,
+      # which is a check it can actually make about itself. release-grammar.sh
+      # also refuses to derive a floor that is not strictly below the ceiling,
+      # so a pinned Pasture at or beyond 0.99.99 fails here rather than
+      # publishing an inverted or collapsed range. Raising or replacing the
+      # ceiling policy for 1.0.0 and beyond, and giving development builds an
+      # explicit escape hatch, is tracked in the Pasture contract:
+      # https://github.com/dayvidpham/pasture/issues/39
+      #
+      # Both bounds come out of scripts/release/release-grammar.sh, which owns
+      # the released-version grammar and the ceiling constant, and whose suite
+      # runs in gates.yml — the values a release freezes are not defined by a
+      # regex embedded in this file.
       - name: Derive the installer compatibility range from the pinned Pasture
         id: compatibility
         env:
@@ -244,35 +253,22 @@ jobs:
         run: |
           set -euo pipefail
           reported="$("$PASTURE_BINARY" --version)"
-          installer="$(printf '%s\n' "$reported" | sed -n 's/^pasture version v\([^ ]*\)$/\1/p')"
-          if [ -z "$installer" ]; then
-            echo "::error::the pinned pasture binary reported its version as \"${reported}\", which does not match the expected 'pasture version vX.Y.Z' form, so the installer compatibility range cannot be derived. Impact: release ${TAG} was not built and nothing was published, because publishing a guessed compatibility range would freeze a false claim into an immutable release. Fix: reconcile this step in .github/workflows/release.yml with the pinned Pasture's --version output."
-            exit 1
-          fi
-          # Run the derived value through the same grammar the release version
-          # uses, so a malformed installer version is refused before it reaches
-          # the producer rather than after the tag is permanent.
-          scripts/release/release-grammar.sh parse-tag "v${installer}" > /dev/null
-          echo "installer_min=${installer}" >> "$GITHUB_OUTPUT"
-          echo "installer_max=${installer}" >> "$GITHUB_OUTPUT"
-          echo "::notice::installer compatibility range for ${TAG} is ${installer}..${installer}"
+          compatibility="$(scripts/release/release-grammar.sh installer-compatibility "$reported")"
+          printf '%s\n' "$compatibility" >> "$GITHUB_OUTPUT"
+          echo "::notice::installer compatibility range for ${TAG} is $(printf '%s\n' "$compatibility" | sed -n 's/^installer_min=//p')..$(printf '%s\n' "$compatibility" | sed -n 's/^installer_max=//p')"
 
-      # Temporary refusal, deliberately unconditional: today the only source of
-      # the range is the derivation above, and that source is not yet
-      # trustworthy. Everything downstream — the producer's --installer-min /
-      # --installer-max, and the verifier re-deriving both from the manifest —
-      # is mechanics and works with whatever range this job settles on; only the
-      # SOURCE of the range is undecided. Delete this step (and nothing else)
-      # when the decision is recorded, or replace its body with the agreed
-      # source of the two bounds.
-      - name: Refuse to freeze an underived compatibility range into an immutable release
+      # The floor must name a Pasture release that exists, and the pin must BE
+      # that release: a binary reporting v1.2.3 from a commit that is not v1.2.3
+      # would bind provenance to a revision no consumer can relate to the version
+      # the manifest advertises. This is the only network assertion in the job;
+      # it queries the public Pasture repository over https with no credentials.
+      - name: Assert the compatibility floor is a published Pasture release
         env:
           INSTALLER_MIN: ${{ steps.compatibility.outputs.installer_min }}
-          INSTALLER_MAX: ${{ steps.compatibility.outputs.installer_max }}
+          PASTURE_REVISION: ${{ steps.pin.outputs.pasture_revision }}
         run: |
           set -euo pipefail
-          echo "::error::release ${TAG} would record the installer compatibility range ${INSTALLER_MIN}..${INSTALLER_MAX}, derived from the pinned Pasture's self-reported version — but that version is a build-time constant that does not track the revision it was built from (https://github.com/dayvidpham/pasture/issues/39), so the range is not a claim this pipeline can prove. Impact: nothing was exported, produced, or published; the tag is unharmed and stays publishable. Fix: decide what the two bounds should be sourced from, record that decision, then implement it in the 'Derive the installer compatibility range' step of .github/workflows/release.yml and delete this refusal — it exists only to stop an unprovable range being frozen into a manifest that can never be corrected, only superseded."
-          exit 1
+          scripts/release/assert-pasture-release-tag.sh "${INSTALLER_MIN}" "${PASTURE_REVISION}"
 
       # Emits the nine canonical archives plus the aura.aggregate-components/v1
       # component set, with the digests and bundle IDs Pasture itself derived.
