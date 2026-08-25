@@ -153,7 +153,7 @@ fake_git_dir="${work}/fake-git-bin"
 mkdir -p "$fake_git_dir"
 real_git="$(command -v git)"
 cat >"${fake_git_dir}/git" <<EOF
-#!/usr/bin/env bash
+#!$(command -v bash)
 if [ "\$1" = "ls-remote" ]; then
   printf 'warning: redirecting to a canonical URL\n' >&2
   exit 0

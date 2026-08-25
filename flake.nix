@@ -151,14 +151,21 @@
               AURA_FLAKE_LOCK = ./flake.lock;
               # jq and sha256sum are what the verifier reads manifests and
               # hashes assets with, so its suite needs them here too.
-              nativeBuildInputs = [ pkgs.bash pkgs.jq pkgs.coreutils pkgs.gnugrep ];
+              # git is needed by the tag-assertion suite, which builds real
+              # bare repositories and reaches them through git ls-remote —
+              # entirely offline, so it runs in the sandbox.
+              nativeBuildInputs = [ pkgs.bash pkgs.jq pkgs.coreutils pkgs.gnugrep pkgs.git ];
             } ''
             cp -r "$src" release
             chmod -R u+w release
             patchShebangs release
+            export HOME="$TMPDIR"
+            git config --global user.email test@localhost
+            git config --global user.name test
             bash release/release-grammar_test.sh
             bash release/verify-aggregate-dir_test.sh
             bash release/pinned-pasture-revision_test.sh
+            bash release/assert-pasture-release-tag_test.sh
             touch "$out"
           '';
         }
