@@ -37,10 +37,25 @@
       # ── Packages ──────────────────────────────────────────────
       packages = forAllSystems ({ pkgs, system }:
         let
-          pastureAggregateContract = pkgs.fetchzip {
-            url = "https://github.com/dayvidpham/pasture/archive/f5cbf4f92bb458eb0baff64f6adec603bcf0d74f.tar.gz";
-            hash = "sha256-8RRNB6Is8xhVGGj1dOQ1gfcoee6nyApQYIr1Ke6ihn0=";
-          };
+          # The Pasture source the aggregate producer compiles against.
+          #
+          # It is the `pasture` flake input itself — the same store path the
+          # rest of this flake consumes — rather than a second, separately
+          # hashed copy of the same commit. One release binds exactly one
+          # Pasture revision, and the release pipeline stamps that revision
+          # into the aggregate manifest as `revisions.pasture`; a producer
+          # built from a different Pasture commit than the one that exported
+          # the component assets would freeze a false provenance claim into an
+          # immutable, non-overwritable release.
+          #
+          # Earlier this coupling was a second `fetchzip` pin plus an
+          # eval-time guard asserting the two revisions agreed. That guard
+          # only ever caught a drift that this flake itself created, and it
+          # drifted three times (f5cbf4f / be01293 / e96d0e2) before it was
+          # made to fail closed. Consuming the input outright removes the
+          # class: there is no second revision to disagree with, so
+          # `nix flake update pasture` is the whole procedure for moving it.
+          pastureAggregateContract = pasture;
 
           # Deprecation stub: a package that was removed still resolves as an
           # output, but fails at run time with an actionable pointer to its
@@ -117,20 +132,33 @@
         {
           hm-module-test = import ./nix/hm-module-test.nix { inherit pkgs pasture; };
           aggregate-release-test = self.packages.${pkgs.system}.aggregate-release;
-          # Runs the release-grammar test suite on every `nix flake check`, so
-          # grammar regressions surface on ordinary changes instead of first
-          # appearing on a release PR. The producer-acceptance probe stays in
-          # the release gates (it needs the built producer binary and network-
-          # free component fixtures are irrelevant to it).
-          release-grammar = pkgs.runCommand "release-grammar-test"
+          # Runs the release-script test suites on every `nix flake check`, so a
+          # regression in either surfaces on ordinary changes instead of first
+          # appearing on a release PR — or, worse, mid-publication. Both scripts
+          # decide irreversible things: the grammar decides what version a
+          # permanent tag carries, and the verifier decides whether an aggregate
+          # may be published and whether a published one is sound.
+          #
+          # The producer-acceptance probe deliberately stays in the release
+          # gates instead: it needs the built producer binary, and it is about
+          # agreement between two parsers rather than either script's own logic.
+          release-scripts = pkgs.runCommand "release-scripts-test"
             {
               src = ./scripts/release;
-              nativeBuildInputs = [ pkgs.bash ];
+              # The pinned-revision suite checks this repository's own lock
+              # file, which is not reachable from the store copy of the
+              # scripts, so it is passed in explicitly.
+              AURA_FLAKE_LOCK = ./flake.lock;
+              # jq and sha256sum are what the verifier reads manifests and
+              # hashes assets with, so its suite needs them here too.
+              nativeBuildInputs = [ pkgs.bash pkgs.jq pkgs.coreutils pkgs.gnugrep ];
             } ''
             cp -r "$src" release
             chmod -R u+w release
             patchShebangs release
             bash release/release-grammar_test.sh
+            bash release/verify-aggregate-dir_test.sh
+            bash release/pinned-pasture-revision_test.sh
             touch "$out"
           '';
         }
