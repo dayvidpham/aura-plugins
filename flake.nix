@@ -39,50 +39,23 @@
         let
           # The Pasture source the aggregate producer compiles against.
           #
-          # This revision and the `pasture` flake input revision MUST be the
-          # same commit: one release binds exactly one Pasture revision, and
-          # the release pipeline stamps that single revision into the
-          # aggregate manifest as `revisions.pasture`. A producer built from a
-          # different Pasture commit than the one that exported the component
-          # assets would freeze a false provenance claim into an immutable,
-          # non-overwritable release.
+          # It is the `pasture` flake input itself — the same store path the
+          # rest of this flake consumes — rather than a second, separately
+          # hashed copy of the same commit. One release binds exactly one
+          # Pasture revision, and the release pipeline stamps that revision
+          # into the aggregate manifest as `revisions.pasture`; a producer
+          # built from a different Pasture commit than the one that exported
+          # the component assets would freeze a false provenance claim into an
+          # immutable, non-overwritable release.
           #
-          # The coupling is enforced statically below (`pastureContractPin`),
-          # not by convention: bumping the flake input without bumping this
-          # pin fails evaluation. To move both, run
-          #   nix flake update pasture
-          # then set this url + hash to the same revision (a wrong hash makes
-          # the build print the correct one).
-          pastureAggregateContractRev = "c68e6ba63450dd52d5eaac8445b2b55c1eb0fdc5";
-
-          pastureAggregateContract = pkgs.fetchzip {
-            url = "https://github.com/dayvidpham/pasture/archive/${pastureAggregateContractRev}.tar.gz";
-            hash = "sha256-zd/lP9seFvwTNLPj3q/VEI5FXDHzzt++MsykzuEYlHA=";
-          };
-
-          # Static guard: refuse to evaluate a split pin. `pasture.rev` is the
-          # locked flake-input revision; a source override (e.g. a local dirty
-          # checkout) has no `rev`, in which case the coupling cannot be
-          # proven and we warn rather than block local development.
-          pastureContractPin = value:
-            if pasture ? rev then
-              nixpkgs.lib.throwIf (pasture.rev != pastureAggregateContractRev) ''
-                aura-plugins flake.nix: split Pasture pin.
-                  The aggregate producer compiles against pasture ${pastureAggregateContractRev}
-                  but the flake input is locked to pasture ${pasture.rev}.
-                  A release built from this tree would stamp one revision into
-                  the aggregate manifest while shipping bytes from another.
-                  Fix: set pastureAggregateContractRev (and its fetchzip hash)
-                  in flake.nix to ${pasture.rev}, or re-lock the input to
-                  ${pastureAggregateContractRev}.
-              '' value
-            else
-              nixpkgs.lib.warn ''
-                aura-plugins flake.nix: the pasture flake input has no locked
-                revision (source override), so the aggregate producer's pin
-                ${pastureAggregateContractRev} cannot be checked against it.
-                Do not cut a release from this evaluation.
-              '' value;
+          # Earlier this coupling was a second `fetchzip` pin plus an
+          # eval-time guard asserting the two revisions agreed. That guard
+          # only ever caught a drift that this flake itself created, and it
+          # drifted three times (f5cbf4f / be01293 / e96d0e2) before it was
+          # made to fail closed. Consuming the input outright removes the
+          # class: there is no second revision to disagree with, so
+          # `nix flake update pasture` is the whole procedure for moving it.
+          pastureAggregateContract = pasture;
 
           # Deprecation stub: a package that was removed still resolves as an
           # output, but fails at run time with an actionable pointer to its
@@ -99,7 +72,7 @@
           '';
         in
         {
-          aggregate-release = pastureContractPin (pkgs.buildGoModule {
+          aggregate-release = pkgs.buildGoModule {
             pname = "aura-aggregate-release";
             version = "0.1.0";
             src = ./aggregate-release;
@@ -112,7 +85,7 @@
             postInstall = ''
               mv "$out/bin/aggregate-release" "$out/bin/aura-aggregate-release"
             '';
-          });
+          };
 
           aura-swarm = pkgs.writeShellApplication {
             name = "aura-swarm";
