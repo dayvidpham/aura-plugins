@@ -131,6 +131,8 @@ jobs:
         with:
           app-id: ${{ secrets.RELEASE_APP_ID }}
           private-key: ${{ secrets.RELEASE_APP_PRIVATE_KEY }}
+          # The token exists to push one annotated tag and nothing else.
+          permission-contents: write
 
       - name: Push the immutable annotated tag
         env:
