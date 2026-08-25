@@ -130,11 +130,17 @@ expect_ok "$light" 0.1.0 "$light_head"
 # repository is in until Pasture stamps and publishes its first release.
 expect_reject 'unreleased floor' 'has no tag v0.2.0' "$remote" 0.2.0 "$head"
 
-# A remote holding ONLY v0.1.0-rc1 is not a discriminating check that the
-# lookup for v0.1.0 actually matched something: it must still refuse with the
-# same no-tag diagnosis, not accept the neighbouring rc tag.
-tag_annotated "$remote" v0.1.0-rc1
-expect_reject 'remote holds only a neighbouring rc tag' 'has no tag v9.9.9' "$remote" 9.9.9 "$head"
+# A remote holding ONLY v0.1.0-rc1 — queried for the exact v0.1.0 the rc tag
+# resembles, not an unrelated version. This is the discriminating case: a
+# loosely-anchored `ls-remote` pattern (or parse) would match
+# refs/tags/v0.1.0-rc1 and wrongly report v0.1.0 as existing at the rc commit,
+# which is the exact false positive strict anchoring exists to prevent. A
+# dedicated remote is used so it holds ONLY the rc tag, never the real v0.1.0
+# tag "$remote" itself carries.
+neighbour="$(make_remote neighbour)"
+neighbour_head="$(head_of "$neighbour")"
+tag_annotated "$neighbour" v0.1.0-rc1
+expect_reject 'remote holds only a neighbouring rc tag' 'has no tag v0.1.0' "$neighbour" 0.1.0 "$neighbour_head"
 
 # ── A benign stderr warning must not defeat the empty-refs diagnosis ─────
 # `git ls-remote` can print a warning on stderr while still exiting 0 with no
