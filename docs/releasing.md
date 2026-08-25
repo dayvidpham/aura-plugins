@@ -269,20 +269,18 @@ range can never be corrected in place, only superseded.
 Two things must be settled before a release PR is merged. Both are decisions,
 not code.
 
-1. **The pinned Pasture revision must build under Nix.** The build job runs
-   `nix build github:dayvidpham/pasture/<pinned-revision>#pasture`. Confirm that
-   command succeeds for the currently pinned revision before cutting a release:
-   a Pasture commit whose `go.mod` moved without its `vendorHash` being updated
-   fails there, and the release stops with the tag already permanent.
+1. **Confirm the pinned Pasture revision builds under Nix.** The build job runs
+   `nix build github:dayvidpham/pasture/<pinned-revision>#pasture`, so run the
+   same command yourself first:
 
    ```bash
    nix build "github:dayvidpham/pasture/$(jq -r '.nodes.pasture.locked.rev' flake.lock)#pasture" --no-link
    ```
 
-   As of the revision currently pinned here, that command **fails**: Pasture's
-   `go.mod` moved to a newer `provenance` without `vendorHash` in Pasture's own
-   `flake.nix` being updated to match. It must be fixed in Pasture, and the pin
-   here moved to the fixed commit, before a release can complete.
+   This catches a Pasture commit whose `go.mod` moved without `vendorHash` in
+   Pasture's own `flake.nix` following it. That defect is invisible in Pasture's
+   source and would otherwise fail the release build *after* the tag is already
+   permanent. It has happened once. The currently pinned revision passes.
 
 2. **Confirm the installer compatibility range is what you want published.** By
    default it is exactly the pinned Pasture's own version, on both bounds — see

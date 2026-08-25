@@ -53,11 +53,11 @@
           #   nix flake update pasture
           # then set this url + hash to the same revision (a wrong hash makes
           # the build print the correct one).
-          pastureAggregateContractRev = "e96d0e2ce449d9dfdfa256d38d89a3f1757f36fe";
+          pastureAggregateContractRev = "c68e6ba63450dd52d5eaac8445b2b55c1eb0fdc5";
 
           pastureAggregateContract = pkgs.fetchzip {
             url = "https://github.com/dayvidpham/pasture/archive/${pastureAggregateContractRev}.tar.gz";
-            hash = "sha256-KvWtobneARTbLpjfMBR3/BJDAKMWj5rPqWnflD1I7Kc=";
+            hash = "sha256-zd/lP9seFvwTNLPj3q/VEI5FXDHzzt++MsykzuEYlHA=";
           };
 
           # Static guard: refuse to evaluate a split pin. `pasture.rev` is the
