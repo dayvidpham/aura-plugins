@@ -81,6 +81,13 @@ jobs:
           fetch-depth: 0
           fetch-tags: true
 
+      # actions/checkout rewrites an annotated tag's ref to a lightweight ref
+      # pointing at the peeled commit (actions/checkout#290), so the annotation
+      # assert below would misread the App's annotated tag as lightweight.
+      # Re-fetch the pushed tag object so every later read sees the real tag.
+      - name: Restore the pushed tag object over checkout's rewrite
+        run: git fetch --force origin "refs/tags/${TAG}:refs/tags/${TAG}"
+
       - name: Parse and classify the tag
         id: tag
         run: scripts/release/release-grammar.sh parse-tag "$TAG" >> "$GITHUB_OUTPUT"
