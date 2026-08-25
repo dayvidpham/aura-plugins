@@ -168,12 +168,11 @@ jobs:
       - name: Install Nix
         uses: DeterminateSystems/nix-installer-action@ef8a148080ab6020fd15196c2084a2eea5ff2d25 # v22
 
-      # The Pasture revision is DERIVED from flake.lock, never written here. It
-      # is the same revision the producer itself is compiled against: flake.nix
-      # refuses to evaluate when its `pastureAggregateContract` pin and this
-      # locked input disagree, so `nix build .#aggregate-release` below cannot
-      # succeed against a different Pasture than the one exporting the assets.
-      # One release therefore binds exactly one Pasture revision, by
+      # The Pasture revision is DERIVED from flake.lock, never written here, and
+      # it is the same revision the producer is compiled against: the producer
+      # builds against the `pasture` flake input itself, so the binary that
+      # exports the component assets and the binary that packages them cannot be
+      # different commits. One release binds exactly one Pasture revision by
       # construction rather than by convention.
       - name: Derive the pinned Pasture revision from flake.lock
         id: pin

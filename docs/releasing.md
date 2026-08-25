@@ -25,6 +25,11 @@ Two rules shape everything below:
 > and treat the first release as a supervised operation. This caveat stays here
 > until a release has actually been cut.
 >
+> **Publication is deliberately blocked right now.** The component build job
+> refuses to continue while the installer compatibility range has no agreed
+> source — see [Installer compatibility](#installer-compatibility). Everything
+> before that point runs; nothing after it does.
+>
 > One prerequisite is outside this repository — see
 > [Before the first release](#before-the-first-release).
 
@@ -32,10 +37,10 @@ Two rules shape everything below:
 
 | Workflow | Trigger | What it does |
 | --- | --- | --- |
-| `.github/workflows/gates.yml` | `workflow_call` only | The full quality gate: `nix flake check -L` (which runs `hm-module-test` and `aggregate-release-test`), `nix build .#aggregate-release`, an assertion that the producer still exposes its seven-option contract, `nix build .#aura-swarm`, `nix run .#aura-swarm -- --help`, `shellcheck` + the release-script test suites, and `actionlint`. |
+| `.github/workflows/gates.yml` | `workflow_call` only | The full quality gate: `nix flake check -L` (which runs `hm-module-test`, `aggregate-release-test`, and the release-script suites), `nix build .#aggregate-release`, an assertion that the producer still exposes its seven-option contract, the grammar-versus-producer subset proof, the **cross-repository chain** (build the pinned Pasture, assert its `--version` shape, export the nine components, package them with the real producer, verify the result), `nix build .#aura-swarm`, `nix run .#aura-swarm -- --help`, `shellcheck` + the release-script test suites, and `actionlint`. |
 | `.github/workflows/release-pr.yml` | `pull_request` (opened/edited/synchronize/reopened) into `main` | On a `release(...)`-titled PR: validates the title grammar, asserts the author is a maintainer, refuses a version that is already released, then calls `gates.yml` in full. |
 | `.github/workflows/release-tag.yml` | `pull_request` `closed` into `main` | When a `release(...)` PR **merges**: mints the immutable annotated tag with the release App token, refusing duplicate tags and unreachable commits. |
-| `.github/workflows/release.yml` | `push` of a `v*` tag | Guards the tag (App actor, annotated, reachable from `main`), re-runs `gates.yml` against the tagged commit, builds the nine component assets from the pinned Pasture and packages them with the aggregate producer, publishes the GitHub Release with the App identity, then re-downloads the published assets and verifies them. |
+| `.github/workflows/release.yml` | `push` of a `v*` tag | Guards the tag (App actor, annotated, reachable from `main`) and emits the dereferenced tagged commit that every later job uses, re-runs `gates.yml` against the tagged commit, builds the nine component assets from the pinned Pasture and packages them with the aggregate producer, publishes the GitHub Release **as a draft first** and undrafts it only once its contents are proven, then re-downloads the published assets and verifies them. |
 
 Only `release-tag.yml` ever creates a tag as part of this flow, and
 `release.yml`'s guard refuses any tag that was not pushed by the release App.
@@ -85,7 +90,10 @@ Run the release-script suites locally:
 ```bash
 scripts/release/release-grammar_test.sh
 scripts/release/verify-aggregate-dir_test.sh
+scripts/release/pinned-pasture-revision_test.sh
 ```
+
+All three also run inside `nix flake check`, as the `release-scripts` check.
 
 ## One-time setup
 
@@ -186,19 +194,64 @@ ruleset is ever relaxed.
 4. **`release.yml` runs from the tag** and publishes. In order:
 
    - the **guard** verifies the actor, the annotation, and reachability from
-     `main`;
+     `main`, and emits the *dereferenced* tagged commit — the one value every
+     later job checks out, stamps into the manifest, and compares against;
    - the **gates** re-run against the tagged commit;
    - **build-components** reads the pinned Pasture revision out of `flake.lock`,
      builds that exact Pasture, runs `pasture bundle export` for the release
      version, and packages the result with `aura-aggregate-release`;
-   - **publish** re-verifies the aggregate after the artifact round-trip,
-     refuses to touch an existing release, and creates the GitHub Release with
-     the App identity, marking a `-rcN` version as a prerelease;
-   - **smoke** downloads the published assets fresh and verifies them again.
+   - **publish** re-verifies the aggregate after the artifact round-trip, then
+     performs the two-phase publication described below;
+   - **smoke** downloads the published assets fresh, after undrafting, and
+     verifies them again.
 
-   If any stage fails, nothing partial is published. The tag remains valid,
-   annotated, and permanent, and it stays publishable: fix the cause and re-run
-   the workflow from the Actions tab. The tag is never recreated.
+### Publication is draft-first
+
+A GitHub Release is visible the moment it is created, and its eleven assets
+upload one at a time. Creating it published would mean a consumer could fetch a
+release holding three of them. So `publish` works in two phases:
+
+1. create the release as a **draft** (invisible to consumers, and never marked
+   "latest" — there is no moving alias here);
+2. upload every asset; ask the API what the release holds and compare that
+   against the manifest's own inventory, including that GitHub finished storing
+   each one; download the draft fresh over the network and run
+   `verify-aggregate-dir.sh` over it; assert the prerelease flag matches the
+   manifest's channel;
+3. only then `--draft=false`.
+
+Undrafting is a single API call over content that has already been proven, which
+is the smallest irreversible step available. What this buys, precisely:
+
+- **before** the undraft, a failure leaves at most a draft release. Nothing is
+  visible, nothing is installable, and the tag is unharmed. Delete the draft
+  from the Releases page if you want a clean slate; re-running works either way.
+- **after** the undraft, the release is public. The `smoke` job re-downloads and
+  re-verifies it, and if that fails it says so plainly: a published version is
+  permanent and must be superseded, never edited or replaced.
+
+### Re-running a release
+
+Re-running is normal — an expired token, a runner failure, a network fault
+mid-upload. `publish` classifies whatever already exists for the tag:
+
+| Existing state | What happens |
+| --- | --- |
+| No release | The draft is created and the assets uploaded. |
+| A **draft** | A previous attempt stopped before publication. The draft is resumed: assets are re-uploaded over it, since draft bytes are not yet a promise. |
+| A **published** release | Its assets are downloaded and compared with what this run built, name for name and digest for digest. **Identical** — the work is already done, and the run converges without touching anything. **Different** — refused, with the diff, because two different aggregates claiming one permanent version is exactly what immutability exists to prevent. |
+
+Re-run **all** jobs, not only the failed ones. The component build uploads its
+aggregate as a workflow artifact with a 7-day retention, so a "re-run failed
+jobs" attempt after that window has nothing to download; re-running all jobs
+rebuilds the aggregate from the tagged commit and the pinned Pasture, which is
+reproducible for as long as both exist. If the run itself has aged out of the
+Actions retention window entirely, there is no re-run to perform: the tag still
+stands, and the release can be published by any mechanism that produces the same
+bytes — build them and attach them with the same verification, or supersede the
+version.
+
+The tag is never recreated by any of this.
 
 5. **Afterwards**, bump the aura-plugins entry in
    `.claude-plugin/marketplace.json` if the release should be offered through
@@ -206,7 +259,8 @@ ruleset is ever relaxed.
 
 Nothing in this flow requires a local tag, and no step should ever be performed
 by hand. If a release must be re-attempted after a fixed infrastructure problem,
-re-run the failed workflow from the Actions tab — the tag already exists and is
+re-run all jobs of the workflow from the Actions tab — see
+[Re-running a release](#re-running-a-release). The tag already exists and is
 reused, never recreated.
 
 ## What a published release contains
@@ -229,67 +283,124 @@ activates.
 
 ### One release binds one Pasture revision
 
-The revision is read from `flake.lock`, never written into the workflow, and
-`flake.nix` refuses to evaluate when its `pastureAggregateContract` pin and that
-locked input disagree. Since publication needs `nix build .#aggregate-release`
-to succeed, the producer cannot be built against a different Pasture than the
-one that exported the assets. Moving the pin means moving both together:
+There is exactly one pin: the `pasture` flake input. The producer compiles
+against that input's source, and the workflow reads the same input's locked
+revision out of `flake.lock` (through
+`scripts/release/pinned-pasture-revision.sh`, which also asserts the locked node
+really is `github:dayvidpham/pasture` before returning a revision). The producer
+and the exporting binary therefore cannot be different commits, because there is
+only one commit to be.
+
+Moving it is one command:
 
 ```bash
 nix flake update pasture
-# then set pastureAggregateContractRev + its fetchzip hash in flake.nix to match
 ```
+
+Earlier this was two pins — the input plus a separately hashed `fetchzip` of the
+same commit — kept in agreement by an eval-time guard. They drifted three times.
+The second pin is gone.
+
+One divergence remains and is deliberate: the `pasture` **git submodule**
+gitlink in this repository does not track the flake input. Nothing in the
+release pipeline reads the submodule — the producer, the export binary, and the
+manifest's `revisions.pasture` all come from the flake input — so the gitlink is
+a convenience checkout for local reading, not a release input. Do not treat it
+as evidence of what a release was built from; `flake.lock` is that evidence.
 
 ### How the published bytes are checked
 
-`scripts/release/verify-aggregate-dir.sh` runs twice: over the produced
-directory before anything is uploaded, and over a fresh download of the
-published assets afterwards. Both runs use the same script, because a
-pre-publish check and a post-publish check that can disagree are worse than
-either alone. It re-derives, with independent tools, what the producer cannot
-know — that the manifest matches its sidecar, that its version is the tag
-without the leading `v`, that its revisions are the commits this run actually
-built from, and that every named component is present, exclusive, and hashes to
-its recorded digest.
+`scripts/release/verify-aggregate-dir.sh` runs four times over the course of a
+release: on the producer's output in the build job, on the artifact after its
+round-trip, on a fresh download of the **draft**, and on a fresh download of the
+**published** release. Every run is the same script, because a pre-publish check
+and a post-publish check that can disagree are worse than either alone.
+
+It re-derives, with independent tools, what only the workflow knows:
+
+- the checksum sidecar is a single line naming the manifest, and the manifest's
+  bytes match it (an empty sidecar makes `sha256sum --check` succeed vacuously,
+  and a sidecar listing some other file proves nothing);
+- the manifest's schema is the one this pipeline knows how to publish;
+- its version is the tag without the leading `v`, and its channel matches;
+- its revisions are the commits this run actually built from — the Pasture
+  revision from `flake.lock`, and the *dereferenced* tagged commit from the
+  guard;
+- its declared installer compatibility range is the range this run passed to the
+  producer;
+- its components are exactly the nine canonical basenames for this version,
+  derived from the harness × extension matrix rather than counted, each present,
+  exclusive, and hashing to its recorded digest.
+
+Its own suite (`verify-aggregate-dir_test.sh`) is hermetic and synthetic, and is
+mutation-checked: deleting either the sidecar comparison or the per-asset
+presence check makes the suite fail. Real producer output is covered where it
+can be — `gates.yml` runs the export → produce → verify chain against the pinned
+Pasture on every release PR.
 
 ### Installer compatibility
 
-The manifest's compatibility range is **derived, not chosen**: both bounds are
-the version reported by the pinned Pasture binary itself. That is the narrowest
-claim that is provably true, and narrow is the safe direction — a too-wide range
-would let a future, incompatible installer accept an aggregate it cannot
-correctly activate, whereas a too-narrow one only makes that installer decline
-to offer this version.
+> **This is what blocks publication today.** `build-components` refuses to
+> continue at the compatibility step, on purpose, and no release can be cut
+> until the refusal is removed.
 
-Widening the range is a deliberate decision for a *later* release. A published
-range can never be corrected in place, only superseded.
+An installer reads the manifest's compatibility range to decide whether it may
+activate this aggregate at all, and the range is frozen into an immutable
+manifest: it can never be corrected in place, only superseded.
+
+The workflow currently derives both bounds from the version the pinned Pasture
+binary reports about itself. That derivation is the right *shape* — the exported
+assets were composed by that installer, so its version is the natural bound —
+but it is not yet a claim this pipeline can prove: `pasture --version` reports a
+build-time constant that does not track the revision it was built from
+(https://github.com/dayvidpham/pasture/issues/39). Two different pinned Pasture
+revisions report the same version today, so the derived range says nothing about
+either.
+
+Guessing a range instead would be worse, so the workflow stops and says so. A
+too-wide range lets a future, incompatible installer accept an aggregate it
+cannot correctly activate; a too-narrow one only makes that installer decline to
+offer the version — but neither is a reason to invent one.
+
+Everything downstream of the decision is already built and needs no further
+work: the producer takes `--installer-min` / `--installer-max`, and the verifier
+re-derives both from the published manifest against what the workflow passed.
+What is missing is only the *source* of the two bounds. Once that is settled,
+implement it in the "Derive the installer compatibility range" step of
+`.github/workflows/release.yml` and delete the refusal that follows it.
 
 ## Before the first release
 
-Two things must be settled before a release PR is merged. Both are decisions,
-not code.
+One decision is outstanding, and one thing that used to be a manual check is now
+enforced.
 
-1. **Confirm the pinned Pasture revision builds under Nix.** The build job runs
-   `nix build github:dayvidpham/pasture/<pinned-revision>#pasture`, so run the
-   same command yourself first:
+1. **Decide where the installer compatibility range comes from** — see
+   [Installer compatibility](#installer-compatibility). This is a judgement
+   about what the release promises to installers, not a coding task, and it is
+   the only thing standing between this pipeline and a first release. Until it
+   is settled and the refusal in `build-components` is removed, a release PR can
+   merge and mint a tag, but the tag will not publish.
+
+2. **The pinned Pasture revision is checked for you, before the tag exists.**
+   `gates.yml` builds `github:dayvidpham/pasture/<pinned-revision>#pasture`,
+   asserts its `--version` shape, and runs the whole export → produce → verify
+   chain, so a Pasture commit whose `go.mod` moved without `vendorHash` in
+   Pasture's own `flake.nix` following it fails the release *PR*. That defect is
+   invisible in Pasture's source and used to surface only after the tag was
+   permanent; it has happened once. To reproduce the check by hand:
 
    ```bash
-   nix build "github:dayvidpham/pasture/$(jq -r '.nodes.pasture.locked.rev' flake.lock)#pasture" --no-link
+   nix build "github:dayvidpham/pasture/$(scripts/release/pinned-pasture-revision.sh)#pasture" --no-link
    ```
-
-   This catches a Pasture commit whose `go.mod` moved without `vendorHash` in
-   Pasture's own `flake.nix` following it. That defect is invisible in Pasture's
-   source and would otherwise fail the release build *after* the tag is already
-   permanent. It has happened once. The currently pinned revision passes.
-
-2. **Confirm the installer compatibility range is what you want published.** By
-   default it is exactly the pinned Pasture's own version, on both bounds — see
-   [Installer compatibility](#installer-compatibility). If this release should
-   be usable by a wider band of installers, that has to be decided and
-   implemented before publication, not after.
 
 ## Open items
 
 - No release has been cut, so nothing in this pipeline has runtime evidence yet.
   The first run should be watched stage by stage, and this document's status
   banner updated once it has succeeded.
+- The installer compatibility range has no agreed source, and `build-components`
+  refuses to publish until it does — see
+  [Installer compatibility](#installer-compatibility).
+- The `pasture` git submodule gitlink and the `pasture` flake input point at
+  different commits. Only the flake input is a release input; see
+  [One release binds one Pasture revision](#one-release-binds-one-pasture-revision).
