@@ -12,27 +12,30 @@ Two rules shape everything below:
 - **There is no moving alias.** No `pasture-stable` branch, tag, or "latest"
   pointer exists. Consumers select one exact version.
 
-> **Status: the pipeline cannot publish yet, and has never run.**
+> **Status: wired end to end, but it has never run on GitHub.**
 >
-> Tag creation and every gate are wired; asset publication is blocked on a
-> Pasture-side component export verb — see
-> [Pending: component export](#pending-component-export).
+> Every stage — release PR, tag, guard, gates, component build, publication,
+> post-publish smoke — is implemented and locally validated: `actionlint`,
+> `shellcheck`, the release-script suites, `nix flake check`, and a full local
+> dry-run of build → export → produce → verify against a real
+> `pasture bundle export`.
 >
-> Separately, and independently of that gap: **none of these workflows has ever
-> executed on GitHub.** They are validated locally (actionlint, shellcheck, the
-> grammar suite, `nix flake check`, and a real invocation of the aggregate
-> producer), but local validation proves syntax and logic, not runtime
-> behaviour. Expect first-run breakage and treat the first release as a
-> supervised operation.
+> Local validation proves syntax and logic, not runtime behaviour. **None of
+> these workflows has ever executed on GitHub**, so expect first-run breakage
+> and treat the first release as a supervised operation. This caveat stays here
+> until a release has actually been cut.
+>
+> One prerequisite is outside this repository — see
+> [Before the first release](#before-the-first-release).
 
 ## The pipeline at a glance
 
 | Workflow | Trigger | What it does |
 | --- | --- | --- |
-| `.github/workflows/gates.yml` | `workflow_call` only | The full quality gate: `nix flake check -L` (which runs `hm-module-test` and `aggregate-release-test`), `nix build .#aggregate-release`, an assertion that the producer still exposes its seven-option contract, `nix build .#aura-swarm`, `nix run .#aura-swarm -- --help`, `shellcheck` + the release-grammar test suite, and `actionlint`. |
+| `.github/workflows/gates.yml` | `workflow_call` only | The full quality gate: `nix flake check -L` (which runs `hm-module-test` and `aggregate-release-test`), `nix build .#aggregate-release`, an assertion that the producer still exposes its seven-option contract, `nix build .#aura-swarm`, `nix run .#aura-swarm -- --help`, `shellcheck` + the release-script test suites, and `actionlint`. |
 | `.github/workflows/release-pr.yml` | `pull_request` (opened/edited/synchronize/reopened) into `main` | On a `release(...)`-titled PR: validates the title grammar, asserts the author is a maintainer, refuses a version that is already released, then calls `gates.yml` in full. |
 | `.github/workflows/release-tag.yml` | `pull_request` `closed` into `main` | When a `release(...)` PR **merges**: mints the immutable annotated tag with the release App token, refusing duplicate tags and unreachable commits. |
-| `.github/workflows/release.yml` | `push` of a `v*` tag | Guards the tag (App actor, annotated, reachable from `main`) and re-runs `gates.yml` against the tagged commit. It then **stops**: the component build hard-fails, so no GitHub Release is created and no assets are attached. Publication lands with the export verb. |
+| `.github/workflows/release.yml` | `push` of a `v*` tag | Guards the tag (App actor, annotated, reachable from `main`), re-runs `gates.yml` against the tagged commit, builds the nine component assets from the pinned Pasture and packages them with the aggregate producer, publishes the GitHub Release with the App identity, then re-downloads the published assets and verifies them. |
 
 Only `release-tag.yml` ever creates a tag as part of this flow, and
 `release.yml`'s guard refuses any tag that was not pushed by the release App.
@@ -77,10 +80,11 @@ Final releases are listed by default by the installer; release candidates are
 visible only through explicit opt-in. The classification is derived from the
 version itself, never configured separately.
 
-Run the grammar suite locally:
+Run the release-script suites locally:
 
 ```bash
 scripts/release/release-grammar_test.sh
+scripts/release/verify-aggregate-dir_test.sh
 ```
 
 ## One-time setup
@@ -179,21 +183,22 @@ ruleset is ever relaxed.
    merge commit, after re-confirming the tag does not already exist locally or
    on the remote and that the merge commit is reachable from `main`.
 
-4. **`release.yml` runs from the tag.** The guard verifies the actor,
-   annotation, and reachability, and the gates re-run against the tagged
-   commit.
+4. **`release.yml` runs from the tag** and publishes. In order:
 
-   **Today this run then fails, by design.** The component build stops with an
-   actionable error because the Pasture export verb does not exist yet, so no
-   GitHub Release is created and no assets are attached. That failure does not
-   damage anything: the tag is valid, annotated, and permanent, and it stays
-   publishable. Once the export verb lands and this workflow is completed,
-   re-run it from the Actions tab and the existing tag publishes — the tag is
-   never recreated.
+   - the **guard** verifies the actor, the annotation, and reachability from
+     `main`;
+   - the **gates** re-run against the tagged commit;
+   - **build-components** reads the pinned Pasture revision out of `flake.lock`,
+     builds that exact Pasture, runs `pasture bundle export` for the release
+     version, and packages the result with `aura-aggregate-release`;
+   - **publish** re-verifies the aggregate after the artifact round-trip,
+     refuses to touch an existing release, and creates the GitHub Release with
+     the App identity, marking a `-rcN` version as a prerelease;
+   - **smoke** downloads the published assets fresh and verifies them again.
 
-   Once publication is wired, this step completes on its own and produces the
-   GitHub Release with the aggregate manifest, checksum sidecar, and the nine
-   component assets.
+   If any stage fails, nothing partial is published. The tag remains valid,
+   annotated, and permanent, and it stays publishable: fix the cause and re-run
+   the workflow from the Actions tab. The tag is never recreated.
 
 5. **Afterwards**, bump the aura-plugins entry in
    `.claude-plugin/marketplace.json` if the release should be offered through
@@ -204,64 +209,89 @@ by hand. If a release must be re-attempted after a fixed infrastructure problem,
 re-run the failed workflow from the Actions tab — the tag already exists and is
 reused, never recreated.
 
-## Pending: component export
+## What a published release contains
 
-`aggregate-release/` is a **packager, not a builder**. It takes nine
-already-built component archives plus their identities and produces the
-immutable, verified release directory: `pasture-aggregate-manifest.json`, its
-`.sha256` sidecar, and the nine component assets, all frozen read-only.
+`aggregate-release/` is a **packager, not a builder**. The build job supplies
+the nine already-built component archives and their identities; the producer
+turns them into the immutable, verified release directory that is published
+verbatim:
 
-What does not exist yet is the step that *builds* those nine archives. Each cell
-must arrive with:
+| Asset | What it is |
+| --- | --- |
+| `pasture-aggregate-manifest.json` | The release identity: version, channel, installer compatibility range, the exact Aura and Pasture commits, and one record per cell with its digest, its Pasture bundle ID, and its runtime contract. |
+| `pasture-aggregate-manifest.json.sha256` | The manifest's checksum sidecar. |
+| `pasture-<version>-<claude\|opencode\|codex>-<skills\|agents\|hooks>.tgz` | The nine component archives, one per harness/extension cell. |
 
-- an archive named exactly
-  `pasture-<version>-<claude|opencode|codex>-<skills|agents|hooks>.tgz`, a name
-  enforced by `artifact.ParseAggregateManifest`; and
-- a `bundle_id` — "the exact BundleID emitted by the Pasture target bundle".
+Nothing in Aura derives a component identity. The archives, their digests, and
+their bundle IDs all come from `pasture bundle export` at the pinned revision,
+which composes each cell from the same target descriptors the installer
+activates.
 
-Aura cannot produce either correctly:
+### One release binds one Pasture revision
 
-1. **Bundle ID derivation is Pasture-internal and harness-specific.** Canonical
-   bundles are built by Pasture's `internal/target/{claudecode,opencode,codex}`
-   packages, and the composition rules differ per harness — Claude Code assigns
-   mode `0755` to `*.sh` and `0644` otherwise (because `embed.FS` discards the
-   executable bit), while OpenCode assigns a flat `0644`. Mode is a manifest
-   field, so it changes the derived bundle ID. Pasture exports only `artifact/`
-   and `pkg/protocol`; `internal/target` cannot be imported, and no Pasture CLI
-   verb emits component bundles.
-2. **The component archive format is undefined.** Nothing in Pasture writes or
-   reads such an archive; the aggregate verifier only checks the SHA-256 of the
-   opaque asset bytes. Tar member paths, modes, ordering, and gzip determinism
-   are unspecified.
-
-Choosing either unilaterally in Aura would make Aura the derivation authority
-for provenance that belongs to Pasture's target descriptors — and would freeze
-that guess into a release that can never be overwritten.
-
-The resolution is a Pasture-side verb, tracked at
-<https://github.com/dayvidpham/pasture/issues/39>:
+The revision is read from `flake.lock`, never written into the workflow, and
+`flake.nix` refuses to evaluate when its `pastureAggregateContract` pin and that
+locked input disagree. Since publication needs `nix build .#aggregate-release`
+to succeed, the producer cannot be built against a different Pasture than the
+one that exported the assets. Moving the pin means moving both together:
 
 ```bash
-pasture bundle export --version X.Y.Z --out DIR
+nix flake update pasture
+# then set pastureAggregateContractRev + its fetchzip hash in flake.nix to match
 ```
 
-emitting the nine canonical archives plus a ready `aura.aggregate-components/v1`
-component-set JSON with digests and bundle IDs. `release.yml` then pins the
-Pasture revision containing that verb, runs it, and pipes the result straight
-into `aura-aggregate-release` with its existing seven options — no re-derivation
-anywhere in Aura.
+### How the published bytes are checked
 
-Until then `release.yml`'s `build-components` job stops with an actionable error.
-A tag cut today is valid and keeps its provenance; publication can be completed
-later by re-running the workflow, because the tag is never recreated.
+`scripts/release/verify-aggregate-dir.sh` runs twice: over the produced
+directory before anything is uploaded, and over a fresh download of the
+published assets afterwards. Both runs use the same script, because a
+pre-publish check and a post-publish check that can disagree are worse than
+either alone. It re-derives, with independent tools, what the producer cannot
+know — that the manifest matches its sidecar, that its version is the tag
+without the leading `v`, that its revisions are the commits this run actually
+built from, and that every named component is present, exclusive, and hashes to
+its recorded digest.
+
+### Installer compatibility
+
+The manifest's compatibility range is **derived, not chosen**: both bounds are
+the version reported by the pinned Pasture binary itself. That is the narrowest
+claim that is provably true, and narrow is the safe direction — a too-wide range
+would let a future, incompatible installer accept an aggregate it cannot
+correctly activate, whereas a too-narrow one only makes that installer decline
+to offer this version.
+
+Widening the range is a deliberate decision for a *later* release. A published
+range can never be corrected in place, only superseded.
+
+## Before the first release
+
+Two things must be settled before a release PR is merged. Both are decisions,
+not code.
+
+1. **The pinned Pasture revision must build under Nix.** The build job runs
+   `nix build github:dayvidpham/pasture/<pinned-revision>#pasture`. Confirm that
+   command succeeds for the currently pinned revision before cutting a release:
+   a Pasture commit whose `go.mod` moved without its `vendorHash` being updated
+   fails there, and the release stops with the tag already permanent.
+
+   ```bash
+   nix build "github:dayvidpham/pasture/$(jq -r '.nodes.pasture.locked.rev' flake.lock)#pasture" --no-link
+   ```
+
+   As of the revision currently pinned here, that command **fails**: Pasture's
+   `go.mod` moved to a newer `provenance` without `vendorHash` in Pasture's own
+   `flake.nix` being updated to match. It must be fixed in Pasture, and the pin
+   here moved to the fixed commit, before a release can complete.
+
+2. **Confirm the installer compatibility range is what you want published.** By
+   default it is exactly the pinned Pasture's own version, on both bounds — see
+   [Installer compatibility](#installer-compatibility). If this release should
+   be usable by a wider band of installers, that has to be decided and
+   implemented before publication, not after.
 
 ## Open items
 
-- **Pasture revision pinning is currently split.** `flake.nix` pins
-  `pastureAggregateContract` to `f5cbf4f92bb458eb0baff64f6adec603bcf0d74f` via
-  `fetchzip`, while the `pasture` flake input and the `pasture` submodule were
-  moved to `be01293`. A release binds one exact Pasture revision, so these must
-  be reconciled — and the reconciled value is what `--pasture-revision` will
-  carry — before the first release is published.
-- The `publish` and `smoke` jobs land together with `build-components`, once the
-  whole path can be exercised for real rather than written blind.
+- No release has been cut, so nothing in this pipeline has runtime evidence yet.
+  The first run should be watched stage by stage, and this document's status
+  banner updated once it has succeeded.
