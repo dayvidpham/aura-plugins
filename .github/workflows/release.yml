@@ -228,15 +228,19 @@ jobs:
       # development build, and the step after it proves the version names a
       # published Pasture release built from exactly the revision pinned here.
       #
-      # installer_max is an open ceiling. The real upper guard is the manifest
-      # SCHEMA: an installer that cannot activate pasture.aggregate-release/v1
-      # refuses the aggregate by schema, which is a check it can actually make
-      # about itself. A numeric ceiling pinned to today's version would instead
-      # lock every future installer out of an aggregate it can activate
-      # perfectly well — permanently, because the range is frozen into an
-      # immutable manifest. Making the bound formally optional, and giving
-      # development builds an explicit escape hatch, is tracked in the Pasture
-      # contract: https://github.com/dayvidpham/pasture/issues/39
+      # installer_max is a DEFERRED ceiling (0.99.99), not an absent one: it
+      # covers the 0.x Pasture installer line and expires the day Pasture ships
+      # 1.0.0, at which point every aggregate published before then formally
+      # excludes the 1.x line by that frozen numeric bound. Underneath it the
+      # manifest SCHEMA remains the format guard: an installer that cannot
+      # activate pasture.aggregate-release/v1 refuses the aggregate by schema,
+      # which is a check it can actually make about itself. release-grammar.sh
+      # also refuses to derive a floor that is not strictly below the ceiling,
+      # so a pinned Pasture at or beyond 0.99.99 fails here rather than
+      # publishing an inverted or collapsed range. Raising or replacing the
+      # ceiling policy for 1.0.0 and beyond, and giving development builds an
+      # explicit escape hatch, is tracked in the Pasture contract:
+      # https://github.com/dayvidpham/pasture/issues/39
       #
       # Both bounds come out of scripts/release/release-grammar.sh, which owns
       # the released-version grammar and the ceiling constant, and whose suite

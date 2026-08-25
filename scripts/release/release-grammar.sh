@@ -86,10 +86,14 @@ readonly PASTURE_VERSION_PATTERN="^pasture version v(${NUMBER}\.${NUMBER}\.${NUM
 # installer, permanently, because the range is frozen into an immutable
 # manifest.
 #
-# 0.99.99 is therefore an unreachable-in-practice sentinel rather than a claim
-# about a specific installer: it says "no upper bound is asserted here". Making
-# the bound formally optional, plus an explicit escape hatch for development
-# builds, is tracked in the Pasture contract:
+# 0.99.99 is a DEFERRED decision, not an absent one: it covers the 0.x Pasture
+# installer line only, and it expires the day Pasture ships 1.0.0. Every
+# aggregate published before that day freezes 0.99.99 into its immutable
+# manifest, so from 1.0.0 onward those already-published aggregates formally
+# exclude the 1.x line by the numeric bound alone (the manifest schema remains
+# the format guard underneath that, independent of where the numeric ceiling
+# sits). Raising or replacing the ceiling policy for 1.0.0 and beyond is
+# tracked in the Pasture contract:
 #   https://github.com/dayvidpham/pasture/issues/39
 readonly INSTALLER_CEILING='0.99.99'
 
@@ -188,6 +192,48 @@ parse_tag() {
   emit_version "$tag"
 }
 
+# compare_numeric <a> <b>
+#
+# Prints -1, 0, or 1 for whether base-10 integer <a> is less than, equal to, or
+# greater than <b>. Each numeric component is bounded to 17 digits by NUMBER
+# above, so the comparison stays well inside bash's 64-bit signed arithmetic —
+# it must never fall back to a lexicographic string compare, which would rank
+# "9" above "10".
+compare_numeric() {
+  local a="$1" b="$2"
+  if ((10#${a} < 10#${b})); then
+    printf -- '-1\n'
+  elif ((10#${a} > 10#${b})); then
+    printf '1\n'
+  else
+    printf '0\n'
+  fi
+}
+
+# floor_is_below_ceiling <major> <minor> <patch>
+#
+# True only when MAJOR.MINOR.PATCH is STRICTLY below INSTALLER_CEILING,
+# compared component-by-component, most significant first, numerically (never
+# lexicographically — see compare_numeric).
+floor_is_below_ceiling() {
+  local f_major="$1" f_minor="$2" f_patch="$3"
+  local c_major c_minor c_patch
+  IFS='.' read -r c_major c_minor c_patch <<<"$INSTALLER_CEILING"
+  local cmp
+  cmp="$(compare_numeric "$f_major" "$c_major")"
+  if [ "$cmp" != 0 ]; then
+    [ "$cmp" = -1 ]
+    return
+  fi
+  cmp="$(compare_numeric "$f_minor" "$c_minor")"
+  if [ "$cmp" != 0 ]; then
+    [ "$cmp" = -1 ]
+    return
+  fi
+  cmp="$(compare_numeric "$f_patch" "$c_patch")"
+  [ "$cmp" = -1 ]
+}
+
 # installer_compatibility <pasture --version output>
 #
 # Derives the published aggregate's installer compatibility range from the
@@ -211,7 +257,15 @@ installer_compatibility() {
       "the aggregate's installer_min would claim a compatibility floor that names no published Pasture release, and that claim is frozen into an immutable manifest that can never be corrected — only superseded — so nothing was produced or published" \
       "an aggregate cannot be cut against an untagged Pasture. Pin a RELEASED Pasture revision: cut the Pasture release first, then re-lock this repository's input with 'nix flake update pasture' on the release PR so the pinned build reports its tag instead of a development version. Release candidates are refused too: installer_min is the floor every installer must meet, so it must be a final release"
   fi
-  printf 'installer_min=%s\n' "${BASH_REMATCH[1]}"
+  local version="${BASH_REMATCH[1]}"
+  local major="${BASH_REMATCH[2]}" minor="${BASH_REMATCH[3]}" patch="${BASH_REMATCH[4]}"
+  if ! floor_is_below_ceiling "$major" "$minor" "$patch"; then
+    fail "deriving the installer compatibility range" \
+      "the derived installer_min ${version} is not strictly below INSTALLER_CEILING (${INSTALLER_CEILING}); the pinned Pasture binary reports a version at or beyond that sentinel" \
+      "the aggregate would publish a compatibility range whose floor meets or exceeds its ceiling, frozen into an immutable manifest that can never be corrected — only superseded — so nothing was produced or published" \
+      "raise or replace the ceiling policy for a Pasture at or beyond ${INSTALLER_CEILING} per https://github.com/dayvidpham/pasture/issues/39 (the contract-evolution follow-up) before publishing an aggregate for this installer line"
+  fi
+  printf 'installer_min=%s\n' "$version"
   printf 'installer_max=%s\n' "$INSTALLER_CEILING"
 }
 

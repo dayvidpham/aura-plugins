@@ -382,10 +382,17 @@ numeric ceiling pinned to whatever version happened to be current would lock
 every later installer out of an aggregate it can activate perfectly well, and
 that lock-out would be permanent.
 
-`0.99.99` is a sentinel meaning "no upper bound is asserted here", not a claim
-about a specific installer. Making the bound formally optional, and giving
-development builds an explicit opt-in escape hatch so they can install an
-aggregate whose floor they do not formally meet, is Pasture-side contract work:
+`0.99.99` is a DEFERRED decision, not an absent one: it covers the 0.x Pasture
+installer line only, and it expires the day Pasture ships `1.0.0`. Every
+aggregate published before that day freezes `0.99.99` into its immutable
+manifest, so once `1.0.0` ships those already-published aggregates formally
+exclude the 1.x line by the numeric bound alone — the manifest schema remains
+the underlying format guard regardless of where the numeric ceiling sits.
+`scripts/release/release-grammar.sh installer-compatibility` also refuses to
+derive a floor that is not strictly below the ceiling, so a pinned Pasture at
+or beyond `0.99.99` fails the release PR rather than publishing an inverted or
+collapsed range. Raising or replacing the ceiling policy for `1.0.0` and beyond
+is Pasture-side contract work:
 <https://github.com/dayvidpham/pasture/issues/39>.
 
 Where each piece lives:
@@ -412,8 +419,8 @@ Where each piece lives:
 
 ## Before the first release
 
-One sequencing dependency remains, and two things that used to be manual checks
-are now enforced.
+One sequencing dependency remains, and one thing that used to be a manual check
+is now enforced.
 
 1. **Pasture must be released first.** The aggregate's `installer_min` is the
    pinned Pasture's own version, and it is only accepted if that version names a
@@ -456,9 +463,12 @@ are now enforced.
   untagged Pasture, on the release PR rather than after the tag. The
   compatibility policy itself is settled — see
   [Installer compatibility](#installer-compatibility).
-- The open ceiling is a sentinel because the manifest schema requires both
-  bounds. Making the upper bound formally optional, and adding an explicit
-  escape hatch for development-build installers, is tracked in Pasture:
+- The open ceiling (`0.99.99`) is a DEFERRED decision, not an absent one: it
+  covers the 0.x Pasture installer line and expires the day Pasture ships
+  `1.0.0`, at which point every aggregate published before then formally
+  excludes the 1.x line by that frozen numeric bound. Raising or replacing the
+  ceiling policy for `1.0.0` and beyond, and adding an explicit escape hatch
+  for development-build installers, is tracked in Pasture:
   <https://github.com/dayvidpham/pasture/issues/39>.
 - The `pasture` git submodule gitlink and the `pasture` flake input point at
   different commits. Only the flake input is a release input; see

@@ -90,16 +90,28 @@ main() {
       "pass the revision emitted by 'scripts/release/pinned-pasture-revision.sh flake.lock'"
   fi
 
-  local refs
+  local refs stderr_output stderr_file
+  # stdout and stderr are captured SEPARATELY. A remote can print a benign
+  # warning on stderr (for example a redirect notice) while still exiting 0
+  # with no matching ref on stdout; folding both streams together (as a bare
+  # `2>&1` would) makes that warning text land in $refs, so the empty-refs
+  # check below never fires and the script misdiagnoses "no tag" as something
+  # else entirely. stderr is therefore folded into the failure message ONLY,
+  # never into $refs.
+  #
   # Both the tag object and its peeled target are requested: an annotated tag
   # answers with two lines and only the peeled one names the commit, while a
   # lightweight tag answers with one line that already is the commit.
-  if ! refs="$(git ls-remote --tags "$remote" "refs/tags/${tag}" "refs/tags/${tag}^{}" 2>&1)"; then
+  stderr_file="$(mktemp)"
+  if ! refs="$(git ls-remote --tags "$remote" "refs/tags/${tag}" "refs/tags/${tag}^{}" 2>"$stderr_file")"; then
+    stderr_output="$(cat "$stderr_file")"
+    rm -f "$stderr_file"
     fail "listing the Pasture release tags" \
-      "'git ls-remote' against ${remote} failed: ${refs}" \
+      "'git ls-remote' against ${remote} failed: ${stderr_output}" \
       "whether ${tag} is a published Pasture release could not be determined, so nothing was produced or published; the release tag for this repository is unharmed and stays publishable" \
       "this is an infrastructure failure, not a release defect: confirm the runner has network access to ${remote} and re-run all jobs of this workflow"
   fi
+  rm -f "$stderr_file"
 
   if [ -z "$refs" ]; then
     fail "resolving the Pasture release tag" \

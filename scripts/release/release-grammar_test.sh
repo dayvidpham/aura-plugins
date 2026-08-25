@@ -227,9 +227,12 @@ expect_compat_ok() {
   fi
 }
 
+# Every accepted floor here must stay strictly below INSTALLER_CEILING
+# (0.99.99) — see the dedicated ceiling-guard section below for the boundary
+# and above-ceiling cases.
 expect_compat_ok 'pasture version v0.1.0' '0.1.0'
-expect_compat_ok 'pasture version v1.2.3' '1.2.3'
-expect_compat_ok 'pasture version v10.0.99' '10.0.99'
+expect_compat_ok 'pasture version v0.2.3' '0.2.3'
+expect_compat_ok 'pasture version v0.50.7' '0.50.7'
 
 # A development build must never become a published compatibility floor: it
 # names no Pasture release, so the claim could never be checked by a consumer.
@@ -250,6 +253,21 @@ expect_reject_fix installer-compatibility 'pasture version unknown' \
 # satisfy, so it is refused with the same remedy.
 expect_reject_fix installer-compatibility 'pasture version v0.1.0-rc1' \
   'it must be a final release'
+
+# ── The floor must be STRICTLY below INSTALLER_CEILING (0.99.99) ─────────
+# The ceiling is a deferred sentinel, not an unreachable one: a Pasture that
+# actually reports a version at or beyond it must be refused rather than
+# silently published with an inverted or collapsed range.
+expect_reject_fix installer-compatibility 'pasture version v0.99.99' \
+  'https://github.com/dayvidpham/pasture/issues/39'
+expect_reject_fix installer-compatibility 'pasture version v1.0.0' \
+  'not strictly below INSTALLER_CEILING'
+expect_compat_ok 'pasture version v0.99.98' '0.99.98'
+# The widest 17-digit component the grammar's shape check accepts is still a
+# real Pasture version far past the ceiling, so the numeric guard — not the
+# shape check — must be what refuses it.
+expect_reject_fix installer-compatibility 'pasture version v99999999999999999.0.0' \
+  'not strictly below INSTALLER_CEILING'
 
 # Shapes that are not a released version for other reasons.
 expect_reject installer-compatibility ''

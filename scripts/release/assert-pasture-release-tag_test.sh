@@ -130,10 +130,42 @@ expect_ok "$light" 0.1.0 "$light_head"
 # repository is in until Pasture stamps and publishes its first release.
 expect_reject 'unreleased floor' 'has no tag v0.2.0' "$remote" 0.2.0 "$head"
 
-# A tag with a similar name is not the tag: `git ls-remote` takes patterns, so a
-# check that matched loosely would accept v0.1.0 for v0.1.
+# A remote holding ONLY v0.1.0-rc1 is not a discriminating check that the
+# lookup for v0.1.0 actually matched something: it must still refuse with the
+# same no-tag diagnosis, not accept the neighbouring rc tag.
 tag_annotated "$remote" v0.1.0-rc1
-expect_reject 'a neighbouring tag is not the tag' 'has no tag v9.9.9' "$remote" 9.9.9 "$head"
+expect_reject 'remote holds only a neighbouring rc tag' 'has no tag v9.9.9' "$remote" 9.9.9 "$head"
+
+# ── A benign stderr warning must not defeat the empty-refs diagnosis ─────
+# `git ls-remote` can print a warning on stderr while still exiting 0 with no
+# matching ref on stdout (for example a URL-redirect notice). Folding stdout
+# and stderr together would leave that warning text sitting in the captured
+# output, so the empty-refs branch never fires and the real diagnosis (no such
+# tag) is lost. A fake `git` shadows the real one on PATH for this one case,
+# emitting exactly that shape: a stderr warning, exit 0, empty stdout.
+fake_git_dir="${work}/fake-git-bin"
+mkdir -p "$fake_git_dir"
+real_git="$(command -v git)"
+cat >"${fake_git_dir}/git" <<EOF
+#!/usr/bin/env bash
+if [ "\$1" = "ls-remote" ]; then
+  printf 'warning: redirecting to a canonical URL\n' >&2
+  exit 0
+fi
+exec "${real_git}" "\$@"
+EOF
+chmod +x "${fake_git_dir}/git"
+checks=$((checks + 1))
+diagnosis="$(PATH="${fake_git_dir}:${PATH}" PASTURE_TAG_REMOTE="$remote" "$ASSERT" 0.3.0 "$head" 2>&1 1>/dev/null)"
+status=$?
+if [ "$status" -eq 0 ]; then
+  printf 'FAIL benign stderr warning must not mask a missing tag: expected rejection, got acceptance\n'
+  failures=$((failures + 1))
+elif ! printf '%s\n' "$diagnosis" | grep -qF -- 'has no tag v0.3.0'; then
+  printf 'FAIL benign stderr warning must not mask a missing tag: diagnosis does not mention %q\n%s\n' \
+    'has no tag v0.3.0' "$diagnosis"
+  failures=$((failures + 1))
+fi
 
 # ── The tag exists but the pin is a different commit ─────────────────────
 # The dangerous case: the binary reports a released version, the release exists,
