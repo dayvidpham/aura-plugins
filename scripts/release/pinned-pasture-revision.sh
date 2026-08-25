@@ -65,7 +65,7 @@ EOF
 
   local revision
   revision="$(jq -r '.rev // ""' <<< "$locked")"
-  if ! printf '%s' "$revision" | grep -Eq '^[0-9a-f]{40}$'; then
+  if ! grep -Eq '^[0-9a-f]{40}$' <<< "$revision"; then
     fail "reading the pinned pasture revision" \
       "the locked pasture input has no exact 40-character lowercase commit revision (read: \"${revision}\")" \
       "the component assets could not be bound to a provable Pasture commit, so no release may be built" \

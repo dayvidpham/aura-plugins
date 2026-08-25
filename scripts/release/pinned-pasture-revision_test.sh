@@ -74,12 +74,12 @@ expect_reject() {
     printf 'FAIL %s: refused, but still printed a revision on stdout: %s\n' "$label" "$(cat "${work}/stdout")"
     failures=$((failures + 1))
   fi
-  if ! printf '%s\n' "$diagnosis" | grep -qF "$want"; then
+  if ! grep -qF "$want" <<< "$diagnosis"; then
     printf 'FAIL %s: diagnosis does not mention %q\n%s\n' "$label" "$want" "$diagnosis"
     failures=$((failures + 1))
     return
   fi
-  if ! printf '%s\n' "$diagnosis" | grep -q '^  fix: '; then
+  if ! grep -q '^  fix: ' <<< "$diagnosis"; then
     printf 'FAIL %s: diagnosis carries no fix line\n%s\n' "$label" "$diagnosis"
     failures=$((failures + 1))
   fi
@@ -89,7 +89,8 @@ expect_revision 'canonical github pin' "$(lock good "$GOOD")" "$REV"
 
 # The repository's own lock is what every release actually reads.
 checks=$((checks + 1))
-if ! "$SCRIPT" "$REPO_LOCK" | grep -Eq '^[0-9a-f]{40}$'; then
+revision_output="$("$SCRIPT" "$REPO_LOCK")"
+if ! grep -Eq '^[0-9a-f]{40}$' <<< "$revision_output"; then
   printf 'FAIL repository flake.lock (%s): the pinned pasture revision could not be read\n' "$REPO_LOCK"
   failures=$((failures + 1))
 fi
