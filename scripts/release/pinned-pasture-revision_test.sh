@@ -13,8 +13,11 @@ set -uo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 readonly HERE
 readonly SCRIPT="${HERE}/pinned-pasture-revision.sh"
-REPO_ROOT="$(cd "${HERE}/../.." && pwd)"
-readonly REPO_ROOT
+# The repository's real lock file. Overridable because the nix check runs this
+# suite from a store copy of scripts/release/ alone, where the repository tree
+# is not reachable — but it is never optional: the case below is the only one
+# that exercises the lock every release actually reads.
+readonly REPO_LOCK="${AURA_FLAKE_LOCK:-${HERE}/../../flake.lock}"
 
 readonly REV='0123456789abcdef0123456789abcdef01234567'
 
@@ -86,8 +89,8 @@ expect_revision 'canonical github pin' "$(lock good "$GOOD")" "$REV"
 
 # The repository's own lock is what every release actually reads.
 checks=$((checks + 1))
-if ! "$SCRIPT" "${REPO_ROOT}/flake.lock" | grep -Eq '^[0-9a-f]{40}$'; then
-  printf 'FAIL repository flake.lock: the pinned pasture revision could not be read\n'
+if ! "$SCRIPT" "$REPO_LOCK" | grep -Eq '^[0-9a-f]{40}$'; then
+  printf 'FAIL repository flake.lock (%s): the pinned pasture revision could not be read\n' "$REPO_LOCK"
   failures=$((failures + 1))
 fi
 

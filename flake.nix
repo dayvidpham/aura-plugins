@@ -145,15 +145,20 @@
           release-scripts = pkgs.runCommand "release-scripts-test"
             {
               src = ./scripts/release;
+              # The pinned-revision suite checks this repository's own lock
+              # file, which is not reachable from the store copy of the
+              # scripts, so it is passed in explicitly.
+              AURA_FLAKE_LOCK = ./flake.lock;
               # jq and sha256sum are what the verifier reads manifests and
               # hashes assets with, so its suite needs them here too.
-              nativeBuildInputs = [ pkgs.bash pkgs.jq pkgs.coreutils ];
+              nativeBuildInputs = [ pkgs.bash pkgs.jq pkgs.coreutils pkgs.gnugrep ];
             } ''
             cp -r "$src" release
             chmod -R u+w release
             patchShebangs release
             bash release/release-grammar_test.sh
             bash release/verify-aggregate-dir_test.sh
+            bash release/pinned-pasture-revision_test.sh
             touch "$out"
           '';
         }
