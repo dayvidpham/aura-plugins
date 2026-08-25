@@ -127,6 +127,71 @@ jobs:
             echo "producer accepts ${version} ✓"
           done
 
+      # ── The cross-repository gate, BEFORE any tag exists ─────────────────
+      #
+      # release.yml builds the pinned Pasture and runs `pasture bundle export`
+      # through it — but that happens after the release PR has merged and the
+      # immutable tag has been minted, so a broken pin is discovered when the
+      # only remaining options are "publish nothing" and "supersede a version
+      # that was never published". It has already happened once, with a Pasture
+      # commit whose go.mod moved without its own vendorHash following.
+      #
+      # Running the whole chain here moves that discovery to the release PR,
+      # where the fix is a re-lock and a push. It is also the only place the
+      # verifier meets REAL producer output rather than a synthetic fixture:
+      # what is exercised is an actual export, actually packaged, actually
+      # verified, at whatever revision is currently pinned.
+      - name: Build the pinned Pasture and prove the release chain end to end
+        env:
+          # A probe version, never published: the point is to run the chain,
+          # and the assets land in the runner's temp directory.
+          PROBE_VERSION: '0.0.0'
+        run: |
+          set -euo pipefail
+          revision="$(scripts/release/pinned-pasture-revision.sh flake.lock)"
+          echo "::notice::exercising the release chain against pasture ${revision}"
+
+          out="$(nix build "github:dayvidpham/pasture/${revision}#pasture" --no-link --print-out-paths -L)" || {
+            echo "::error::the pinned Pasture revision ${revision} does not build under Nix. Impact: this release PR is blocked, which is the intent — the same build runs in release.yml AFTER the immutable tag is minted, where the failure would be unrecoverable. Fix: correct the defect in Pasture (a go.mod that moved without its flake.nix vendorHash following it is the known case), then re-lock this repository's pasture input with 'nix flake update pasture' on this PR."
+            exit 1
+          }
+          binary="${out}/bin/pasture"
+          test -x "$binary" || {
+            echo "::error::pasture ${revision} built, but no executable was produced at ${binary}. Impact: this release PR is blocked; the release job would fail the same way after the tag was permanent. Fix: confirm the pinned revision still exposes a 'pasture' flake package, then re-lock the input on this PR."
+            exit 1
+          }
+
+          # The publication job reads the installer version off this exact
+          # output, so its SHAPE is asserted here rather than discovered by a
+          # sed that silently produces an empty string at release time.
+          reported="$("$binary" --version)"
+          if ! printf '%s\n' "$reported" | grep -Eq '^pasture version v[0-9]+\.[0-9]+\.[0-9]+(-rc[1-9][0-9]*)?$'; then
+            echo "::error::the pinned pasture binary reports its version as \"${reported}\", which is not of the form 'pasture version vX.Y.Z'. Impact: this release PR is blocked; release.yml parses that line and would fail after the tag was permanent. Fix: reconcile Pasture's --version output with the parser in the 'Derive the installer compatibility range' step of .github/workflows/release.yml."
+            exit 1
+          fi
+          installer="$(printf '%s\n' "$reported" | sed -n 's/^pasture version v\([^ ]*\)$/\1/p')"
+          echo "pinned pasture ${revision} reports ${reported} ✓"
+
+          components="${RUNNER_TEMP}/probe-components"
+          aggregate="${RUNNER_TEMP}/probe-aggregate"
+          rm -rf "$components" "$aggregate"
+          "$binary" bundle export --version "${PROBE_VERSION}" --out "$components"
+
+          producer="$(cat "${RUNNER_TEMP}/producer-path")"
+          "$producer" \
+            --version          "${PROBE_VERSION}" \
+            --installer-min    "${installer}" \
+            --installer-max    "${installer}" \
+            --pasture-revision "${revision}" \
+            --aura-revision    "${GITHUB_SHA}" \
+            --components       "${components}/components.json" \
+            --output-dir       "$aggregate"
+
+          scripts/release/verify-aggregate-dir.sh \
+            "$aggregate" "${PROBE_VERSION}" "${GITHUB_SHA}" "${revision}" final \
+            "${installer}" "${installer}"
+          echo "the export → produce → verify chain holds at pasture ${revision} ✓"
+
       - name: nix build .#aura-swarm
         run: nix build .#aura-swarm --no-link -L
 
@@ -155,6 +220,11 @@ jobs:
       # the same gate rather than only by hand.
       - name: Test the aggregate directory verifier
         run: scripts/release/verify-aggregate-dir_test.sh
+
+      # Every release reads its Pasture revision through this script, in both
+      # gates.yml and release.yml.
+      - name: Test the pinned-Pasture-revision reader
+        run: scripts/release/pinned-pasture-revision_test.sh
 
   workflows:
     name: workflow lint

@@ -179,24 +179,12 @@ jobs:
         id: pin
         run: |
           set -euo pipefail
-          # The node must be the GitHub repository this pipeline means. A
-          # `path:` or fork-owned pasture input with a valid-looking rev would
-          # otherwise be built and stamped into the manifest as though it were
-          # dayvidpham/pasture.
-          locked="$(jq -c '.nodes.pasture.locked // {}' flake.lock)"
-          for pair in 'type github' 'owner dayvidpham' 'repo pasture'; do
-            key="${pair% *}"; want="${pair#* }"
-            got="$(jq -r --arg k "$key" '.[$k] // ""' <<< "$locked")"
-            if [ "$got" != "$want" ]; then
-              echo "::error::the pasture flake input in flake.lock records ${key}=\"${got}\" instead of \"${want}\" (locked node: ${locked}). Impact: release ${TAG} was not built and nothing was published, because the component assets would be bound to a Pasture source this pipeline cannot name. Fix: point the pasture input at github:dayvidpham/pasture on a release PR, re-lock it with 'nix flake update pasture', and cut the release again."
-              exit 1
-            fi
-          done
-          revision="$(jq -r '.rev // ""' <<< "$locked")"
-          if ! printf '%s' "$revision" | grep -Eq '^[0-9a-f]{40}$'; then
-            echo "::error::the pasture flake input in flake.lock has no exact 40-character commit revision (read: \"${revision}\"). Impact: release ${TAG} was not built and nothing was published, because the component assets could not be bound to a provable Pasture commit. Fix: re-lock the input with 'nix flake update pasture' on a release PR so flake.lock records a github-type pasture input with a concrete rev, then cut the release again."
-            exit 1
-          fi
+          # scripts/release/pinned-pasture-revision.sh asserts the node is the
+          # GitHub repository this pipeline means before returning its rev, and
+          # gates.yml reads it with the same script — a fork or path input
+          # carries a valid-looking revision that would otherwise be stamped
+          # into the manifest as though it came from dayvidpham/pasture.
+          revision="$(scripts/release/pinned-pasture-revision.sh flake.lock)"
           echo "pasture_revision=${revision}" >> "$GITHUB_OUTPUT"
           echo "::notice::building release ${TAG} against pasture ${revision}"
 
