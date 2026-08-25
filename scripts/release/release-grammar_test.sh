@@ -75,7 +75,7 @@ expect_reject_fix() {
     failures=$((failures + 1))
     return
   fi
-  if ! printf '%s' "$output" | grep -qF -- "$want_fix"; then
+  if ! grep -qF -- "$want_fix" <<< "$output"; then
     printf 'FAIL %s %q: rejection did not carry the expected remedy %q:\n%s\n' \
       "$subcommand" "$input" "$want_fix" "$output"
     failures=$((failures + 1))
@@ -96,7 +96,7 @@ expect_reject() {
     return
   fi
   # An actionable rejection must say what to do about it, not just "invalid".
-  if ! printf '%s' "$output" | grep -q '  fix: '; then
+  if ! grep -q '  fix: ' <<< "$output"; then
     printf 'FAIL %s %q: rejection is not actionable (no fix: line):\n%s\n' \
       "$subcommand" "$input" "$output"
     failures=$((failures + 1))

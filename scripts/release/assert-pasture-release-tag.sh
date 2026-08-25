@@ -122,7 +122,7 @@ main() {
 
   local commit
   # Prefer the peeled line; fall back to the single line of a lightweight tag.
-  commit="$(printf '%s\n' "$refs" | awk '$2 ~ /\^\{\}$/ {print $1}' | head -n 1)"
+  commit="$(awk '$2 ~ /\^\{\}$/ {print $1; exit}' <<< "$refs")"
   if [ -z "$commit" ]; then
     commit="$(printf '%s\n' "$refs" | awk 'NR == 1 {print $1}')"
   fi

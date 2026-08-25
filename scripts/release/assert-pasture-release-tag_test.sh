@@ -94,17 +94,17 @@ expect_reject() {
     failures=$((failures + 1))
     return
   fi
-  if ! printf '%s\n' "$diagnosis" | grep -qF -- "$want"; then
+  if ! grep -qF -- "$want" <<< "$diagnosis"; then
     printf 'FAIL %s: diagnosis does not mention %q\n%s\n' "$label" "$want" "$diagnosis"
     failures=$((failures + 1))
     return
   fi
-  if ! printf '%s\n' "$diagnosis" | grep -q '^error: .* failed in scripts/release/assert-pasture-release-tag.sh: '; then
+  if ! grep -q '^error: .* failed in scripts/release/assert-pasture-release-tag.sh: ' <<< "$diagnosis"; then
     printf 'FAIL %s: diagnosis is not an actionable refusal from the script\n%s\n' "$label" "$diagnosis"
     failures=$((failures + 1))
     return
   fi
-  if ! printf '%s\n' "$diagnosis" | grep -q '^  fix: '; then
+  if ! grep -q '^  fix: ' <<< "$diagnosis"; then
     printf 'FAIL %s: diagnosis carries no fix line\n%s\n' "$label" "$diagnosis"
     failures=$((failures + 1))
   fi
@@ -167,7 +167,7 @@ status=$?
 if [ "$status" -eq 0 ]; then
   printf 'FAIL benign stderr warning must not mask a missing tag: expected rejection, got acceptance\n'
   failures=$((failures + 1))
-elif ! printf '%s\n' "$diagnosis" | grep -qF -- 'has no tag v0.3.0'; then
+elif ! grep -qF -- 'has no tag v0.3.0' <<< "$diagnosis"; then
   printf 'FAIL benign stderr warning must not mask a missing tag: diagnosis does not mention %q\n%s\n' \
     'has no tag v0.3.0' "$diagnosis"
   failures=$((failures + 1))

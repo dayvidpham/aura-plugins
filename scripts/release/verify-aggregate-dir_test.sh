@@ -122,7 +122,7 @@ expect_reject() {
     failures=$((failures + 1))
     return
   fi
-  if ! printf '%s\n' "$diagnosis" | grep -qF "$want"; then
+  if ! grep -qF "$want" <<< "$diagnosis"; then
     printf 'FAIL %s: diagnosis does not mention %q\n%s\n' "$label" "$want" "$diagnosis"
     failures=$((failures + 1))
     return
@@ -130,12 +130,12 @@ expect_reject() {
   # Every rejection must be the script's own actionable refusal, not an
   # incidental non-zero exit from a tool it called: a diagnosis has to name what
   # failed and how to fix it.
-  if ! printf '%s\n' "$diagnosis" | grep -q "^error: .* failed in scripts/release/verify-aggregate-dir.sh: "; then
+  if ! grep -q "^error: .* failed in scripts/release/verify-aggregate-dir.sh: " <<< "$diagnosis"; then
     printf 'FAIL %s: diagnosis is not an actionable refusal from the verifier\n%s\n' "$label" "$diagnosis"
     failures=$((failures + 1))
     return
   fi
-  if ! printf '%s\n' "$diagnosis" | grep -q '^  fix: '; then
+  if ! grep -q '^  fix: ' <<< "$diagnosis"; then
     printf 'FAIL %s: diagnosis carries no fix line\n%s\n' "$label" "$diagnosis"
     failures=$((failures + 1))
   fi
