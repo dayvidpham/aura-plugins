@@ -159,20 +159,28 @@
         {
           hm-module-test = import ./nix/hm-module-test.nix { inherit pkgs pasture; };
           aggregate-release-test = self.packages.${pkgs.system}.aggregate-release;
-          # Runs the release-grammar test suite on every `nix flake check`, so
-          # grammar regressions surface on ordinary changes instead of first
-          # appearing on a release PR. The producer-acceptance probe stays in
-          # the release gates (it needs the built producer binary and network-
-          # free component fixtures are irrelevant to it).
-          release-grammar = pkgs.runCommand "release-grammar-test"
+          # Runs the release-script test suites on every `nix flake check`, so a
+          # regression in either surfaces on ordinary changes instead of first
+          # appearing on a release PR — or, worse, mid-publication. Both scripts
+          # decide irreversible things: the grammar decides what version a
+          # permanent tag carries, and the verifier decides whether an aggregate
+          # may be published and whether a published one is sound.
+          #
+          # The producer-acceptance probe deliberately stays in the release
+          # gates instead: it needs the built producer binary, and it is about
+          # agreement between two parsers rather than either script's own logic.
+          release-scripts = pkgs.runCommand "release-scripts-test"
             {
               src = ./scripts/release;
-              nativeBuildInputs = [ pkgs.bash ];
+              # jq and sha256sum are what the verifier reads manifests and
+              # hashes assets with, so its suite needs them here too.
+              nativeBuildInputs = [ pkgs.bash pkgs.jq pkgs.coreutils ];
             } ''
             cp -r "$src" release
             chmod -R u+w release
             patchShebangs release
             bash release/release-grammar_test.sh
+            bash release/verify-aggregate-dir_test.sh
             touch "$out"
           '';
         }
