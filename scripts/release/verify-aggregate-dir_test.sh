@@ -29,8 +29,14 @@ readonly VERIFY="${HERE}/verify-aggregate-dir.sh"
 readonly VERSION='0.1.0'
 readonly AURA_REVISION='1111111111111111111111111111111111111111'
 readonly PASTURE_REVISION='2222222222222222222222222222222222222222'
+# The compatibility range a real release carries: the floor is the pinned
+# Pasture's own released version, and the ceiling is the OPEN ceiling
+# (.github/workflows/release.yml derives both through
+# release-grammar.sh installer-compatibility). The fixtures use those values
+# rather than a collapsed min==max range, so a check that only compared the two
+# bounds with each other could not pass here.
 readonly INSTALLER_MIN='0.1.0'
-readonly INSTALLER_MAX='0.1.0'
+readonly INSTALLER_MAX='0.99.99'
 readonly SCHEMA='pasture.aggregate-release/v1'
 
 failures=0
@@ -179,6 +185,18 @@ expect_reject 'compatibility minimum mismatch' '.compatibility.installer_min' \
 dir="$(fixture wrong-installer-max)"
 expect_reject 'compatibility maximum mismatch' '.compatibility.installer_max' \
   "$dir" "$VERSION" "$AURA_REVISION" "$PASTURE_REVISION" final "$INSTALLER_MIN" '9.9.9'
+
+# The regression the open ceiling exists to prevent, seen from the verifier's
+# side: a manifest whose ceiling has collapsed onto its floor, published by a run
+# that asked for the open ceiling. The aggregate would be uninstallable by every
+# later installer, and only the re-derivation against what the workflow passed
+# can see it — the manifest is internally consistent.
+dir="$(fixture ceiling-collapsed-onto-floor)"
+jq --arg min "$INSTALLER_MIN" '.compatibility.installer_max = $min' \
+  "${dir}/pasture-aggregate-manifest.json" > "${dir}/m" \
+  && mv "${dir}/m" "${dir}/pasture-aggregate-manifest.json"
+( cd "$dir" && sha256sum pasture-aggregate-manifest.json > pasture-aggregate-manifest.json.sha256 )
+reject_default 'ceiling collapsed onto the floor' '.compatibility.installer_max' "$dir"
 
 # A manifest declaring a schema this pipeline does not know may mean something
 # different by the very fields checked above.

@@ -172,6 +172,101 @@ expect_reject parse-tag 'v100000000000000000.0.0'
 expect_reject_fix parse-tag 'v0.1.0-beta1' \
   'release(vMAJOR.MINOR.PATCH-rcN)'
 
+# ── The pinned Pasture's own version, and the compatibility range ────────
+#
+# installer_min is derived from the pinned Pasture binary's self-reported
+# version and is frozen into an immutable manifest, so both halves of the
+# derivation are pinned here: WHICH reported versions are accepted, and WHAT
+# the two emitted bounds are.
+
+# expect_compat_ok <reported> <expected-min>
+#
+# Asserts the accepted derivation exactly: two lines, no more (the output is
+# appended verbatim to $GITHUB_OUTPUT), the minimum taken from the reported
+# version, and the ceiling equal to the open-ceiling constant.
+expect_compat_ok() {
+  local reported="$1" want_min="$2"
+  local output status
+  checks=$((checks + 1))
+  output="$("$GRAMMAR" installer-compatibility "$reported" 2>&1)"
+  status=$?
+  if [ "$status" -ne 0 ]; then
+    printf 'FAIL installer-compatibility %q: expected success, got exit %d\n%s\n' \
+      "$reported" "$status" "$output"
+    failures=$((failures + 1))
+    return
+  fi
+  local line_count
+  line_count="$(printf '%s\n' "$output" | wc -l)"
+  if [ "$line_count" -ne 2 ]; then
+    printf 'FAIL installer-compatibility %q: expected exactly 2 output lines, got %s:\n%s\n' \
+      "$reported" "$line_count" "$output"
+    failures=$((failures + 1))
+    return
+  fi
+  local got_min got_max
+  got_min="$(printf '%s\n' "$output" | sed -n 's/^installer_min=//p')"
+  got_max="$(printf '%s\n' "$output" | sed -n 's/^installer_max=//p')"
+  # The ceiling is asserted as a literal, not read back from the script: the
+  # value is published into immutable manifests, so a change to it must break
+  # this test and be made deliberately. It is the open ceiling — the manifest
+  # SCHEMA is the real upper guard — so it is never the pinned Pasture version.
+  if [ "$got_min" != "$want_min" ] || [ "$got_max" != '0.99.99' ]; then
+    printf 'FAIL installer-compatibility %q: want installer_min=%s installer_max=0.99.99, got installer_min=%s installer_max=%s\n' \
+      "$reported" "$want_min" "$got_min" "$got_max"
+    failures=$((failures + 1))
+    return
+  fi
+  # The ceiling must not track the floor, or the range would be closed at
+  # whatever version happens to be pinned and every future installer would be
+  # locked out of an aggregate it can activate perfectly well.
+  if [ "$got_max" = "$got_min" ]; then
+    printf 'FAIL installer-compatibility %q: the ceiling collapsed onto the floor (%s)\n' \
+      "$reported" "$got_max"
+    failures=$((failures + 1))
+  fi
+}
+
+expect_compat_ok 'pasture version v0.1.0' '0.1.0'
+expect_compat_ok 'pasture version v1.2.3' '1.2.3'
+expect_compat_ok 'pasture version v10.0.99' '10.0.99'
+
+# A development build must never become a published compatibility floor: it
+# names no Pasture release, so the claim could never be checked by a consumer.
+# These are shapes a devel build may plausibly print; none is enumerated by the
+# script, which accepts only the released shape and refuses everything else.
+expect_reject_fix installer-compatibility 'pasture version v0.1.0-devel' \
+  'an aggregate cannot be cut against an untagged Pasture'
+expect_reject_fix installer-compatibility 'pasture version v0.1.0-devel+9f3a2c1' \
+  'an aggregate cannot be cut against an untagged Pasture'
+expect_reject_fix installer-compatibility 'pasture version devel' \
+  'an aggregate cannot be cut against an untagged Pasture'
+expect_reject_fix installer-compatibility 'pasture version v0.1.0-9-g9f3a2c1' \
+  'an aggregate cannot be cut against an untagged Pasture'
+expect_reject_fix installer-compatibility 'pasture version unknown' \
+  'an aggregate cannot be cut against an untagged Pasture'
+
+# A release candidate is a real tag, but not a floor every stable installer can
+# satisfy, so it is refused with the same remedy.
+expect_reject_fix installer-compatibility 'pasture version v0.1.0-rc1' \
+  'it must be a final release'
+
+# Shapes that are not a released version for other reasons.
+expect_reject installer-compatibility ''
+expect_reject installer-compatibility 'pasture version 0.1.0'
+expect_reject installer-compatibility 'v0.1.0'
+expect_reject installer-compatibility '0.1.0'
+expect_reject installer-compatibility 'pasture version v0.1'
+expect_reject installer-compatibility 'pasture version v0.1.0 (linux/amd64)'
+expect_reject installer-compatibility 'pasture version v01.1.0'
+expect_reject installer-compatibility 'pasture version v0.1.0+build1'
+expect_reject installer-compatibility 'pasture version v100000000000000000.0.0'
+# Multi-line output: an anchored POSIX regex matches the end of the whole
+# string, not of a line, so a smuggled second line cannot slip a third
+# KEY=VALUE pair into $GITHUB_OUTPUT.
+expect_reject installer-compatibility 'pasture version v0.1.0
+installer_max=0.0.1'
+
 # ── Rejected invocations ─────────────────────────────────────────────────
 checks=$((checks + 1))
 if "$GRAMMAR" >/dev/null 2>&1; then

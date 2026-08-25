@@ -161,16 +161,22 @@ jobs:
             exit 1
           }
 
-          # The publication job reads the installer version off this exact
-          # output, so its SHAPE is asserted here rather than discovered by a
-          # sed that silently produces an empty string at release time.
+          # release.yml derives the published installer compatibility range
+          # from this exact output, so the SAME derivation runs here, through
+          # the same script, BEFORE any tag exists. A development build — one
+          # whose reported version names no Pasture release — fails the release
+          # PR instead of failing after the tag is permanent.
           reported="$("$binary" --version)"
-          if ! printf '%s\n' "$reported" | grep -Eq '^pasture version v[0-9]+\.[0-9]+\.[0-9]+(-rc[1-9][0-9]*)?$'; then
-            echo "::error::the pinned pasture binary reports its version as \"${reported}\", which is not of the form 'pasture version vX.Y.Z'. Impact: this release PR is blocked; release.yml parses that line and would fail after the tag was permanent. Fix: reconcile Pasture's --version output with the parser in the 'Derive the installer compatibility range' step of .github/workflows/release.yml."
-            exit 1
-          fi
-          installer="$(printf '%s\n' "$reported" | sed -n 's/^pasture version v\([^ ]*\)$/\1/p')"
-          echo "pinned pasture ${revision} reports ${reported} ✓"
+          compatibility="$(scripts/release/release-grammar.sh installer-compatibility "$reported")"
+          installer_min="$(printf '%s\n' "$compatibility" | sed -n 's/^installer_min=//p')"
+          installer_max="$(printf '%s\n' "$compatibility" | sed -n 's/^installer_max=//p')"
+          echo "pinned pasture ${revision} reports ${reported}, giving ${installer_min}..${installer_max} ✓"
+
+          # And the floor must name a Pasture release that exists, at exactly
+          # the revision pinned here. Discovering otherwise at release time
+          # would mean an unpublishable tag and a burnt version number; here it
+          # means re-locking the input on this PR.
+          scripts/release/assert-pasture-release-tag.sh "$installer_min" "$revision"
 
           components="${RUNNER_TEMP}/probe-components"
           aggregate="${RUNNER_TEMP}/probe-aggregate"
@@ -180,8 +186,8 @@ jobs:
           producer="$(cat "${RUNNER_TEMP}/producer-path")"
           "$producer" \
             --version          "${PROBE_VERSION}" \
-            --installer-min    "${installer}" \
-            --installer-max    "${installer}" \
+            --installer-min    "${installer_min}" \
+            --installer-max    "${installer_max}" \
             --pasture-revision "${revision}" \
             --aura-revision    "${GITHUB_SHA}" \
             --components       "${components}/components.json" \
@@ -189,7 +195,7 @@ jobs:
 
           scripts/release/verify-aggregate-dir.sh \
             "$aggregate" "${PROBE_VERSION}" "${GITHUB_SHA}" "${revision}" final \
-            "${installer}" "${installer}"
+            "${installer_min}" "${installer_max}"
           echo "the export → produce → verify chain holds at pasture ${revision} ✓"
 
       - name: nix build .#aura-swarm
@@ -225,6 +231,14 @@ jobs:
       # gates.yml and release.yml.
       - name: Test the pinned-Pasture-revision reader
         run: scripts/release/pinned-pasture-revision_test.sh
+
+      # The published compatibility floor is proven to be a real Pasture release
+      # by this script, in both this workflow and release.yml. Its suite needs
+      # git — which the flake's script sandbox does not provide, so unlike the
+      # three suites above it is gated here rather than by nix flake check — and
+      # reaches only local repositories it creates itself.
+      - name: Test the Pasture release-tag assertion
+        run: scripts/release/assert-pasture-release-tag_test.sh
 
   workflows:
     name: workflow lint

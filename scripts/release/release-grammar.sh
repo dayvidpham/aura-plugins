@@ -16,15 +16,29 @@
 # A version that passes here is therefore guaranteed to be accepted by
 # `aura-aggregate-release --version`, which strips the leading "v".
 #
-# Usage:
-#   release-grammar.sh parse-title "release(v1.2.3-rc1): cut the first aggregate"
-#   release-grammar.sh parse-tag   "v1.2.3-rc1"
+# The same script also owns the SECOND version grammar the release pipeline
+# depends on: the version the pinned Pasture binary reports about ITSELF, from
+# which the published aggregate's installer compatibility range is derived. Both
+# grammars answer the same question with the same vocabulary — "is this string a
+# canonical release version, and which one?" — so they are kept in one place and
+# proved by one suite.
 #
-# On success prints, on stdout, three KEY=VALUE lines suitable for appending
-# straight to "$GITHUB_OUTPUT":
-#   version=1.2.3-rc1      (producer form: no leading v)
-#   tag=v1.2.3-rc1         (git tag form:  leading v)
-#   kind=rc                (rc | final)
+# Usage:
+#   release-grammar.sh parse-title             "release(v1.2.3-rc1): cut the first aggregate"
+#   release-grammar.sh parse-tag               "v1.2.3-rc1"
+#   release-grammar.sh installer-compatibility "pasture version v1.2.3"
+#
+# On success prints KEY=VALUE lines on stdout, suitable for appending straight
+# to "$GITHUB_OUTPUT":
+#
+#   parse-title / parse-tag (three lines)
+#     version=1.2.3-rc1      (producer form: no leading v)
+#     tag=v1.2.3-rc1         (git tag form:  leading v)
+#     kind=rc                (rc | final)
+#
+#   installer-compatibility (two lines)
+#     installer_min=1.2.3    the pinned Pasture's own released version
+#     installer_max=0.99.99  the open ceiling (see INSTALLER_CEILING below)
 #
 # On failure prints an actionable diagnosis to stderr and exits 1.
 
@@ -48,6 +62,36 @@ readonly NUMBER='(0|[1-9][0-9]{0,16})'
 readonly RC_NUMBER='[1-9][0-9]{0,16}'
 readonly TAG_PATTERN="^v${NUMBER}\.${NUMBER}\.${NUMBER}(-rc${RC_NUMBER})?$"
 readonly TITLE_PATTERN="^release\(([^)]*)\): (.+)$"
+
+# The shape `pasture --version` prints for a RELEASED build: the tag it was
+# built from, and nothing else. A development build reports a different,
+# deliberately distinguishable shape (a devel marker and/or a commit), and is
+# refused by this pattern rather than by an enumeration of devel shapes — the
+# assertion is "this binary is a tagged release", so anything that is not
+# exactly a release version fails, whatever it looks like.
+#
+# Release candidates are excluded on purpose: installer_min is the floor an
+# installer must meet to activate the aggregate, and a floor that only a
+# prerelease installer satisfies would make the published aggregate
+# unactivatable by every stable installer.
+readonly PASTURE_VERSION_PATTERN="^pasture version v(${NUMBER}\.${NUMBER}\.${NUMBER})$"
+
+# The open upper bound of the published installer compatibility range.
+#
+# The producer's manifest requires both bounds, but the CONSUMER — not this
+# repository — owns the ceiling: an installer that cannot activate a
+# pasture.aggregate-release/v1 manifest refuses it BY SCHEMA, which is the real
+# upper guard. A numeric ceiling pinned to the version that happens to be
+# current would instead make every aggregate uninstallable by every future
+# installer, permanently, because the range is frozen into an immutable
+# manifest.
+#
+# 0.99.99 is therefore an unreachable-in-practice sentinel rather than a claim
+# about a specific installer: it says "no upper bound is asserted here". Making
+# the bound formally optional, plus an explicit escape hatch for development
+# builds, is tracked in the Pasture contract:
+#   https://github.com/dayvidpham/pasture/issues/39
+readonly INSTALLER_CEILING='0.99.99'
 
 readonly GRAMMAR_HELP='the accepted grammar is release(vMAJOR.MINOR.PATCH): <summary> for a final release, or release(vMAJOR.MINOR.PATCH-rcN): <summary> for a release candidate — for example "release(v0.1.0): first immutable aggregate" or "release(v0.1.0-rc1): first aggregate candidate". Every numeric component must be canonical base-10 with no leading zero, N must be 1 or greater, no numeric component may exceed 17 digits, and build metadata (+...) is not accepted because the aggregate producer rejects it.'
 
@@ -144,16 +188,46 @@ parse_tag() {
   emit_version "$tag"
 }
 
+# installer_compatibility <pasture --version output>
+#
+# Derives the published aggregate's installer compatibility range from the
+# pinned Pasture binary itself. The producer declares the FORMAT and the
+# MINIMUM; the consumer owns the ceiling.
+installer_compatibility() {
+  local reported="$1"
+  if [ -z "$reported" ]; then
+    fail "deriving the installer compatibility range" \
+      "the pinned Pasture binary printed nothing for --version" \
+      "the aggregate's installer compatibility range cannot be derived, so nothing may be produced or published from this run" \
+      "confirm the pinned Pasture revision builds a working 'pasture' binary and that 'pasture --version' prints 'pasture version vX.Y.Z'"
+  fi
+  # No separate control-character check is needed here: the pattern below is
+  # anchored and admits only digits and dots after the prefix, and a POSIX
+  # regex "$" matches the end of the whole string rather than a line, so a
+  # multi-line or tab-bearing --version output cannot match it.
+  if [[ ! "$reported" =~ $PASTURE_VERSION_PATTERN ]]; then
+    fail "deriving the installer compatibility range" \
+      "the pinned Pasture binary reported \"${reported}\", which is not a released version of the form 'pasture version vX.Y.Z'" \
+      "the aggregate's installer_min would claim a compatibility floor that names no published Pasture release, and that claim is frozen into an immutable manifest that can never be corrected — only superseded — so nothing was produced or published" \
+      "an aggregate cannot be cut against an untagged Pasture. Pin a RELEASED Pasture revision: cut the Pasture release first, then re-lock this repository's input with 'nix flake update pasture' on the release PR so the pinned build reports its tag instead of a development version. Release candidates are refused too: installer_min is the floor every installer must meet, so it must be a final release"
+  fi
+  printf 'installer_min=%s\n' "${BASH_REMATCH[1]}"
+  printf 'installer_max=%s\n' "$INSTALLER_CEILING"
+}
+
 usage() {
   cat >&2 <<USAGE
 ${PROGRAM_NAME} — validate and classify an Aura aggregate release version.
 
 Usage:
-  ${PROGRAM_NAME} parse-title "release(vX.Y.Z[-rcN]): <summary>"
-  ${PROGRAM_NAME} parse-tag   "vX.Y.Z[-rcN]"
+  ${PROGRAM_NAME} parse-title             "release(vX.Y.Z[-rcN]): <summary>"
+  ${PROGRAM_NAME} parse-tag               "vX.Y.Z[-rcN]"
+  ${PROGRAM_NAME} installer-compatibility "pasture version vX.Y.Z"
 
-Prints version=, tag=, and kind= on stdout; exits 1 with an actionable
-diagnosis on stderr when the input does not match the release grammar.
+parse-title and parse-tag print version=, tag=, and kind= on stdout;
+installer-compatibility prints installer_min= and installer_max=. Each exits 1
+with an actionable diagnosis on stderr when its input does not match the
+grammar it enforces.
 USAGE
 }
 
@@ -163,17 +237,18 @@ main() {
     fail "parsing command-line arguments" \
       "expected exactly one subcommand and one value but received $# argument(s)" \
       "no release version was classified" \
-      "invoke it as '${PROGRAM_NAME} parse-title \"<pr title>\"' or '${PROGRAM_NAME} parse-tag \"<tag>\"'"
+      "invoke it as '${PROGRAM_NAME} parse-title \"<pr title>\"', '${PROGRAM_NAME} parse-tag \"<tag>\"', or '${PROGRAM_NAME} installer-compatibility \"<pasture --version output>\"'"
   fi
   case "$1" in
     parse-title) parse_title "$2" ;;
     parse-tag)   parse_tag "$2" ;;
+    installer-compatibility) installer_compatibility "$2" ;;
     *)
       usage
       fail "selecting a subcommand" \
         "\"$1\" is not a known subcommand" \
         "no release version was classified" \
-        "use parse-title or parse-tag"
+        "use parse-title, parse-tag, or installer-compatibility"
       ;;
   esac
 }
