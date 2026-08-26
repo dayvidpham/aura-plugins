@@ -149,8 +149,12 @@ publish rather than accepting an unverified tag.
 
 ### 4. Branch protection
 
-`main` should require the `validate release PR` and `gates (release PR)` checks,
-so a release PR cannot be merged before the full gate set is green.
+`main` should require the `release PR verdict` check — the one context that
+reports on every pull request (a skipped reusable-workflow caller reports under
+its own name, but a running one expands to sub-job names only). The verdict job
+passes immediately on an ordinary PR and, on a release PR, only when the
+validation and the full gate set are both green — so a release PR cannot be
+merged, and its permanent tag cannot be minted, before the tree is proven.
 
 ### 5. A `v*` tag-creation ruleset
 

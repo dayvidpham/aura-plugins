@@ -110,3 +110,33 @@ jobs:
     permissions:
       contents: read
     uses: ./.github/workflows/gates.yml
+
+  # The one context a branch ruleset can require. A skipped reusable-workflow
+  # caller reports under its own job name, but a RUNNING caller expands to its
+  # sub-job names only — so neither "gates (release PR)" nor any sub-job name
+  # reports on every pull request. This job always runs and reports one stable
+  # name: green immediately for an ordinary PR, and green for a release PR only
+  # when the validation and the full gate set both succeeded.
+  verdict:
+    name: release PR verdict
+    needs: [validate, gates]
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      IS_RELEASE: ${{ startsWith(github.event.pull_request.title, 'release(') }}
+      VALIDATE_RESULT: ${{ needs.validate.result }}
+      GATES_RESULT: ${{ needs.gates.result }}
+    steps:
+      - name: Demand green validation and gates on a release PR
+        run: |
+          set -euo pipefail
+          if [ "$IS_RELEASE" != "true" ]; then
+            echo "not a release PR; nothing to enforce ✓"
+            exit 0
+          fi
+          if [ "$VALIDATE_RESULT" != "success" ] || [ "$GATES_RESULT" != "success" ]; then
+            echo "::error::release PR verdict: validate=${VALIDATE_RESULT}, gates=${GATES_RESULT} — a release PR must not merge before both are green, because merging mints a permanent tag; a tag on an unproven tree is either unpublishable (a burnt version number) or worse. Fix: make the failing job green on this PR, or retitle the PR if it is not meant to cut a release."
+            exit 1
+          fi
+          echo "release PR fully validated ✓"
