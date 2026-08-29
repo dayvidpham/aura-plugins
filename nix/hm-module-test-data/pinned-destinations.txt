@@ -117,16 +117,8 @@
 .codex/agents/pasture-supervisor.toml
 .codex/agents/pasture-worker.toml
 .codex/hooks.json
-.codex/hooks/events/PermissionRequest.sh
-.codex/hooks/events/PostCompact.sh
-.codex/hooks/events/PostToolUse.sh
-.codex/hooks/events/PreCompact.sh
 .codex/hooks/events/PreToolUse.sh
 .codex/hooks/events/SessionStart.sh
-.codex/hooks/events/Stop.sh
-.codex/hooks/events/SubagentStart.sh
-.codex/hooks/events/SubagentStop.sh
-.codex/hooks/events/UserPromptSubmit.sh
 .codex/pasture-codex-activation.json
 .config/opencode/agent/architect.md
 .config/opencode/agent/epoch.md
