@@ -3547,3 +3547,48 @@ This is the same with the reviewers too. They should receive appropriate groundi
 
 Don't just blindly list the Beads task IDs, deliver them in a concise bulleted list, with some context about why they're relevant and their description. Can also deliver them this Beads context in YAML frontmatter format, before any other handwritten instructions.
 </instructions>
+
+## 9. Informative error messages, less verbose, better formatting
+
+below is an example of an error messages implemented in `peasant`, for commit `5f3124008`
+
+<example>
+Great. we shouldn't have auto-merged it into develop though. quick fix: the failure message is way too verbose. much of this information is repetitive, and can be condensed. if we ever do this `what/why/where/when/means/fix`, we need to have vertical alignment for the text after the colon.
+
+<logs>
+Error: upgrade failed
+what: the target Peasant release is older than the current binary
+why: current v0.5.0-rc1-dev.4+5f3124008 sorts after target v0.5.0-rc1
+where: peasant upgrade
+when: after selecting the target release and before downloading files
+means: Peasant refused the downgrade and no files were changed
+fix: choose a newer Peasant release, keep the current binary, or pass --version v0.5.0-rc1 --allow-downgrade only if you intentionally need to roll back 
+</logs>
+
+instead of three separate lines for Error, what, and why, we can condense the error messages down so that it says
+
+```
+error: peasant upgrade failed
+
+`current` peasant version already newer than latest `stable` release v0.4.0
+[only show this if `current` older than newest `prerelease`] `current` peasant version also newer than latest `prerelease` release v0.5.0-rc1
+
+info: path to the binary we tried to upgrade,
+    <path to user binary here>
+
+versions
+--------
+current:    v0.5.0-rc1-dev.4+5f3124008
+stable:     v0.4.0
+prerelease: v0.5.0-rc1 
+
+show more information
+    peasant upgrade --help
+
+if you want to downgrade anyways
+    <insert command here>
+
+if you want to install the `prerelease`
+    <insert command here> [<extra downgrade flags flags if `current` newer than `prerelease`]
+```
+</example>
