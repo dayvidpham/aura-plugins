@@ -53,7 +53,7 @@ selection, and layout). Keep this catalog synchronized with `internal/tui/ui`.
 | Overlay | `OverlayCenter(th theme.Theme, bg, fg string, width, height int) string`; `Scrim(th theme.Theme, s string) string`; `ModalWidth(screenWidth int) int` | ANSI-aware centered overlay: scrims bg via `OverlayScrim`, pads every bg row to exact width (no bright spill strip), keeps fg sharp. Standalone `Scrim`; dialog width `min(72, screenWidth-4)`. |
 | Canvas | `Canvas(th theme.Theme, width, height int, body string) string` | Final full-screen fit operation and owner of the application background. |
 | Logo | `Logo(th theme.Theme) string`; `LogoCompact(th theme.Theme) string` | Full and compact Strike wordmarks. |
-| DiffPreview | `DiffPreview(th theme.Theme, opts DiffPreviewOpts) string` | Unified +/-/context diff block. `DiffPreviewOpts`: `Path`, `Old`, `New`, `MaxLines` (hunk body; ≤0 → 12), mandatory `Width` (≤0 → ""), `ShowStats`, optional `MoreHint` (appended on overflow, e.g. expand key). Header (path and/or +N/−M) does not consume `MaxLines`; overflow ends with a muted ellipsis more-lines row. Helpers: `DiffBodyLen`, `DiffExceeds`. |
+| DiffPreview | `DiffPreview(th theme.Theme, opts DiffPreviewOpts) string` | Unified +/-/context diff block with LCS multi-hunk matching, line-number gutter (auto when width ≥ 16; `NoLineNumbers` to disable), SurfaceMuted wash on add/remove rows, bold word-diff on paired replaces (`NoWordDiff` to disable), and `Offset` scroll window. `DiffPreviewOpts`: `Path`, `Old`, `New`, `MaxLines` (hunk body; ≤0 → 12), mandatory `Width` (≤0 → ""), `ShowStats`, `MoreHint`, `Offset`, `NoLineNumbers`, `NoWordDiff`. Header (path and/or +N/−M) does not consume `MaxLines`; overflow ends with a muted ellipsis more-lines row. Helpers: `DiffBodyLen`, `DiffExceeds`, `DiffMaxOffset`. |
 | Meter | `Meter(th theme.Theme, width int, ratio float64) string` | Fixed-width ratio bar. Negative ratio = unknown hollow (MeterEmpty). |
 | Sparkline | `Sparkline(th theme.Theme, width int, samples []float64) string` | Fixed-width activity chart from non-negative samples. Empty/unknown series draws hollow MeterEmpty row; glyphs from `Icons.Sparkline`. |
 | FormatTokens | `FormatTokens(n int) string` | Compact token count for chrome (`1.5k`, `2M`). |
@@ -92,8 +92,9 @@ otherwise `Background` resolves to a solid `lipgloss.TerminalColor`.
 `FocusBar`,
 `BadgeLeft`, `BadgeRight`, `DetailSeparator`, `Ellipsis`, `LogoTopRule`,
 `LogoBottomRule`, `MeterFill`, `MeterEmpty`, `TreeExpanded`,
-`TreeCollapsed`, and `Sparkline` (low→high bar runes). Stock badge delimiters
-are empty (soft pills). Use `th.Icons`, never the literal glyph.
+`TreeCollapsed`, `CheckboxOn` (`[x]`), `CheckboxOff` (`[ ]`), and `Sparkline`
+(low→high bar runes). Stock badge delimiters are empty (soft pills). Use
+`th.Icons`, never the literal glyph.
 
 `theme.AgentState` is the live session/agent status vocabulary for dynamic
 coloring: `Ready` → `Success`, `Working` → `AccentAlt`, `Attention` →
@@ -106,7 +107,9 @@ state colors in views. `Spinner` uses the working token (`AccentAlt`).
 `Title`, `Success`, `Warning`, `Error`, `Danger`; their `*Strong` variants;
 `Selected`, `SelectedUnderline`; `UserLabel`, `AssistantLabel`, `ToolLabel`;
 `Input`, `InputPrompt`, `InputPlaceholder`, `InputCursor`, `Spinner`;
-`Border`, `BorderFocus`, `BorderMuted`; and `DiffAdded`, `DiffRemoved`. Call
+`Border`, `BorderFocus`, `BorderMuted`; `DiffAdded`, `DiffRemoved`,
+`DiffAddedStrong`, `DiffRemovedStrong` (bold word-diff spans); and
+`DiffAddedLine`, `DiffRemovedLine` (role FG on `SurfaceMuted` wash). Call
 it once per render and reuse it.
 
 `BorderStyle` selects `BorderWeightUnset`, `BorderWeightLight`, or
