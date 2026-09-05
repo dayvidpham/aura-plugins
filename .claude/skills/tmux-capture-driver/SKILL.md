@@ -89,6 +89,15 @@ they cannot answer trust prompts.
   bounded inside the tool call; do not rely on a detached poller to wake you.
 - Two agents typing into one session interleave keystrokes. One driver per session; announce
   the handoff before the other agent touches it.
+- A stalled program was recovered with `pkill -f <program>`, which killed EVERY instance of that
+  program on the machine, including two other agents' live sessions mid-sitting (2026-09-05).
+  Never kill by program name or pattern (`pkill -f`, `killall`). Read the pane, then kill only
+  your own session (`tmux kill-session -t NAME`) or your own pane's process
+  (`tmux list-panes -t NAME -F '#{pane_pid}'`, then `kill <pid>`).
+- Several sittings at once share the host's log file and the live store's fault file. Filter
+  every log line by your own project directory before drawing a conclusion. Judge "live store
+  untouched" by a byte digest of its database before and after, never by the fault file, which
+  grows from the surrounding agent session's own hooks.
 
 ## Helper
 

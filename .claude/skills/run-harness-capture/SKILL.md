@@ -114,7 +114,17 @@ capture is not affected.
 - **Who drives.** The plan default is that the user drives the sessions; an agent drives them only
   when the user rules so, and the report says who drove.
 - **Extra files are expected** (`.2`, `.3` for repeated pre/post events). Missing stems are the
-  finding.
+  finding. Never delete a numbered file; the clearance step selects. Where several authentic
+  files exist for one event, clearance prefers the smallest and records the sizes not chosen
+  (one OpenCode system-prompt capture was 99 KB, cleared into 99 KB of placeholder).
+- **A citation proves the code exists, not that a trigger reaches it.** One recipe inferred a
+  trigger from a publish site; a guard one layer up resolved the bad argument to a default and
+  the event never fired. Give every row a second trigger when one exists. A trigger that does
+  not fire is a measurement; nobody concludes an event is unreachable from one failed trigger.
+- **Pair events by the host's per-operation identifier** at the finest scope the event carries
+  (Claude prompt_id, Codex turn_id then tool_use_id, OpenCode session then call or message and
+  part id), never by field values or arrival order. An identifier that every file in the batch
+  shares pairs nothing. State the scope and value for every pair the record asserts.
 
 ## Report, for the clearance step
 
