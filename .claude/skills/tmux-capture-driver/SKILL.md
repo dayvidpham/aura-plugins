@@ -81,6 +81,14 @@ These fire the same lifecycle hooks and are easier to script when no TUI-only st
 in the TUI; `exec` cannot grant trust), `opencode run 'prompt'`. They cannot do `/compact`, and
 they cannot answer trust prompts.
 
+## The screen is never the evidence
+
+A TUI screen is an unreliable observable: a corrupted or starved redraw can show a sent
+command as still typed (which invites a second Enter and a doubled event), or hide a finished
+turn. The durable observables are the artefact file and the host's own log. When the screen and
+a durable observable disagree, trust the durable one: check the capture directory or grep the
+host log (filtered to your own run or project) before repeating any key.
+
 ## Failure modes seen
 
 - Text typed but not submitted: text and Enter were in one `send-keys` call. Send `Enter` alone.
