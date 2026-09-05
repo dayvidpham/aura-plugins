@@ -98,6 +98,15 @@ they cannot answer trust prompts.
   every log line by your own project directory before drawing a conclusion. Judge "live store
   untouched" by a byte digest of its database before and after, never by the fault file, which
   grows from the surrounding agent session's own hooks.
+- A capture listing taken while the host could still emit undercounted (717 listed, 720 on
+  disk; the host had been killed while bootstrap events were still arriving). You cannot tell
+  from outside whether emission has stopped, and stopping the host is not by itself the
+  guarantee. Stop the host, then list, then count a second time; two agreeing reads of a
+  stopped directory are the evidence. Three of four re-counts did not move, which is what a
+  discriminating check looks like.
+- Several live hosts at once starved the terminal redraw (hook stderr drawn into the screen)
+  and one host was killed by the operating system under load. Run one live host at a time;
+  check the load average before starting and wait, bounded, if it is high.
 
 ## Helper
 
