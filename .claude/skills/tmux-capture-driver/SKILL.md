@@ -113,8 +113,11 @@ host log (filtered to your own run or project) before repeating any key.
   stopped directory are the evidence. Three of four re-counts did not move, which is what a
   discriminating check looks like.
 - Several live hosts at once starved the terminal redraw (hook stderr drawn into the screen)
-  and one host was killed by the operating system under load. Run one live host at a time;
-  check the load average before starting and wait, bounded, if it is high.
+  and the redraw never recovered. Run one capture sitting of ours at a time: another sitting is
+  identified by the campaign's project directories and by PASTURE variables in the process
+  environment, never by the program name alone. A host that is not ours (the user's own editor
+  session) is never a reason to stop, wait on or touch it; the load check is the only thing that
+  measures it. Check the load average before starting and wait, bounded, if it is high.
 
 ## Helper
 
