@@ -11,13 +11,78 @@ references:
   omnigent: aura-plugins-htz0jw
   peasant: aura-plugins-ve7ni7
   supplemental: aura-plugins-axymsl
+  documentation-expansion: aura-plugins-7g2a3p
 ---
 
 # Functional cross-harness execution on the Pasture journal
 
 > **Status:** Completed source-research report, including the original four repository inventories, synthesis, and independent supplemental Tardigrade/Strike functional-runtime evidence. This is not a ratified specification or implementation plan. Remaining integration and live-runtime unknowns are identified in §8.
 
+## Contents
+
+- [How to read this report](#reading-guide)
+- [Glossary](#glossary)
+- [1. Executive assessment](#executive-assessment)
+- [2. Request, scope, and evidence method](#request-and-evidence)
+  - [Recorded conversation Q&As and directives](#conversation-record)
+- [3. What each system's log represents](#log-ownership)
+- [4. Comparison on the requested axes](#comparison)
+- [5. Durability, query, causality, and verification details](#durability-details)
+- [6. Clarified functional-runtime direction](#proposed-runtime)
+- [7. Minimality, adoption choices, and verification requirements](#adoption-and-validation)
+- [8. Supplemental synthesis and limitations](#limitations)
+- [9. Two unanswered architecture decisions](#unanswered-decisions)
+- [10. Conclusion](#conclusion)
+
+<a id="reading-guide"></a>
+## How to read this report
+
+**how-to**
+
+The organization follows the reading-guide, glossary, diagrams, contextual **Why**, and questions-and-answers pattern of `isaaclab-onboarding.md` at `/home/minttea/dev/sfurs-software-nixified/sw-rl-agent/`. Only the presentation pattern is adapted; no IsaacLab technical content or audited language-compliance claim is imported.
+
+Section labels indicate purpose:
+
+- **concept** — explains an idea or a proposed boundary.
+- **state** — records current evidence, observed implementation, or actual conversation.
+- **problem** — identifies an uncertainty or an unanswered decision.
+- **how-to** — gives a reading or validation procedure, not permission to implement.
+
+For a first read, use the glossary, §1, the ownership diagram in §3, and the proposed functional boundary in §6.1. For source verification, read the revision ledger in §2.3 and the inventories in §3–5. For planning, read the crash/reconciliation diagram in §6.3, replay boundaries in §6.5, and the **unanswered** decisions in §9.
+
+The five Mermaid diagrams are explanatory views, not executable contracts. Each has a caption distinguishing observed systems from proposed architecture. Arrows mean labeled data/control flow, not necessarily a function argument, transaction, or guarantee. Mermaid-capable viewers render the diagrams; other viewers show their source. Read the accompanying prose for the constraints.
+
+<a id="glossary"></a>
+## Glossary
+
+**concept**
+
+| Term | Meaning in this report |
+|---|---|
+| Native host / harness | An agent runtime such as Claude Code, Codex, or OpenCode. Its private loop is not owned by Pasture's lifecycle journal. |
+| Functional harness | The user's requested execution layer: composable functions over events, with separate session-control effects. Not merely a conformance test runner. |
+| Controller | The proposed layer that owns command admission, decisions, effect intents, and native-session mappings. |
+| Owned loop | A runtime that directly controls model/tool calls, rather than only driving an opaque host. |
+| Command | A requested action that can be refused. Acceptance does not mean the external action completed. |
+| Event / fact | A recorded admission, observation, decision, or outcome. An observation can contain incomplete or malformed evidence. |
+| Fold | A pure computation of state from prior state and a recorded event. |
+| Decide | A pure computation proposing decisions/work from folded state. It does not perform the work. |
+| Effect intent | A committed description of external work, with a stable identity. Not proof that the work ran. |
+| Effect result / submitted handle | A recorded outcome, or a durable reference to work that may complete later. A PID alone is not a durable session identity. |
+| Adapter | The narrow implementation of native Start/Resume/Send/Interrupt and observation/reconciliation capabilities. |
+| Occurrence / payload digest | An occurrence identifies a retained delivery; its payload digest identifies the body. Equal bodies need not mean equal occurrences. |
+| Binding / lineage link | A native identity attached to evidence, or a predecessor edge within one host. Neither is a cross-host runtime-session mapping. |
+| Journal idempotence | Exact retries of a canonical database operation reuse its committed result. This does not guarantee exactly-once external effects. |
+| Controller replay | Read-only reconstruction from recorded facts/results with pinned interpretation. It does not execute effects. |
+| Recovery | Separate reconciliation and controlled dispatch of unresolved work after reconstruction. |
+| Reconciliation | Inspection of native state/operation identity to determine running, completed, absent, or unknown without blindly repeating the action. |
+| Native continuation / live reattach | Continue the host's persisted session, or attach to an already live session. These are different capabilities. |
+| Context reconstruction | Start a new session with imported recorded context. It does not restore hidden state or arbitrary function stacks. |
+
+<a id="executive-assessment"></a>
 ## 1. Executive assessment
+
+**concept**
 
 **Yes, an event-driven, functional-programming-inspired cross-harness execution layer can be built on Pasture's journal. Pasture v0.0.11 does not already provide that execution layer.** The useful design is a small controller whose state is reconstructed from durable facts, whose pluggable functions compute decisions and effect intents, and whose adapters perform session start, resume, prompt submission, interruption, and reconciliation. The journal supplies evidence, ordering, identities, and operation retry semantics; it does not turn a lifecycle observation into a process-control API.
 
@@ -33,7 +98,10 @@ The critical distinction is **controller replay versus host replay**. A controll
 
 **Recommended research direction:** adapt Tardigrade's functional-core/effect-shell principles around Pasture facts, borrow Omnigent's executor/capability seam, and keep Peasant exports downstream. Do not copy a whole framework, build a generic plugin marketplace, or substitute a conformance runner for the requested runtime. Verification remains a supporting use case.
 
+<a id="request-and-evidence"></a>
 ## 2. Request, scope, and evidence method
+
+**state**
 
 ### 2.1 Original request and clarification
 
@@ -76,7 +144,85 @@ The available local Pasture checkouts are old: develop `f42cb6f`, main `4b35fd0`
 
 Dependencies also changed materially: provenance moved from `v0.0.3-0.20260614…` to v0.3.0, and DBOS from v0.16.0 to v1.2.0. The release manifest verifies the latter pins (**P** `go.mod:5–7`). Claims below concern the release unless explicitly marked as a design inference.
 
+<a id="conversation-record"></a>
+### 2.5 Recorded conversation: questions, answers, and directives
+
+**state**
+
+This is the actual conversation record supplied for this documentation expansion. User answers are quoted verbatim; explanations of their consequences are research commentary, not additional user choices. The two architecture decisions in §9 remain unanswered.
+
+**Q&A 1 — release ownership.**
+
+> **Q:** Which project's v0.0.11 journal should I compare with Tardigrade's audit log?
+
+Options presented:
+
+- **Pasture** — Use Pasture's v0.0.11 release journal; locate the release in its worktrees or remote if necessary.
+- **Provenance** — Use Provenance's v0.0.11 journal.
+- **Another project** — Specify the repository or release path in your answer.
+
+> **User A:** Pasture
+
+**Research consequence:** the release comparison is pinned to Pasture v0.0.11; provenance v0.3.0 is its dependency, not a substitute answer to this question.
+
+**Q&A 2 — research depth.**
+
+> **Q:** How deep should the comparison and cross-harness feasibility investigation go?
+
+Options presented:
+
+- **Focused (Recommended)** — Inspect journal/audit contracts, Omnigent's approach, and Peasant's schema; return an evidence-backed comparison and minimal design.
+- **Deep** — Trace persistence, lifecycle coverage, replay and evaluation semantics across all four projects, with a detailed gap analysis.
+- **Quick** — Compare primary schemas and documentation and give a short feasibility assessment.
+
+> **User A:** Focused (Recommended)
+
+**Research consequence:** this report provides the focused comparison and minimal research-derived design, not implementation or a broad benchmark/maturity audit.
+
+**Q&A 3 — meaning of functional harness.**
+
+> **Assistant question/recommendation:** My recommendation: build a small cross-harness conformance runner first, not a full Omnigent-style runtime. Is that what you mean by “functional harness,” or do you want an execution layer that also starts, resumes, and controls sessions?
+
+> **User A:** by "functional harness" I mean a functional programming inspired approach to harness development, similar to tardigrade or strike at @~/codebases/strike . We'd want an execution layer that also starts, resumes, and controls sessions, but using the tardigrade approach to pluggable functions ontop of events.
+
+> **Superseded:** the assistant's conformance-only recommendation. The clarification requires a functional execution runtime; conformance checks remain supporting verification, not the product definition.
+
+**Separate user directives — not fabricated Q&A.**
+
+The following directives are preserved verbatim and are not architecture-option selections:
+
+> should be running *-openai variant of subagents going forward.
+
+> should write the complete research result to a docs/research/
+
+> Include mermaid diagrams and our Q&As, similar to the @~/dev/sfurs-software-nixified/sw-rl-agent/isaaclab-onboarding.md document.
+
+> Let's resume the previous architect and get it to do this task.
+
+No new user survey or acceptance vote is inferred from these directives. This expansion is documentation work by the original report author; it does not ratify the proposed runtime.
+
+<a id="log-ownership"></a>
 ## 3. What each system's “log” actually represents
+
+**concept**
+
+**Diagram 1 — observed ownership differences at the pinned revisions.** These parallel paths summarize §3.1–3.6; they are not components of one deployed system.
+
+```mermaid
+graph TB
+  PH["Native hosts own their agent loops"] -->|"hooks and observations"| PJ["Pasture: cross-host provenance journal"]
+  PJ -->|"facts and evidence"| PR["Readers, policies, lifecycle lineage"]
+  TL["Tardigrade: actor event log"] -->|"durable folds and work requests"| TR["Owned runtime and effect execution"]
+  TR -->|"handles and outcomes"| TL
+  OC["Omnigent: session execution layer"] -->|"executor adapters"| OH["Native harnesses"]
+  OH -->|"normalized events"| OS["Conversation and session storage"]
+  EF["Native transcript files"] -->|"ingest and re-index"| ES["Peasant: normalized read store"]
+  ES -->|"wire DTOs"| ER["Session and content readers"]
+  SE["Strike: imperative engine"] -->|"brokered capabilities for custom subagents"| SF["Small function harness seam"]
+  SE -->|"separate event persistence"| SS["Messages and session records"]
+```
+
+> **Why:** the word “log” hides different ownership. Pasture observes and records; Tardigrade derives its runtime state from history; Omnigent drives sessions; Peasant indexes transcripts; Strike offers a small custom-function seam without the same committed-effect recovery boundary. These are complementary capabilities, not interchangeable guarantees.
 
 ### 3.1 Pasture: provenance and cross-host observations
 
@@ -184,7 +330,10 @@ The session store fsyncs persisted lines, but the event tee persists separately 
 
 **Adoption assessment:** borrow Strike's concise capability seam and static registration style, not its current recovery semantics as the proof for a durable cross-host controller. Tardigrade supplies the stronger example for committed intent, deferred handles, replay, and redelivery obligations.
 
+<a id="comparison"></a>
 ## 4. Comparison on the requested axes
+
+**state**
 
 Cells summarize the evidence in §3 and §5; “not established” is an evidence limitation, not a negative guarantee.
 
@@ -216,7 +365,10 @@ Strike supplements rather than replaces the original four-way log comparison:
 - **A transcript schema is not an execution protocol.** Peasant's content types cannot substitute for admission, effect intent, dispatch, ambiguity, and recovery facts.
 - **SQLite ACID is not adversarial audit integrity.** Digests and constraints help detect corruption or compare semantics; an attacker who can rewrite the database can potentially rewrite both data and digests.
 
+<a id="durability-details"></a>
 ## 5. Durability, query, causality, and verification details
+
+**state**
 
 ### 5.1 Pasture's write boundary and retry semantics
 
@@ -252,7 +404,10 @@ Tardigrade records `ThreadCreated` first and propagates turn/call identity throu
 
 Pasture's generated host assets invoke `pasture hook lifecycle`; control flows **from the host to Pasture**, not vice versa (**P** `internal/codegen/claude_hooks.go:156`; `codex_manifest.go:361–368`; `opencode_hooks.go:300–366`). The inspected ACP client observes stdio streams but has no prompt-send API and no production importers (**P** `internal/acp/client.go:222–440`; RESEARCH-1 import inventory). It is not an existing cross-harness execution implementation waiting to be switched on.
 
+<a id="proposed-runtime"></a>
 ## 6. Clarified functional-runtime direction
+
+**concept — proposed architecture, not implemented or ratified**
 
 Everything in this section is a **research-derived design candidate**, not a claim that the API already exists, a final proposal, or authorization to implement it.
 
@@ -278,6 +433,35 @@ Three terms must stay distinct:
 | **Effect intent** | A durable description of an external operation to perform. | Spawn host; issue resume request; send prompt; signal interruption; inspect host state. |
 
 An adapter interprets effect intents and returns observations/results. It does not independently decide workflow policy. The normalization seam associates adapter outcomes and Pasture occurrences with controller identities while preserving raw evidence and native semantics.
+
+**Diagram 2 — proposed state/decision/effect boundary.** This is the §6 design candidate, inspired by the cited Tardigrade boundaries and Strike API style; it is not an existing Pasture API.
+
+```mermaid
+graph TB
+  CMD["Caller command"] --> ADM["Capability and state admission"]
+  ADM -->|"accepted command fact"| J["Durable journal"]
+  ADM -->|"unsupported or invalid request"| REJ["Precise rejection; no dispatch"]
+  J -->|"recorded event and pinned inputs"| F["Pure Fold: next state"]
+  F --> D["Pure Decide: facts and effect proposals"]
+  D --> C["Commit decision, intent, and cursor at expected revision"]
+  C --> J
+  C -->|"only committed work in execution or recovery mode"| E["Single-owner executor"]
+  E --> A["Typed adapter: Start, Resume, Send, Interrupt"]
+  A --> H["External host"]
+  H -->|"submitted handle or outcome"| R["Record result and native-session mapping"]
+  R --> J
+  H -->|"available lifecycle hooks"| I["Pasture ingress: retain evidence and correlate"]
+  I --> J
+  J -->|"read-only replay"| V["Rebuilt state and pending-work view; no execution"]
+```
+
+> **Why:** state and decisions are pure; external work is not. The journal commit authorizes an effect but cannot atomically commit the host's acceptance. The read-only replay branch has no dispatch edge. Runtime mappings correlate host handles with controller runs; they do not replace per-host lifecycle links. Exact fact-extension and atomic cursor/intent APIs still need verification.
+
+**Questions and answers — research explanations, not user responses.**
+
+> **Q: Can a pure function start a session?**
+>
+> **Research answer:** It can propose a typed Start effect. Only the execution shell performs it after durable intent commitment. Clocks, randomness, host responses, and other nondeterministic inputs must be recorded; interpretation/schema versions must be pinned for meaningful replay.
 
 ### 6.2 State and facts the controller would need
 
@@ -306,6 +490,31 @@ Where these records should live inside Pasture's typed facts/operation model rem
 
 This resembles an outbox/reconciliation protocol. It does **not** make a host subprocess and SQLite part of one distributed transaction. DBOS could be the scheduler/durable-step shell around these boundaries, but there should be one owner of dispatch/recovery—not competing DBOS retry logic and a second ad hoc effect scheduler both launching the same intent.
 
+**Diagram 3 — proposed crash/reconciliation decision path.** The danger case is host acceptance followed by a crash before local result commit (§6.6). This diagram describes recovery, not read-only replay.
+
+```mermaid
+graph TB
+  CR["Crash after possible external acceptance"] --> RB["Read-only rebuild from committed facts"]
+  RB --> DONE{"Completed result recorded?"}
+  DONE -->|"yes"| USE["Reuse recorded result; do not dispatch"]
+  DONE -->|"no"| INS["Reconcile stable effect ID and native handle"]
+  INS --> STATUS{"Reconciliation outcome"}
+  STATUS -->|"completed"| REC["Record completion and reuse result"]
+  STATUS -->|"running"| WAIT["Keep handle; observe later completion"]
+  STATUS -->|"verified absent"| EXEC["Execute under same intent and ownership checks"]
+  STATUS -->|"unknown"| DEDUP{"Receiver guarantees deduplication for same ID?"}
+  DEDUP -->|"yes"| RETRY["Controlled redelivery with same effect ID"]
+  DEDUP -->|"no"| PAUSE["Record unknown; pause for reconciliation or explicit resolution"]
+```
+
+> **Why:** absent local success is not proof of absent external execution. Unknown acceptance never authorizes blind retry. A verified receiver-deduplication contract can permit controlled redelivery with the same ID; without it, unknown work pauses. Any later operator resolution must be recorded, including an explicitly accepted duplicate risk. A journal's idempotent result recording alone provides no such remote guarantee.
+
+**Questions and answers — research explanations, not user responses.**
+
+> **Q: Does retrying an idempotent journal operation make a prompt exactly-once?**
+>
+> **Research answer:** No. It reuses the database operation's committed result. The host might already have accepted the prompt before a crash. Safe recovery needs a native deduplication token or evidence from reconciliation; otherwise the durable answer is unknown, not an automatic second submission.
+
 ### 6.4 Required adapter capabilities
 
 | Capability | Controller-level contract | Evidence needed before promising it |
@@ -318,6 +527,23 @@ This resembles an outbox/reconciliation protocol. It does **not** make a host su
 | **Reconcile** | Inspect an unresolved operation/session without repeating it. | Native query/status/handle discovery; explicit inability to resolve. |
 
 Support must be reported per host/version/transport. Native continuation, live reattach, and new-session context reconstruction are distinct capabilities. Cross-host “resume” normally means a new session with imported context, not exact continuation of the original host's private runtime. Steering an active turn and queueing future input must also be distinct from interrupting it. If prompt acceptance cannot be queried or deduplicated, submission recovery may be fundamentally ambiguous. If interruption only kills the process, the capability must say so; an accepted interrupt is not confirmed host stop and never implies rollback of tool side effects.
+
+**Diagram 4 — proposed capability selection for a resume request.** Omnigent's capability taxonomy is prior art (§3.3); these routes are proposed controller behavior, not a claim that each host supports them.
+
+```mermaid
+graph TB
+  RQ["Resume request with required semantics"] --> CAP["Check host, version, transport, and allowed mode"]
+  CAP -->|"supported live reattach"| LIVE["Attach to existing live native session"]
+  CAP -->|"supported native continuation"| NATIVE["Continue host-owned persisted session"]
+  CAP -->|"explicitly allowed reconstruction"| NEW["Create new session with imported context"]
+  CAP -->|"unsupported or capability unknown"| NO["Reject or seek explicit decision; no silent fallback"]
+  LIVE --> MAP["Record handle and continuation relationship"]
+  NATIVE --> MAP
+  NEW --> PROV["Record new identity and context provenance"]
+  PROV --> LIMIT["No claim of private-state or stack continuity"]
+```
+
+> **Why:** “resume” is not one portable promise. A reconstructed conversation can be useful across hosts without continuing hidden reasoning or pending private tools. Neither reconstruction nor native continuation is yet selected as the requirement in §9. Interrupt, steering, and queued input remain separate capabilities, not interchangeable resume mechanisms.
 
 Initial scope should retain the eventual cross-harness seam but prove one complete session lifecycle before broadening adapters. Three-host lifecycle normalization already exists in Pasture; that is not a reason to promise three-host execution parity without evidence. Use a fake adapter for deterministic controller tests, then characterize one real host under explicit user authorization. Native SDK/headless protocols are preferable to TUI automation when they supply the needed guarantees; tmux is a fallback transport, not a stronger recovery contract.
 
@@ -334,6 +560,26 @@ Initial scope should retain the eventual cross-harness seam but prove one comple
 
 Function version, contract/metamodel version, recorded nondeterministic inputs, effect result schema, and causal references must be pinned if deterministic replay is to be meaningful. A checkpoint is an optimization; the logical source of truth remains recorded history under a specified version. Tardigrade's concrete checkpoint cadence is prior art, not a justified default for this controller.
 
+**Diagram 5 — proposed controller over an opaque host versus an owned loop.** These are alternative execution grains, not a choice already made by the user.
+
+```mermaid
+graph TB
+  subgraph OPAQUE["Candidate A: controller over an opaque native host"]
+    CJ["Controller facts and effect results"] --> CF["Replay controller decisions and state only"]
+    CE["Separate execution and reconciliation"] --> NH["Native host owns model and tool loop"]
+    NH -->|"handles and sparse observations"| CJ
+    CJ -->|"unresolved work in recovery mode"| CE
+  end
+  subgraph OWNED["Candidate B: own the model and tool loop"]
+    OJ["Model and tool intents plus recorded outcomes"] --> OF["Replay owned state using recorded results"]
+    OJ -->|"pending safe work in recovery mode"| OE["Separate model and tool effect executor"]
+    OE --> EX["External providers and tools"]
+    EX -->|"results or unresolved acceptance"| OJ
+  end
+```
+
+> **Why:** an owned loop can record finer model/tool boundaries. An opaque-host controller cannot derive hidden runtime state from hooks, even if its own decisions are fully replayable. Both replay branches use recorded results and have no execution edge; recovery is separate in both designs. Owning the loop still does not make external tools exactly-once or restore arbitrary call stacks.
+
 ### 6.6 Failure cases that must shape the runtime
 
 | Failure window | Meaning | Safe recovery direction |
@@ -349,7 +595,10 @@ Function version, contract/metamodel version, recorded nondeterministic inputs, 
 
 Errors should name the command/effect and adapter/version, the failing operation and reason, what was or was not durably recorded, whether external execution is known or ambiguous, and the available recovery action. For example: a lost prompt acknowledgment should identify the native session and dispatch attempt, say that acceptance is unknown, and direct the caller to reconciliation or explicit duplicate-risk approval—not return a generic “operation failed.”
 
+<a id="adoption-and-validation"></a>
 ## 7. Minimality, adoption choices, and verification requirements
+
+**how-to — evaluate the research direction, not an implementation authorization**
 
 ### 7.1 What to carry forward
 
@@ -381,7 +630,10 @@ These criteria make the research direction falsifiable; they are not ratified sc
 
 Testing should separate pure transition tests, journal boundary/crash tests, adapter fake tests, and explicitly authorized live capability characterization. Reuse Pasture acceptance snapshots for facts and mutation semantics, not as a substitute for dispatch fault injection. Publish partial/drift/skipped results by host/version/transport, as Omnigent's bench does. No live test should inherit unrelated host secrets or use the user's live journal by default.
 
+<a id="limitations"></a>
 ## 8. Supplemental synthesis and limitations
+
+**problem**
 
 ### 8.1 Completed supplemental synthesis
 
@@ -407,7 +659,10 @@ No supplemental research remains pending for this report. The following unknowns
 - Universal redaction/retention behavior for live controller data. Pasture's closed authentic-capture provenance rules are not a general live data-loss-prevention guarantee; Peasant's redaction dependency does not automatically apply to Pasture blobs.
 - Complete licensing compatibility for code/library reuse across all four products. Prior-art adaptation does not imply wholesale copying is licensed or maintainable.
 
+<a id="unanswered-decisions"></a>
 ## 9. Two highest-leverage requirements decisions
+
+**problem — unanswered; recommendations are not user selections**
 
 The user's goal is already clarified; do **not** ask again whether they merely wanted a conformance runner. Two narrower decisions control the viable minimum:
 
@@ -416,7 +671,10 @@ The user's goal is already clarified; do **not** ask again whether they merely w
 
 Repository placement, function language, export format, and a full URE remain later planning decisions. Research does not ratify them. The implementation source of truth must remain compatible with the Go Pasture repository's ownership rules; no new deprecated Aura Python protocol engine is proposed.
 
+<a id="conclusion"></a>
 ## 10. Conclusion
+
+**concept**
 
 Pasture and Tardigrade are complementary, not interchangeable logs. Pasture v0.0.11 is stronger at versioned cross-host observation/provenance; Tardigrade's log is stronger as the owned runtime's executable state and recovery model. Omnigent shows how to supply the missing session-control seam, and Peasant/schema offers a useful downstream vocabulary without becoming the execution authority.
 
