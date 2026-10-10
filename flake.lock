@@ -88,11 +88,11 @@
         "nixpkgs": "nixpkgs_2"
       },
       "locked": {
-        "lastModified": 1791613211,
-        "narHash": "sha256-6cOUU/ZV9ZRuQGIE6RlMeIpVveyCarm/rsYJAYDNqlw=",
+        "lastModified": 1791625337,
+        "narHash": "sha256-c5wrNpeIExh+NRjLG4RJckVcFQb8Jeu9pEGTqw3Xxsk=",
         "owner": "dayvidpham",
         "repo": "pasture",
-        "rev": "74641af3c3e0a0f0c28e096b14c46dd958c4e059",
+        "rev": "3d73caebbc0f473dc0c1e44c7223028c12c7b0d3",
         "type": "github"
       },
       "original": {
