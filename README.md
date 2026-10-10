@@ -3,7 +3,7 @@
 `aura-plugins` now carries the operational pieces that still belong outside the
 Go [Pasture](https://github.com/dayvidpham/pasture) repo:
 
-- `bin/aura-swarm`: worktree and tmux orchestration for multi-agent sessions.
+- `bin/aura-swarm`: worktree and tmux orchestration — **deprecated**; do not use it for orchestration or handoff (see `AGENTS.md`).
 - `nix/hm-module.nix`: Home Manager sync for `aura-swarm` and Pasture-generated skills/agents.
 - `skills/protocol/`: protocol reference documentation retained for humans and agents.
 - `.claude-plugin/marketplace.json`: marketplace registry entries for external plugins.
@@ -28,7 +28,9 @@ Use the package directly:
 aura-plugins.packages.${system}.aura-swarm
 ```
 
-The default package is a symlink join containing `aura-swarm`.
+The default package is a symlink join containing `aura-swarm`. The tool itself
+is deprecated (see [aura-swarm](#aura-swarm-deprecated)); the package remains
+for the Home Manager module's `packages.enable`.
 
 ### Home Manager
 
@@ -146,11 +148,11 @@ For local Pasture development, override the generated source:
 CUSTOM.programs.aura-config-sync.pasture.source = ../pasture;
 ```
 
-### Manual
+### Manual (deprecated script)
 
 `aura-swarm` is a Python 3.10+ script with only standard-library runtime
-dependencies. It requires `scripts/aura_protocol/session_registry.py` on
-`PYTHONPATH`.
+dependencies. It requires the deprecated `scripts/aura_protocol/session_registry.py`
+on `PYTHONPATH`. Retained for reference only:
 
 ```bash
 PYTHONPATH=scripts bin/aura-swarm --help
@@ -163,7 +165,14 @@ When running outside the Nix wrapper, set `AURA_PACKAGE_SKILLS_DIR` to a Pasture
 AURA_PACKAGE_SKILLS_DIR=/path/to/pasture/skills PYTHONPATH=scripts bin/aura-swarm start --swarm-mode intree --role supervisor --prompt "..."
 ```
 
-## aura-swarm
+## aura-swarm (deprecated)
+
+> **Deprecated.** `bin/aura-swarm` and its session state in
+> `scripts/aura_protocol/session_registry.py` are retained for reference only;
+> do not use them for orchestration or handoff. The Home Manager module still
+> installs the `aura-swarm` package when `packages.enable` is set, and the
+> commands below still build and run, but new work should use the supported
+> tooling instead.
 
 `aura-swarm` supports two launch modes:
 
