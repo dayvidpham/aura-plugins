@@ -22,6 +22,12 @@ references:
     l5yo: aura-plugins-6l5yo (§2g git_recorder.go — separate REQUEST track)
 ---
 
+> **Historical, non-operational.** This is a dated record of completed work,
+> retained for project history only and not current guidance. The current
+> operational authority is the repository root `AGENTS.md` and the
+> Pasture-generated protocol (`pasture task` is the tracker source of truth).
+> Any `bd`, `aura-swarm`, or other superseded commands below are history.
+
 # PROPOSAL-2 — Audit execution plan for the `cmvu5` audit roster
 
 ## §0. Revision log

@@ -11,7 +11,7 @@ See [AGENTS.md](AGENTS.md) for role definitions and phase ownership.
 | Command | Phase | Description |
 |---------|-------|-------------|
 | `/aura:epoch` | 1-12 | Master orchestrator for the full 12-phase workflow. Delegates to role-specific skills per phase. |
-| `/aura:status` | any | Project status and monitoring via Beads queries. |
+| `/aura:status` | any | Project status and monitoring via Pasture task queries (see [TRACKER.md](TRACKER.md)). |
 
 ---
 
@@ -43,9 +43,9 @@ See [AGENTS.md](AGENTS.md) for role definitions and phase ownership.
 |---------|-------|-------|-------------|
 | `/aura:supervisor` | 7-12 | (multiple) | Main supervisor role. Receives handoff, decomposes plan, spawns workers, coordinates reviews, and lands code. |
 | `/aura:supervisor-plan-tasks` | 8 | `aura:p8-impl:s8-plan` | Decompose ratified plan into vertical slices (SLICE-N tasks). Each slice = one production code path owned by one worker. |
-| `/aura:supervisor-spawn-worker` | 9 | `aura:p9-impl:s9-slice` | Launch a worker agent for an assigned slice. Creates handoff document (summary + bd IDs). Worker must call `/aura:worker` at start. |
-| `/aura:supervisor-track-progress` | 9-10 | `aura:p9-impl:s9-slice` | Monitor worker status via Beads. Check for blocked/complete/in-progress slices. |
-| `/aura:supervisor-commit` | 12 | `aura:p12-impl:s12-landing` | Atomic commit per completed layer/slice. Uses `git agent-commit`. Syncs Beads and pushes. |
+| `/aura:supervisor-spawn-worker` | 9 | `aura:p9-impl:s9-slice` | Launch a worker agent for an assigned slice. Creates handoff document (summary + task URIs). Worker must call `/aura:worker` at start. |
+| `/aura:supervisor-track-progress` | 9-10 | `aura:p9-impl:s9-slice` | Monitor worker status via Pasture tasks. Check for blocked/complete/in-progress slices. |
+| `/aura:supervisor-commit` | 12 | `aura:p12-impl:s12-landing` | Atomic commit per completed layer/slice. Uses `git agent-commit`. Records attributed tracker evidence and pushes. |
 
 ---
 
@@ -56,7 +56,7 @@ See [AGENTS.md](AGENTS.md) for role definitions and phase ownership.
 | `/aura:worker` | 9 | `aura:p9-impl:s9-slice` | Main worker role. Reads slice assignment, implements full vertical (types → tests → impl → wiring). |
 | `/aura:worker-implement` | 9 | `aura:p9-impl:s9-slice` | Implement the assigned vertical slice following TDD layers (L1 types, L2 tests, L3 implementation). |
 | `/aura:worker-complete` | 9 | `aura:p9-impl:s9-slice` | Signal slice completion after all quality gates pass (typecheck + tests + production code path verified). |
-| `/aura:worker-blocked` | 9 | `aura:p9-impl:s9-slice` | Report a blocker to the supervisor via Beads comment. |
+| `/aura:worker-blocked` | 9 | `aura:p9-impl:s9-slice` | Report a blocker to the supervisor via an attributed `pasture task comment add`. |
 
 ---
 
@@ -67,7 +67,7 @@ See [AGENTS.md](AGENTS.md) for role definitions and phase ownership.
 | `/aura:reviewer` | 4, 10 | `aura:p4-plan:s4-review`, `aura:p10-impl:s10-review` | Main reviewer role. Reviews plans (Phase 4) and code (Phase 10) against 3 axes. |
 | `/aura:reviewer-review-plan` | 4 | `aura:p4-plan:s4-review` | Review a PROPOSAL-N against one axis (A/B/C). Binary vote: ACCEPT or REVISE. No severity tree for plan reviews. |
 | `/aura:reviewer-review-code` | 10 | `aura:p10-impl:s10-review`, `aura:severity:*` | Review implementation slices against one axis. EAGER severity tree creation (BLOCKER/IMPORTANT/MINOR). |
-| `/aura:reviewer-comment` | 4, 10 | — | Leave structured feedback on a Beads task. Utility command (no task creation). |
+| `/aura:reviewer-comment` | 4, 10 | — | Leave structured feedback on a Pasture task. Utility command (no task creation). |
 | `/aura:reviewer-vote` | 4, 10 | — | Cast ACCEPT or REVISE vote. Binary only. |
 
 ### Review Axes

@@ -292,6 +292,26 @@ let
       name = "pinned Pasture input satisfies every module assertion with all nine cells enabled";
       ok = passes pastureEvaluation;
     }
+    {
+      name = "pinned Claude hooks no longer project the retired context payload";
+      ok =
+        !(builtins.elem ".claude/hooks/bd-prime.md" (destinations pastureEvaluation))
+        && lib.all
+          (entry:
+            let payload = builtins.readFile entry.source; in
+            !(lib.hasInfix "bd-prime" payload || lib.hasInfix "bd " payload))
+          (builtins.attrValues (pastureCellEvaluation "claude-code" "hooks").config.home.file);
+    }
+    {
+      name = "pinned OpenCode hooks project embedded Pasture recovery through the existing cell";
+      ok = lib.any
+        (entry:
+          let payload = builtins.readFile entry.source; in
+          lib.hasInfix "[pasture:task-recovery]" payload
+          && lib.hasInfix "pasture task ready" payload
+          && lib.hasInfix "session.context" payload)
+        (builtins.attrValues (pastureCellEvaluation "opencode" "hooks").config.home.file);
+    }
   ] ++ lib.concatMap
     (harness: map
       (axis: {

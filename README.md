@@ -93,8 +93,9 @@ action in the harness's own configuration:
   `hooks` object into the `hooks` key of your `~/.claude/settings.json` (this
   module does not manage that file) and replace each `${CLAUDE_PLUGIN_ROOT}`
   placeholder with `~/.claude`, so the commands read e.g.
-  `bash ~/.claude/hooks/scripts/git-discipline.sh` and
-  `cat ~/.claude/hooks/bd-prime.md`.
+  `bash ~/.claude/hooks/scripts/git-discipline.sh`. The former tracker-context
+  payload was retired in Pasture v0.0.17; do not restore its old wiring. This
+  description does not activate Claude hooks or authorize Git hook changes.
 - **OpenCode** — plugins are discovered directly from
   `~/.config/opencode/plugins/`, so the projected `pasture-hooks.ts` is loaded
   without any configuration edit; no OpenCode config file is written by Aura or
@@ -158,8 +159,8 @@ on `PYTHONPATH`. Retained for reference only:
 PYTHONPATH=scripts bin/aura-swarm --help
 ```
 
-When running outside the Nix wrapper, set `AURA_PACKAGE_SKILLS_DIR` to a Pasture
-`skills/` directory if the target project does not provide local role skills:
+Historical, non-operational example of the old wrapper's environment (not a
+setup instruction for new work):
 
 ```bash
 AURA_PACKAGE_SKILLS_DIR=/path/to/pasture/skills PYTHONPATH=scripts bin/aura-swarm start --swarm-mode intree --role supervisor --prompt "..."
@@ -179,7 +180,7 @@ AURA_PACKAGE_SKILLS_DIR=/path/to/pasture/skills PYTHONPATH=scripts bin/aura-swar
 - Worktree mode creates or reuses an isolated git worktree for a Beads epic and launches Claude in tmux.
 - Intree mode launches one or more Claude sessions in the current checkout without creating worktrees.
 
-Examples:
+Historical, non-operational examples (do not execute for new work):
 
 ```bash
 aura-swarm start --epic aura-example --model sonnet
@@ -190,7 +191,7 @@ aura-swarm stop aura-example
 aura-swarm cleanup --done
 ```
 
-Prerequisites:
+Historical prerequisites:
 
 | Tool | Purpose |
 |------|---------|

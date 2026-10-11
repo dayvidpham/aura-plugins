@@ -14,6 +14,11 @@ references:
 
 # ROADMAP — unified Pasture workflow record + observability
 
+> **Legacy status snapshot (retained history).** The old IDs and status rows
+> below are not current operational state. Use `pasture task` and the migration
+> successor ledger for live work; see [AGENTS.md](../AGENTS.md). Do not recreate
+> tasks from this document without checking the ledger and current tracker.
+
 > **⚠️ Python-era docs removed (2026-06-24).** Some references below pointed at Python
 > deprecation docs (`docs/PYTHON_TO_GO_MIGRATION.md`, `scripts/aura_protocol/DEPRECATED.md`,
 > `docs/aurad.md`, `docs/aura-msg.md`) that were deleted when the Python engine was removed
@@ -61,8 +66,9 @@ Status legend:
 | 🟡 | Open — Beads task open, work not yet started. |
 | 🚫 | Blocked — open Beads task with at least one open blocker. |
 
-Each row links to its Beads task. Run `bd show <id> --allow-stale` for full
-context.
+Each row links to its legacy task. For current context, resolve its successor
+URI through the migration ledger, then use `pasture task show` with that full
+URI and `--namespace https://github.com/dayvidpham/aura-plugins`.
 
 ---
 
@@ -127,9 +133,9 @@ Two distinct concerns the system handles separately:
 
 For new contributors: the three names are not synonyms.
 
-- **Beads (`bd`)**: the meta-tracker for the aura-plugins project itself
-  (issues, dependencies, sync) — see `aura-plugins/CLAUDE.md`. Used for
-  managing the work that builds the toolkit.
+- **Beads (legacy)**: the former meta-tracker for this project. Retained data
+  is migration/archive evidence, not an operational alternative. See
+  `aura-plugins/AGENTS.md` for the current Pasture task workflow.
 - **Provenance**: the embedded PROV-O task-graph library
   (`github.com/dayvidpham/provenance`) — used by `protocol.TaskTracker` to
   store tasks, edges, labels, comments, agents, activities inside
@@ -142,11 +148,10 @@ For new contributors: the three names are not synonyms.
 Pasture was chosen over extending Beads because Beads's model is
 issue-centric (good for project management) while Pasture's model is
 workflow-centric (REQUEST → ELICIT → PROPOSAL → … → LANDING, with phase
-brackets, audit events, and context edges). The two coexist: Beads tracks
-the work of building Pasture; Pasture tracks the work of running aura
-workflows. The skill-bodies migration in §2b is what eventually lets the
-`/aura:*` skills stop reaching for `bd` directly and use `pasture task`
-instead.
+brackets, audit events, and context edges). This historical roadmap predates
+the tracker cutover: Pasture now tracks both toolkit development and workflow
+tasks. The former skill-bodies migration in §2b is recorded below as history,
+not a recommendation to maintain two trackers.
 
 ### Python `aura_protocol` is deprecated; Go (Pasture) is canonical
 
@@ -260,7 +265,7 @@ its trigger condition fires.
 | Status | Item | Beads | Trigger / notes |
 |---|---|---|---|
 | 🟡 | **2a. Binary umbrella: `pasture-msg` → `pasture msg ...`** | (not yet filed) | REQUEST [`aura-plugins-j9c88`](beads://aura-plugins-j9c88) original framing; verbatim direction *"Let's keep pasture-msg as it is for now. We will need to re-think our unification approach."* Not technically blocked; awaits UX decision. |
-| 🟡 | **2b. Skill-bodies migration: bd → `pasture task`** | (not yet filed) | Provenance URD R9 follow-through. All `/aura:*` skill bodies that call `bd create / close / update / etc.` migrate to equivalent `pasture task` invocations once `pasture task` is the canonical local task tracker. Documentation-heavy; orthogonal to the substrate. |
+| 🟡 | **2b. Skill-bodies migration: legacy tracker → `pasture task`** | (historical unfiled entry) | Provenance URD R9 follow-through, subsequently addressed by the tracker-retirement program. Read the current tracker and generated Pasture skills, not this row's old status, for delivered behavior. |
 | 🟡 | **2c. Cross-machine deployment / replicated `pasture.db`** | (not yet filed) | Multi-host need. ADR 0001 D2 punts this; PROPOSAL-2 §5 acknowledges single-machine SQLite. Future: replication or client-server storage swap behind `OpenTaskTracker`. |
 | 🟡 | **2d. Provenance library evolution (lift C4)** | (not yet filed) | New REQUEST + ELICIT to lift C4 binding (*"Provenance the library is NOT modified"*). E.g., adding `SessionEntry` natively in Provenance. |
 | 🟡 | **2e. Researcher's-notes recording (lift C1)** | (not yet filed) | New REQUEST + user endorsement to lift C1 binding (*"Researcher's notes / exploratory notes are out of scope"*). Was agent-introduced hypothetical, not user-endorsed. |
@@ -323,8 +328,10 @@ them up.
 ## How this roadmap evolves
 
 - New items get filed as Beads tasks with `--deps discovered-from:aura-plugins-cmvu5` (transitive ok; via a child like `cn5ax` is fine too).
-- Items that block `jbnx3` closure get an additional `bd dep add aura-plugins-ow0pq --blocked-by <task-id>` so the §1.5 cascade stays current.
-- Items that turn into real implementation get linked directly under `cmvu5` via `bd dep add aura-plugins-cmvu5 --blocked-by <task-id>` so they appear in `bd dep tree`.
+- Historical blocker intent for `jbnx3` and `ow0pq` is retained in the archive;
+  do not create new edges to those legacy IDs.
+- For new work, resolve current parent/child successor URIs and use the
+  parent-blocked-by-child Pasture recipe in [AGENTS.md](../AGENTS.md).
 - This ROADMAP.md gets updated when an item moves between status buckets (🟡 → 🔄 → ✅) or when a discovery (§4) surfaces. The Beads tasks are the source of truth; this doc is the browsable summary.
 
 ## Cross-references

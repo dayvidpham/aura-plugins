@@ -1,3 +1,9 @@
+> **Historical, non-operational.** This is a dated record of completed work,
+> retained for project history only and not current guidance. The current
+> operational authority is the repository root `AGENTS.md` and the
+> Pasture-generated protocol (`pasture task` is the tracker source of truth).
+> Any `bd`, `aura-swarm`, or other superseded commands below are history.
+
 # qzr8a — Stale-work triage audit (FINAL LEDGER)
 
 - **Audit:** [`aura-plugins-qzr8a`](beads://aura-plugins-qzr8a) · **ELICIT/UAT:** `aura-plugins-7a8nu`

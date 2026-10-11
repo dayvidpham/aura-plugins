@@ -1,5 +1,10 @@
 # Handoff: WebSocket Connector + `aura web` Command Implementation
 
+> **Identifier note:** The example task identifiers below (`unified-schema-cgo`,
+> and so on) are illustrative. In the live tracker every operand is a full task
+> URI of the form `https://github.com/dayvidpham/<repo>--<uuid>`, captured from
+> the tracker's JSON `id` field. See [TRACKER.md](TRACKER.md).
+
 > Request: unified-schema-cgo
 > URE: unified-schema-jdl
 > Proposal: unified-schema-u5p (PROPOSAL-2, RFC v0.2.0)
@@ -264,8 +269,8 @@ Make me a websocket connector to link this Go application to a Next.js front-end
 <uat>
   <metadata>
     <title>IMPL-UAT: WebSocket connector + aura web command</title>
-    <beads-id>unified-schema-gwz</beads-id>
-    <proposal-ref>unified-schema-u5p</proposal-ref>
+    <task-uri>{{impl-uat-task-uri}}</task-uri>
+    <proposal-ref>{{proposal-task-uri}}</proposal-ref>
     <phase>implementation</phase>
     <date>2026-02-19</date>
   </metadata>

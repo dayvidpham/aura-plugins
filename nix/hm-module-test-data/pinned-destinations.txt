@@ -55,7 +55,6 @@
 .claude/agents/reviewer.md
 .claude/agents/supervisor.md
 .claude/agents/worker.md
-.claude/hooks/bd-prime.md
 .claude/hooks/hooks.json
 .claude/hooks/pasture-activation.json
 .claude/hooks/scripts/git-discipline.sh

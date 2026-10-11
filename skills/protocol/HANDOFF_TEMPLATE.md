@@ -11,11 +11,11 @@ Standardized template for all 6 actor-change transitions in the Aura protocol.
 | # | From | To | When | Content Level |
 |---|------|-----|------|---------------|
 | 1 | Architect | Supervisor | Phase 7 (Handoff) | Full inline provenance |
-| 2 | Supervisor | Worker | Phase 9 (Slice assignment) | Summary + bd IDs |
-| 3 | Supervisor | Reviewer | Phase 10 (Code review) | Summary + bd IDs |
-| 4 | Worker | Reviewer | Phase 10 (Code review) | Summary + bd IDs |
-| 5 | Reviewer | Followup | After Phase 10 (Follow-up epic) | Summary + bd IDs |
-| 6 | Supervisor | Architect | Follow-up lifecycle (FOLLOWUP_URE/URD → FOLLOWUP_PROPOSAL) | Summary + bd IDs |
+| 2 | Supervisor | Worker | Phase 9 (Slice assignment) | Summary + task URIs |
+| 3 | Supervisor | Reviewer | Phase 10 (Code review) | Summary + task URIs |
+| 4 | Worker | Reviewer | Phase 10 (Code review) | Summary + task URIs |
+| 5 | Reviewer | Followup | After Phase 10 (Follow-up epic) | Summary + task URIs |
+| 6 | Supervisor | Architect | Follow-up lifecycle (FOLLOWUP_URE/URD → FOLLOWUP_PROPOSAL) | Summary + task URIs |
 
 ### Same-Actor Transitions (NO Handoff Needed)
 
@@ -82,6 +82,12 @@ These transitions are performed by the same actor and do not require a handoff d
 
 ## Examples
 
+> **Identifier note:** The example task identifiers below (`aura-scripts-abc`,
+> and so on) are illustrative. In the live tracker every operand is a full task
+> URI of the form
+> `https://github.com/dayvidpham/<repo>--<uuid>`, captured from the tracker's
+> JSON `id` field. Reference documents live in description frontmatter.
+
 ### 1. Architect → Supervisor (Full Inline Provenance)
 
 ```markdown
@@ -122,7 +128,7 @@ was ratified after 1 revision round (3/3 ACCEPT).
 - Tests verify log output format
 ```
 
-### 2. Supervisor → Worker (Summary + bd IDs)
+### 2. Supervisor → Worker (Summary + task URIs)
 
 ```markdown
 # Handoff: Supervisor → Worker
@@ -153,10 +159,10 @@ formatter, and LOG_LEVEL env var parsing. Other slices depend on this.
 - SLICE-2 (CLI integration) depends on SLICE-1 completing first.
 
 ## Acceptance Criteria
-- See bd task aura-scripts-pqr for full validation_checklist and acceptance_criteria.
+- See task `aura-scripts-pqr` for full validation_checklist and acceptance_criteria.
 ```
 
-### 3. Supervisor → Reviewer (Summary + bd IDs)
+### 3. Supervisor → Reviewer (Summary + task URIs)
 
 ```markdown
 # Handoff: Supervisor → Reviewer
@@ -188,7 +194,7 @@ against the ratified plan and URD requirements.
 - Vote ACCEPT or REVISE per slice.
 ```
 
-### 4. Worker → Reviewer (Summary + bd IDs)
+### 4. Worker → Reviewer (Summary + task URIs)
 
 ```markdown
 # Handoff: Worker → Reviewer
@@ -217,10 +223,10 @@ SLICE-1 implements the core logging infrastructure. All quality gates pass
 - Consider adding log rotation in follow-up (not in scope for MVP).
 
 ## Acceptance Criteria
-- See bd task aura-scripts-pqr for validation_checklist completion status.
+- See task `aura-scripts-pqr` for validation_checklist completion status.
 ```
 
-### 5. Reviewer → Followup (Summary + bd IDs)
+### 5. Reviewer → Followup (Summary + task URIs)
 
 ```markdown
 # Handoff: Reviewer → Followup
@@ -364,5 +370,5 @@ request-id correlation and performance benchmarking.
 
 ## Acceptance Criteria
 - Both adopted leaf tasks resolved (tests pass, production code path verified).
-- See bd task aura-scripts-pqr for full validation_checklist.
+- See task `aura-scripts-pqr` for full validation_checklist.
 ```

@@ -1,0 +1,22 @@
+name: Active documentation
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  active-docs:
+    name: No retired operational recipes
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+      - name: Test and run the active-document gate
+        run: |
+          python3 scripts/test_active_docs.py
+          python3 scripts/check-active-docs.py

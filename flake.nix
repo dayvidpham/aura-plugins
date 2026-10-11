@@ -9,7 +9,7 @@
     nixpkgs-stable.url = "github:NixOS/nixpkgs/nixos-26.05";
     nixpkgs-unstable.url = "github:NixOS/nixpkgs/nixos-unstable";
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-26.05";
-    pasture.url = "github:dayvidpham/pasture";
+    pasture.url = "github:dayvidpham/pasture/v0.0.17";
   };
 
   # ============================================================
@@ -131,6 +131,12 @@
       checks = forAllSystems ({ pkgs, ... }:
         {
           hm-module-test = import ./nix/hm-module-test.nix { inherit pkgs pasture; };
+          active-docs = pkgs.runCommand "aura-active-docs-test"
+            { src = self; nativeBuildInputs = [ pkgs.python3 ]; } ''
+            python3 "$src/scripts/test_active_docs.py"
+            python3 "$src/scripts/check-active-docs.py"
+            touch "$out"
+          '';
           aggregate-release-test = self.packages.${pkgs.system}.aggregate-release;
           # Runs the release-script test suites on every `nix flake check`, so a
           # regression in either surfaces on ordinary changes instead of first

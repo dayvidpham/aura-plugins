@@ -1,0 +1,23 @@
+{
+  "README.md": "84475999df2f396035de35bf4d1db47da69059b35ecafa6e31e42d47a79723da",
+  "docs/adr/0001-pasture-toolkit-integration-architecture.md": "7f50ebcf4a575dadb2718cb3bf122e550b91e162090822114ad67f851c010fd6",
+  "docs/audits/3iz51-sibling-epic-placement.md": "05907829da9c236ff95f5566709d1998b07b11fb56ca0d55db1aaa772e1ed617",
+  "docs/audits/fzctk-supervisor-worker-fidelity.md": "4e2ea5b45b82cb28caf14d995e7e2a686d5a8e41c64652c5b2395b7dd48d81a5",
+  "docs/audits/mh4ek-constraint-coverage.md": "8e9ef2c79eae22ad7290f8b80faaffec61e37d57e93fa7d3615f79e8d482a841",
+  "docs/audits/qzr8a-stale-work-triage.md": "dae314ddd8b03d5408d8a0b5c2db4ebe7918ff8e1c65ef79346e6565b3d679d0",
+  "docs/audits/request-level-triage.md": "19db7153df71939d679e197f018a568eb03a0c598d54de5697abb41fa4c5dcfa",
+  "docs/impl-plans/IMPL_PLAN-PROPOSAL-2-pasture-workflow-record.md": "104f420ccdc3dbf1aeb97b505f51facf44fddfeb47fce53c0de05ffe3d01e769",
+  "docs/proposals/PROPOSAL-1-audit-3iz51.md": "0211a2e5d5117da13e532a88a0accecf71b4f0a06522cadfb83a84ccc71d043e",
+  "docs/proposals/PROPOSAL-1-audit-5wbhm.md": "8b403a41414970c2bdea504af0a627c55ab89a6ea6af307ea9f092cec64de426",
+  "docs/proposals/PROPOSAL-1-audit-execution-plan.md": "ed0a54bd49f660c018fc296be9dbef9fc0a9cf83c7fb5ea467c71f2929d5d5bd",
+  "docs/proposals/PROPOSAL-1-audit-mh4ek.md": "a2457728858924ca918fc830837187b4f4d412cdcffac096ffee8af4475d390c",
+  "docs/proposals/PROPOSAL-1-audit-qzr8a.md": "dbd877c009c73e907c86df9e4c9b3b63eabe28a190a564457614d525153c1d24",
+  "docs/proposals/PROPOSAL-1-pasture-workflow-record.md": "fe02b23c6c156bb18649f78b089e7833c316804f14c8790b9ff0e27eeebfd75e",
+  "docs/proposals/PROPOSAL-2-audit-execution-plan.md": "b780a83c76192737117de196f9f4469c4e4b6848b4334ab2f2fc0cd0764134f2",
+  "docs/proposals/PROPOSAL-2-pasture-workflow-record.md": "d100e3e19971b7e4280ca87a6cec955a3411e8e09955cea3c45f4d87d9a97339",
+  "docs/proposals/ROADMAP-COMPLETENESS-AUDIT.md": "079ae43321b56fe3548234e43b18b6b0702fe75be813148badf84c2544e8b5a3",
+  "docs/research/schema-extension-code-examples.md": "0f627d80707cb37e9b776a6a82325e376f0a68f1917ad0685444985ab2c4b33c",
+  "skills/protocol/MIGRATION_v1_to_v2.md": "ac98ef12ef11362cf2a423a9a67857772108ff58daad1fa012d72dd6e62ea80f",
+  "skills/protocol/RESEARCH_EXAMPLE-nix-openclaw-req-ure-proposal.md": "98349b8c227ec7014e73506fe888c6dc7e1c6467d881982c8c0f25cdd44b398c",
+  "skills/protocol/user-request-revamp-v2.md": "363ddc206dc2c9de3f2322dc19b87035a995aa7af2dd569fbb34811d96159434"
+}

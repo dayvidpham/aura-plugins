@@ -1,3 +1,8 @@
+> **Historical, non-operational.** This document is a retained historical record
+> (a raw research session transcript). It contains the superseded Beads (`bd`)
+> workflow and is kept for research history only. Do not run its commands.
+> Active tracker recipes live in [TRACKER.md](TRACKER.md).
+
 dayvidpham/nix-openclaw-vm [main]
  I  -> pwd 
 /home/minttea/codebases/dayvidpham/nix-openclaw-vm

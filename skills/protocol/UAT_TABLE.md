@@ -6,6 +6,11 @@ references:
   code_review_round: aura-plugins-e0j
 ---
 
+> **Identifier note:** The example identifiers above are illustrative legacy IDs.
+> In the live tracker every reference is a full task URI of the form
+> `https://github.com/dayvidpham/<repo>--<uuid>`, captured from the tracker's
+> JSON `id` field. See [TRACKER.md](TRACKER.md).
+
 ## Questions and Responses
 
 ### Round 1, Q1: Theme Scope (multiSelect)
