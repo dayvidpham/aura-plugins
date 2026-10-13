@@ -18,6 +18,20 @@ SPEC.loader.exec_module(GATE)
 
 
 class ActiveDocsTests(unittest.TestCase):
+    def test_prose_mandates_in_active_documents(self):
+        fixtures = json.loads((Path(__file__).parent / "test-data/active-docs-prose.json").read_text())
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            path = root / "docs/ROADMAP.md"
+            path.parent.mkdir(parents=True)
+            for case in fixtures:
+                with self.subTest(name=case["name"]):
+                    path.write_text(case["text"] + "\n")
+                    findings = GATE.check(root, {})
+                    self.assertEqual(case["reject"], bool(findings), findings)
+                    if findings:
+                        self.assertTrue(all(item.startswith("docs/ROADMAP.md:") for item in findings))
+
     def test_command_shapes_fail_conservatively(self):
         cases = [
             "bd ready", "Use `bd show URI` now", "env X=y command bd ready",

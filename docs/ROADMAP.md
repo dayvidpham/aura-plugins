@@ -26,13 +26,13 @@ references:
 > `aura-plugins-4s5zt`). Those references are now historical; Go **pasture** is the sole
 > implementation. The v1–v4 reframe is tracked by `aura-plugins-64mld`.
 
-This document is the human-readable view of the forward-looking work tracked
-by the Beads epic [`aura-plugins-cmvu5`](beads://aura-plugins-cmvu5), with
-cross-references to the parent Pasture URD
+This document retains a historical, non-operational snapshot of the former
+Beads epic [`aura-plugins-cmvu5`](beads://aura-plugins-cmvu5), with
+cross-references to the former parent Pasture URD
 [`aura-plugins-jbnx3`](beads://aura-plugins-jbnx3) and its closure triage
-gate [`aura-plugins-ow0pq`](beads://aura-plugins-ow0pq). The Beads task
-graph is the source of truth for status and dependencies; this file is the
-browsable / diff-able reference for what's outstanding and why.
+gate [`aura-plugins-ow0pq`](beads://aura-plugins-ow0pq). Current Pasture tasks
+are the source of truth for status and dependencies; this file preserves the
+browsable / diff-able historical context, not a second tracker workflow.
 
 > **Status (2026-06-06): `jbnx3` CLOSED — the Go port is delivered as scoped; the audit closure cascade is complete.**
 > All 8 `ow0pq` blockers resolved (`3iz51` / `fzctk` / `h2zd9` / `qzr8a` / `bch` + `rk2su` / `x5071` / `6l5yo`); the R1–R7 re-walk is recorded on `ow0pq`; `ow0pq` and the parent URD `jbnx3` are closed. **R1/R2/R3/R5/R6/R7 DONE**; **R4 (ACP)** core delivered with live-bidirectional externally blocked on Claude Code native ACP (residuals tracked: `pasture#1`/`#2`/`n856x`).
@@ -57,7 +57,7 @@ Sections:
   ROADMAP-COMPLETENESS-AUDIT both fed this section.
 - **§5. Done so far** — what's finished.
 
-Status legend:
+Historical, non-operational status legend (legacy Beads states):
 
 | Symbol | Meaning |
 |---|---|
@@ -327,12 +327,18 @@ them up.
 
 ## How this roadmap evolves
 
-- New items get filed as Beads tasks with `--deps discovered-from:aura-plugins-cmvu5` (transitive ok; via a child like `cn5ax` is fine too).
+- Before filing new work, inspect the migration successor ledger and current
+  tracker to avoid duplicates. Use `pasture task create` with the explicit
+  `https://github.com/dayvidpham/aura-plugins` namespace and capture the returned
+  full task URI as described in [AGENTS.md](../AGENTS.md). Record discovery
+  provenance in description frontmatter `references:`, not legacy `--deps` flags.
 - Historical blocker intent for `jbnx3` and `ow0pq` is retained in the archive;
   do not create new edges to those legacy IDs.
 - For new work, resolve current parent/child successor URIs and use the
   parent-blocked-by-child Pasture recipe in [AGENTS.md](../AGENTS.md).
-- This ROADMAP.md gets updated when an item moves between status buckets (🟡 → 🔄 → ✅) or when a discovery (§4) surfaces. The Beads tasks are the source of truth; this doc is the browsable summary.
+- Update this ROADMAP.md when a current item moves between status buckets
+  (🟡 → 🔄 → ✅) or a discovery (§4) surfaces, citing its verified successor URI.
+  Pasture tasks are the source of truth; this doc is the browsable summary.
 
 ## Cross-references
 

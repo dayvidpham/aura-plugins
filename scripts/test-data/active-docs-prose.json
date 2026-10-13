@@ -1,0 +1,18 @@
+[
+  {"name": "roadmap creation mandate", "text": "New items get filed as Beads tasks with `--deps discovered-from:old`.", "reject": true},
+  {"name": "roadmap authority mandate", "text": "The Beads tasks are the source of truth; this doc is the summary.", "reject": true},
+  {"name": "wrapped authority", "text": "The Beads task\ngraph is the source of truth for status and dependencies.", "reject": true},
+  {"name": "imperative creation", "text": "Create new tasks in Beads.", "reject": true},
+  {"name": "imperative filing", "text": "File all discoveries as **Beads** issues.", "reject": true},
+  {"name": "tracker recommendation", "text": "Use Beads for operational tracking.", "reject": true},
+  {"name": "mandatory tracker", "text": "Work must be tracked in Beads.", "reject": true},
+  {"name": "tracker requirement", "text": "Beads must track new work.", "reject": true},
+  {"name": "banner cannot hide live advice", "text": "Historical, non-operational snapshot.\nNew items get filed as Beads tasks.", "reject": true},
+  {"name": "pasture workflow", "text": "New items use `pasture task create`; Pasture tasks are the source of truth.", "reject": false},
+  {"name": "historical tracker", "text": "Beads (legacy): the former meta-tracker. Retained data is historical, non-operational evidence.", "reject": false},
+  {"name": "historical status", "text": "Historical status legend: Beads task closed.", "reject": false},
+  {"name": "archive link", "text": "Historical epic [old](beads://old), not current operational state.", "reject": false},
+  {"name": "historical linked filing", "text": "Historical REQUEST tracked as [old](beads://old).", "reject": false},
+  {"name": "migration evidence", "text": "Retained `.beads/` data is migration/archive evidence, not an operational tracker.", "reject": false},
+  {"name": "historical motivation", "text": "Pasture was chosen over extending Beads because its model is issue-centric.", "reject": false}
+]

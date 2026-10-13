@@ -10,6 +10,9 @@ historical; its live instructions are checked. Every Markdown owner under docs/
 is checked, including dated records unless explicitly hash-pinned. CHANGELOG,
 saved root transcripts, .agents.local/ and llm/ session archives, and deprecated
 implementation code are outside the operational instruction-owner scope.
+Prose creation/use/authority mandates naming Beads also fail conservatively;
+historical rows and links alone are not mandates. A history banner does not
+exempt live advice outside the exact pinned identities.
 """
 import hashlib
 import json
@@ -48,6 +51,14 @@ RETIRED_TRACKER = re.compile(r"(?<![\w.-])bd(?![\w.-])")
 RETIRED_SWARM = re.compile(
     r"(?<![\w.-])(?:bin/)?aura-swarm\s+(?:start|status|attach|send|stop|list|resume|merge|review|cleanup)\b"
 )
+# Bounded sentence-shaped matches include soft-wrapped Markdown prose, but
+# cannot join separate paragraphs. These reject advice, not all legacy names.
+PROSE_GAP = r"(?:(?!\n\s*\n)[^.!?;]){0,240}?"
+RETIRED_MANDATE = re.compile(
+    rf"\b(?:create|file|filed|use|track|tracked|manage|managed)\b{PROSE_GAP}\bBeads\b(?!://)"
+    rf"|\bBeads\b(?!://){PROSE_GAP}\b(?:source\s+of\s+truth|must|shall|should|required)\b",
+    re.IGNORECASE,
+)
 
 
 def digest(path):
@@ -59,7 +70,7 @@ def recipe_findings(text):
     # inline guidance and quoted command arrays must not evade the gate.
     return [
         (text.count("\n", 0, match.start()) + 1, match.group())
-        for pattern in (RETIRED_TRACKER, RETIRED_SWARM)
+        for pattern in (RETIRED_TRACKER, RETIRED_SWARM, RETIRED_MANDATE)
         for match in pattern.finditer(text)
     ]
 
