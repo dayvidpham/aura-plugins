@@ -144,3 +144,36 @@ loops did not change it, not that the separate triage/freeze work is accepted.
 Sanitized full step results were recorded locally at
 `/tmp/opencode/s4-dogfood-evidence.json`; the committed-tree identity is supplied
 in the slice's attributed handoff comment after this report is committed.
+
+## Approved follow-up: v0.0.18
+
+The user approved moving the Home Manager input to Pasture `v0.0.18`, revision
+`540e66ce8b9d74b32c83c1c1236d720ffa47e02a`, after the vendorHash correction in
+Pasture PR #188. The v0.0.17 failure above is retained historical evidence,
+not a current worker blocker. The exact new pinned Pasture Nix build succeeds
+without overrides:
+
+```text
+nix build github:dayvidpham/pasture/540e66ce8b9d74b32c83c1c1236d720ffa47e02a#pasture --no-link
+```
+
+Re-derivation through
+`nix eval --raw .#checks.x86_64-linux.hm-module-test.pinnedDestinations` is
+byte-identical to the v0.0.17 snapshot; its unchanged SHA-256 is
+`e1b8b5ea3e4edc8b437402dfdd338a607903540342247a9f4d722d84544acb29`.
+No snapshot content, layout, module, marketplace channel or gitlink edit is
+needed. Only the flake input/lock move, with this evidence addendum.
+
+The following reruns pass: `nix flake check --no-build`, the realized
+`checks.x86_64-linux.hm-module-test` (all evaluation cases and nine-cell
+fixture/pinned byte-and-mode comparisons), `nix build .#aura-swarm --no-link`,
+and `nix run .#aura-swarm -- --help` (packaging only). The seven document-gate
+unit tests and direct active-document gate also pass, as does the public
+release-tag assertion against the locked revision. This is not a claim that
+the entire separate release publication ceremony was rerun.
+
+The first evaluation encountered invalid local store paths for unchanged
+test fixtures. Re-importing the existing empty fixture and realizing the exact
+existing protocol-fixture expression restored those paths without source
+changes; the ordinary required gates then passed. No gate was weakened or
+skipped. No outstanding worker blocker, push, activation or task closure.
