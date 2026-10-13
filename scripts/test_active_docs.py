@@ -18,6 +18,23 @@ SPEC.loader.exec_module(GATE)
 
 
 class ActiveDocsTests(unittest.TestCase):
+    def test_triage_ledger_is_exact_history_not_a_recipe_escape(self):
+        owner = "docs/audits/bd-retirement-triage.md"
+        history = json.loads(GATE.MANIFEST.read_text())
+        self.assertIn(owner, GATE.HISTORICAL_OWNERS)
+        self.assertIn(owner, history)
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            path = root / owner
+            path.parent.mkdir(parents=True)
+            path.write_bytes((GATE.ROOT / owner).read_bytes())
+            pinned = {owner: history[owner]}
+            self.assertFalse(GATE.check(root, pinned))
+            path.write_text(path.read_text() + "\nbd create new-work\n")
+            self.assertTrue(GATE.check(root, pinned))
+            path.write_text("# bd ledger\n")
+            self.assertTrue(GATE.check(root, {owner: GATE.digest(path)}))
+
     def test_prose_mandates_in_active_documents(self):
         fixtures = json.loads((Path(__file__).parent / "test-data/active-docs-prose.json").read_text())
         with tempfile.TemporaryDirectory() as temp:

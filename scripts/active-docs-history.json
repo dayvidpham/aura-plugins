@@ -2,6 +2,7 @@
   "README.md": "84475999df2f396035de35bf4d1db47da69059b35ecafa6e31e42d47a79723da",
   "docs/adr/0001-pasture-toolkit-integration-architecture.md": "7f50ebcf4a575dadb2718cb3bf122e550b91e162090822114ad67f851c010fd6",
   "docs/audits/3iz51-sibling-epic-placement.md": "05907829da9c236ff95f5566709d1998b07b11fb56ca0d55db1aaa772e1ed617",
+  "docs/audits/bd-retirement-triage.md": "a43e801a2b712a47f9438a31434bf7dc3c95a69b6d3d254e6b9ac9068d16ed65",
   "docs/audits/fzctk-supervisor-worker-fidelity.md": "4e2ea5b45b82cb28caf14d995e7e2a686d5a8e41c64652c5b2395b7dd48d81a5",
   "docs/audits/mh4ek-constraint-coverage.md": "8e9ef2c79eae22ad7290f8b80faaffec61e37d57e93fa7d3615f79e8d482a841",
   "docs/audits/qzr8a-stale-work-triage.md": "dae314ddd8b03d5408d8a0b5c2db4ebe7918ff8e1c65ef79346e6565b3d679d0",

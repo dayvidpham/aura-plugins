@@ -30,6 +30,7 @@ HISTORICAL_OWNERS = frozenset({
     "README.md",
     "docs/adr/0001-pasture-toolkit-integration-architecture.md",
     "docs/audits/3iz51-sibling-epic-placement.md",
+    "docs/audits/bd-retirement-triage.md",
     "docs/audits/fzctk-supervisor-worker-fidelity.md",
     "docs/audits/mh4ek-constraint-coverage.md",
     "docs/audits/qzr8a-stale-work-triage.md",
