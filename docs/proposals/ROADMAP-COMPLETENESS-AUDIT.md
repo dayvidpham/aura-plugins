@@ -12,6 +12,12 @@ references:
   parent_urd_pasture: aura-plugins-jbnx3
 ---
 
+> **Historical, non-operational.** This is a dated record of completed work,
+> retained for project history only and not current guidance. The current
+> operational authority is the repository root `AGENTS.md` and the
+> Pasture-generated protocol (`pasture task` is the tracker source of truth).
+> Any `bd`, `aura-swarm`, or other superseded commands below are history.
+
 # PROPOSAL — ROADMAP completeness audit
 
 ## 0. Revision log

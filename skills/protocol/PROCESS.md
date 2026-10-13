@@ -1,6 +1,11 @@
 # Aura Protocol - Process Guide
 
-**This is the single source of truth for Aura workflow execution.**
+This is retained Aura reference documentation. The operative authority is the
+current Pasture-generated protocol and the repository's root AGENTS.md, not a
+second local protocol implementation. Before running any tracker recipe, follow
+[TRACKER.md](TRACKER.md) to select the store, explicit namespace and registered
+author. Bind every task variable to a full URI from actual create output or a
+verified assignment/read; these examples must not run with unbound variables.
 
 For agent role definitions and detailed tool references, see `skills/`.
 
@@ -27,9 +32,10 @@ Phase 12: Landing         (commit, push, hand off)
 
 **Check current progress:**
 ```bash
-bd stats                                                  # Project overview
-bd list --labels="aura:p3-plan:s3-propose"                # Active proposals
-bd list --labels="aura:p9-impl:s9-slice" --status=in_progress  # Implementation progress
+# Project overview: derive counts locally from one namespaced read (there is no `stats` verb).
+pasture task list --namespace "$PASTURE_NAMESPACE" --format json | jq 'group_by(.status) | map({status: .[0].status, count: length})'
+pasture task list --namespace "$PASTURE_NAMESPACE" --label aura:p3-plan:s3-propose    # Active proposals
+pasture task list --namespace "$PASTURE_NAMESPACE" --label aura:p9-impl:s9-slice --status in_progress  # Implementation progress
 ```
 
 **Full sections below.** For detailed steps, see agent files in `skills/`.
@@ -57,13 +63,13 @@ Phase 1 expands into 3 sub-steps:
 
 ### REQUEST Task
 
-**What:** Capture user's problem statement as a Beads task.
+**What:** Capture user's problem statement as a Pasture task.
 
 ```bash
-bd create --type=feature --priority=2 \
-  --title="REQUEST: Brief description of need" \
-  --description="Full user request with context, acceptance criteria" \
-  --add-label "aura:p1-user:s1_1-classify"
+REQUEST_URI=$(pasture task create "REQUEST: Brief description of need" \
+  --namespace "$PASTURE_NAMESPACE" --type feature --priority high \
+  --description "Full user request with context, acceptance criteria" --format json | jq -er '.id')
+pasture task label add "$REQUEST_URI" aura:p1-user:s1_1-classify --namespace "$PASTURE_NAMESPACE"
 ```
 
 **Who:** Usually user or coordinator creates this.
@@ -95,22 +101,22 @@ quality expected.
 
 ### User Requirements Document (s2_2)
 
-**What:** A single Beads task (label `aura:urd`) that serves as the single source of truth for user requirements, priorities, design choices, MVP goals, and end-vision goals.
+**What:** A single Pasture task (label `aura:urd`) that serves as the single source of truth for user requirements, priorities, design choices, MVP goals, and end-vision goals.
 
 **Lifecycle:**
 - **Created** in Phase 2 with structured requirements from the URE survey
 - **Referenced** via description frontmatter in PROPOSAL, IMPL_PLAN, UAT, and other tasks
-- **Updated** via `bd comments add` whenever requirements/scope change (UAT results, ratification, user feedback)
+- **Updated** via `pasture task comment add` whenever requirements/scope change (UAT results, ratification, user feedback)
 - **Consulted** by architects, reviewers, and supervisors as the single source of truth for "what does the user want?"
 
 ```bash
-# Create URD after elicitation
-bd create --labels "aura:urd,aura:p2-user:s2_2-urd" \
-  --title "URD: {{feature name}}" \
+# Create URD after elicitation. The title is positional; labels are a second command.
+URD_URI=$(pasture task create "URD: {{feature name}}" \
+  --namespace "$PASTURE_NAMESPACE" --type task --priority high \
   --description "---
 references:
-  request: <request-task-id>
-  elicit: <elicit-task-id>
+  request: {{request-task-uri}}
+  elicit: {{elicit-task-uri}}
 ---
 ## Requirements
 {{structured requirements from URE survey}}
@@ -125,10 +131,12 @@ references:
 {{minimum viable scope}}
 
 ## End-Vision Goals
-{{user's ultimate vision}}"
+{{user's ultimate vision}}" --format json | jq -er '.id')
+pasture task label add "$URD_URI" aura:urd --namespace "$PASTURE_NAMESPACE"
+pasture task label add "$URD_URI" aura:p2-user:s2_2-urd --namespace "$PASTURE_NAMESPACE"
 ```
 
-**Don't Forget About the URD!** Every agent should consult the URD before making decisions. When in doubt about requirements, `bd show <urd-id>` is your first stop.
+**Don't Forget About the URD!** Every agent should consult the URD before making decisions. When in doubt about requirements, `pasture task show "$URD_URI"` is your first stop.
 
 ### Dependencies
 
@@ -147,7 +155,7 @@ REQUEST
 URD ← referenced via frontmatter in (REQUEST, ELICIT, PROPOSAL, IMPL_PLAN, UAT)
 ```
 
-**Rule:** `bd dep add <stays-open> --blocked-by <must-finish-first>`. The `--blocked-by` target is always the thing you do first. Work flows bottom-up; closure flows top-down.
+**Rule:** `pasture task dep add "$STAYS_OPEN_URI" --blocked-by "$MUST_FINISH_FIRST_URI"`. The `--blocked-by` target is always the thing you do first. Work flows bottom-up; closure flows top-down.
 
 **Next:** Architect spawns `/aura:architect-propose-plan` skill to explore and propose.
 
@@ -172,21 +180,22 @@ URD ← referenced via frontmatter in (REQUEST, ELICIT, PROPOSAL, IMPL_PLAN, UAT
 
 **Creation:**
 ```bash
-bd create --type=feature --priority=2 \
-  --title="PROPOSAL-1: Technical proposal for feature" \
-  --description="---
+PROPOSAL_URI=$(pasture task create "PROPOSAL-1: Technical proposal for feature" \
+  --namespace "$PASTURE_NAMESPACE" --type feature --priority high \
+  --description "---
 references:
-  request: <request-task-id>
-  urd: <urd-task-id>
+  request: {{request-task-uri}}
+  urd: {{urd-task-uri}}
 ---
-..." \
-  --design="validation_checklist: [...], acceptance_criteria: [...]" \
-  --add-label "aura:p3-plan:s3-propose"
+## Design
+{validation_checklist: [...], acceptance_criteria: [...]}
+..." --format json | jq -er '.id')
+pasture task label add "$PROPOSAL_URI" aura:p3-plan:s3-propose --namespace "$PASTURE_NAMESPACE"
 ```
 
 Link dependency:
 ```bash
-bd dep add <request-id> --blocked-by <proposal-id>
+pasture task dep add "$REQUEST_URI" --blocked-by "$PROPOSAL_URI" --namespace "$PASTURE_NAMESPACE"
 ```
 
 **Next:** Architect runs `/aura:architect-request-review` to spawn 3 reviewers in **PARALLEL**.
@@ -201,7 +210,7 @@ See: [../architect-propose-plan/SKILL.md](../architect-propose-plan/SKILL.md)
 
 Architect spawns **3 independent reviewers** in parallel (not sequentially).
 
-Spawn reviewers as `general-purpose` subagents (via the Task tool, `subagent_type: "general-purpose"`) and instruct each to invoke the `/aura:reviewer` skill to load its role instructions. `/aura:reviewer` is a **Skill** (invoked via the Skill tool), not a subagent type — it provides the reviewer's workflow, severity tree, and voting procedures. Reviewers are short-lived — keep them in-session for direct result collection. Do NOT use `aura-swarm start` for reviewer rounds.
+Spawn reviewers as `general-purpose` subagents (via the Task tool, `subagent_type: "general-purpose"`) and instruct each to invoke the `/aura:reviewer` skill to load its role instructions. `/aura:reviewer` is a **Skill** (invoked via the Skill tool), not a subagent type — it provides the reviewer's workflow, severity tree, and voting procedures. Reviewers are short-lived — keep them in-session for direct result collection. Do NOT use the deprecated swarm orchestration CLI for reviewer rounds.
 
 > **CRITICAL: No Fake Reviews**
 >
@@ -236,11 +245,11 @@ Each reviewer assesses **end-user alignment**, not technical taste:
 
 **Plan reviews do NOT use a severity tree.** Plan reviews use binary ACCEPT/REVISE votes only. The severity tree is reserved for code reviews (Phase 10).
 
-**Documentation (via Beads comments):**
+**Documentation (via attributed Pasture comments):**
 ```bash
-bd comments add <task-id> "VOTE: ACCEPT - [reason]"
+pasture task comment add "$TASK_URI" "VOTE: ACCEPT - [reason]" --author "$PASTURE_AUTHOR" --namespace "$PASTURE_NAMESPACE"
 # OR
-bd comments add <task-id> "VOTE: REVISE - [specific issue]. Suggest: [fix]"
+pasture task comment add "$TASK_URI" "VOTE: REVISE - [specific issue]. Suggest: [fix]" --author "$PASTURE_AUTHOR" --namespace "$PASTURE_NAMESPACE"
 ```
 
 ### Revision Loop
@@ -323,20 +332,22 @@ See: [UAT_TEMPLATE.md](UAT_TEMPLATE.md) for the structured UAT output template.
 When a proposal is ratified, all previous proposals are marked as superseded:
 
 ```bash
-# Mark old proposal as superseded
-bd label add <old-proposal-id> aura:superseded
-bd comments add <old-proposal-id> "Superseded by PROPOSAL-N (<new-proposal-id>)"
+# Mark old proposal as superseded (additive label + attributed comment)
+pasture task label add "$OLD_PROPOSAL_URI" aura:superseded --namespace "$PASTURE_NAMESPACE"
+pasture task comment add "$OLD_PROPOSAL_URI" "Superseded by PROPOSAL-N ($NEW_PROPOSAL_URI)" \
+  --author "$PASTURE_AUTHOR" --namespace "$PASTURE_NAMESPACE"
 ```
 
 ### Creating Ratified Version
 
 ```bash
 # Add ratify label to the accepted proposal
-bd label add <proposal-id> aura:p6-plan:s6-ratify
-bd comments add <proposal-id> "RATIFIED: All 3 reviewers ACCEPT, UAT passed (<uat-task-id>)."
+pasture task label add "$PROPOSAL_URI" aura:p6-plan:s6-ratify --namespace "$PASTURE_NAMESPACE"
+pasture task comment add "$PROPOSAL_URI" "RATIFIED: All 3 reviewers ACCEPT, UAT passed ($UAT_URI)." \
+  --author "$PASTURE_AUTHOR" --namespace "$PASTURE_NAMESPACE"
 
 # Link to request:
-bd dep add <request-id> --blocked-by <proposal-id>
+pasture task dep add "$REQUEST_URI" --blocked-by "$PROPOSAL_URI" --namespace "$PASTURE_NAMESPACE"
 ```
 
 **Next:** Proceed to Phase 7 (Handoff)
@@ -354,17 +365,17 @@ The architect creates a handoff document with full inline provenance and transfe
 **Storage:** `.git/.aura/handoff/{request-task-id}/architect-to-supervisor.md`
 
 ```bash
-bd create --type=task --priority=2 \
-  --title="HANDOFF: Architect → Supervisor for REQUEST" \
-  --description="---
+HANDOFF_URI=$(pasture task create "HANDOFF: Architect → Supervisor for REQUEST" \
+  --namespace "$PASTURE_NAMESPACE" --type task --priority high \
+  --description "---
 references:
-  request: <request-task-id>
-  urd: <urd-task-id>
-  proposal: <ratified-proposal-id>
+  request: {{request-task-uri}}
+  urd: {{urd-task-uri}}
+  proposal: {{ratified-proposal-uri}}
 ---
 Handoff from architect to supervisor. See handoff document at
-.git/.aura/handoff/<request-task-id>/architect-to-supervisor.md" \
-  --add-label "aura:p7-plan:s7-handoff"
+.git/.aura/handoff/{{request-task-id}}/architect-to-supervisor.md" --format json | jq -er '.id')
+pasture task label add "$HANDOFF_URI" aura:p7-plan:s7-handoff --namespace "$PASTURE_NAMESPACE"
 ```
 
 ### All 6 Handoff Transitions
@@ -372,11 +383,11 @@ Handoff from architect to supervisor. See handoff document at
 | # | From | To | When | Content Level |
 |---|------|----|------|---------------|
 | 1 | Architect | Supervisor | Phase 7 | Full inline provenance |
-| 2 | Supervisor | Worker | Phase 9 (slice assignment) | Summary + bd IDs |
-| 3 | Supervisor | Reviewer | Phase 10 (code review) | Summary + bd IDs |
-| 4 | Worker | Reviewer | Phase 10 (code review) | Summary + bd IDs |
-| 5 | Reviewer | Followup | After Phase 10 | Summary + bd IDs |
-| 6 | Supervisor | Architect | Follow-up lifecycle (FOLLOWUP_URE/URD → FOLLOWUP_PROPOSAL) | Summary + bd IDs |
+| 2 | Supervisor | Worker | Phase 9 (slice assignment) | Summary + task URIs |
+| 3 | Supervisor | Reviewer | Phase 10 (code review) | Summary + task URIs |
+| 4 | Worker | Reviewer | Phase 10 (code review) | Summary + task URIs |
+| 5 | Reviewer | Followup | After Phase 10 | Summary + task URIs |
+| 6 | Supervisor | Architect | Follow-up lifecycle (FOLLOWUP_URE/URD → FOLLOWUP_PROPOSAL) | Summary + task URIs |
 
 **Same-actor transitions do NOT need handoff:** UAT → Ratify and Ratify → Handoff are performed by the same actor (architect).
 In the follow-up lifecycle, the supervisor creating FOLLOWUP_URE and then FOLLOWUP_URD are also same-actor transitions (no handoff needed).
@@ -395,7 +406,7 @@ Supervisor takes the ratified proposal and decomposes into **vertical slices** (
 
 **Supervisor startup sequence:**
 1. Call `Skill(/aura:supervisor)` to load role instructions
-2. Read RATIFIED_PLAN and URD via `bd show`
+2. Read RATIFIED_PLAN and URD via `pasture task show`
 3. **Spawn ephemeral Explore subagents** via Task tool for scoped codebase queries — each subagent is short-lived and returns findings
 4. Decompose into vertical slices
 5. **Identify horizontal Layer Integration Points** — contracts shared across slices (see Layer Integration Points below)
@@ -428,7 +439,7 @@ When slices share types, interfaces, or data flows, the supervisor MUST identify
 
 **Rule: merge sooner, not later.** Divergence grows with delay. If SLICE-1 defines a type that SLICE-2 and SLICE-3 consume, SLICE-1 must complete its L1 (types) layer before SLICE-2 and SLICE-3 begin their L1.
 
-**Include an integration points table in the IMPL_PLAN design field:**
+**Include an integration points table in the IMPL_PLAN body:**
 
 | ID | Contract | Owner (exports) | Consumer(s) (imports) | Merge Timing |
 |----|----------|-----------------|----------------------|--------------|
@@ -440,19 +451,19 @@ If no integration points exist, include an empty table with a note: "No cross-sl
 ### IMPL_PLAN Task
 
 ```bash
-bd create --type=epic --priority=2 \
-  --title="IMPL_PLAN: Vertical slice decomposition" \
-  --description="---
+IMPL_PLAN_URI=$(pasture task create "IMPL_PLAN: Vertical slice decomposition" \
+  --namespace "$PASTURE_NAMESPACE" --type epic --priority high \
+  --description "---
 references:
-  request: <request-task-id>
-  urd: <urd-task-id>
-  proposal: <ratified-proposal-id>
+  request: {{request-task-uri}}
+  urd: {{urd-task-uri}}
+  proposal: {{ratified-proposal-uri}}
 ---
-Supervisor's breakdown of ratified plan into slices" \
-  --add-label "aura:p8-impl:s8-plan"
+Supervisor's breakdown of ratified plan into slices" --format json | jq -er '.id')
+pasture task label add "$IMPL_PLAN_URI" aura:p8-impl:s8-plan --namespace "$PASTURE_NAMESPACE"
 ```
 
-**Design field includes:**
+**Body includes:**
 - Vertical slice structure (which production code path per slice)
 - Dependencies between slices (if any)
 - Worker assignments
@@ -467,50 +478,51 @@ Supervisor's breakdown of ratified plan into slices" \
 **One task per production code path.** Each worker owns the full vertical:
 
 ```bash
-bd create --type=task --priority=2 \
-  --title="SLICE-1: Implement logging infrastructure (full vertical)" \
-  --description="---
+SLICE_URI=$(pasture task create "SLICE-1: Implement logging infrastructure (full vertical)" \
+  --namespace "$PASTURE_NAMESPACE" --type task --priority high \
+  --description "---
 references:
-  impl_plan: <impl-plan-task-id>
-  urd: <urd-task-id>
+  impl_plan: {{impl-plan-task-uri}}
+  urd: {{urd-task-uri}}
 ---
-..." \
-  --design="{validation_checklist: [...], acceptance_criteria: [...]}" \
-  --add-label "aura:p9-impl:s9-slice"
+## Design
+{validation_checklist: [...], acceptance_criteria: [...]}
+..." --format json | jq -er '.id')
+pasture task label add "$SLICE_URI" aura:p9-impl:s9-slice --namespace "$PASTURE_NAMESPACE"
 ```
 
 Link dependency:
 ```bash
-bd dep add <impl-plan-id> --blocked-by <slice-id>
+pasture task dep add "$IMPL_PLAN_URI" --blocked-by "$SLICE_URI" --namespace "$PASTURE_NAMESPACE"
 ```
 
 ### Creating Leaf Tasks Within Each Slice
 
-**A slice without leaf tasks is undecomposed.** The supervisor MUST create Beads leaf tasks for each horizontal layer within the slice. Workers are assigned to leaf tasks, not slices directly.
+**A slice without leaf tasks is undecomposed.** The supervisor MUST create Pasture leaf tasks for each horizontal layer within the slice. Workers are assigned to leaf tasks, not slices directly.
 
 ```bash
 # L1: Types for this slice
-LEAF_L1=$(bd create --type=task --priority=2 \
-  --title="SLICE-1-L1: Types — <slice name>" \
-  --description="..." \
-  --add-label "aura:p9-impl:s9-slice")
-bd dep add <slice-id> --blocked-by $LEAF_L1
+LEAF_L1=$(pasture task create "SLICE-1-L1: Types — {{slice name}}" \
+  --namespace "$PASTURE_NAMESPACE" --type task --priority high \
+  --description "..." --format json | jq -er '.id')
+pasture task label add "$LEAF_L1" aura:p9-impl:s9-slice --namespace "$PASTURE_NAMESPACE"
+pasture task dep add "$SLICE_URI" --blocked-by "$LEAF_L1" --namespace "$PASTURE_NAMESPACE"
 
 # L2: Tests (will fail until L3)
-LEAF_L2=$(bd create --type=task --priority=2 \
-  --title="SLICE-1-L2: Tests — <slice name>" \
-  --description="..." \
-  --add-label "aura:p9-impl:s9-slice")
-bd dep add <slice-id> --blocked-by $LEAF_L2
-bd dep add $LEAF_L2 --blocked-by $LEAF_L1   # L2 depends on L1
+LEAF_L2=$(pasture task create "SLICE-1-L2: Tests — {{slice name}}" \
+  --namespace "$PASTURE_NAMESPACE" --type task --priority high \
+  --description "..." --format json | jq -er '.id')
+pasture task label add "$LEAF_L2" aura:p9-impl:s9-slice --namespace "$PASTURE_NAMESPACE"
+pasture task dep add "$SLICE_URI" --blocked-by "$LEAF_L2" --namespace "$PASTURE_NAMESPACE"
+pasture task dep add "$LEAF_L2" --blocked-by "$LEAF_L1" --namespace "$PASTURE_NAMESPACE"   # L2 depends on L1
 
 # L3: Implementation (makes tests pass)
-LEAF_L3=$(bd create --type=task --priority=2 \
-  --title="SLICE-1-L3: Impl — <slice name>" \
-  --description="..." \
-  --add-label "aura:p9-impl:s9-slice")
-bd dep add <slice-id> --blocked-by $LEAF_L3
-bd dep add $LEAF_L3 --blocked-by $LEAF_L2   # L3 depends on L2
+LEAF_L3=$(pasture task create "SLICE-1-L3: Impl — {{slice name}}" \
+  --namespace "$PASTURE_NAMESPACE" --type task --priority high \
+  --description "..." --format json | jq -er '.id')
+pasture task label add "$LEAF_L3" aura:p9-impl:s9-slice --namespace "$PASTURE_NAMESPACE"
+pasture task dep add "$SLICE_URI" --blocked-by "$LEAF_L3" --namespace "$PASTURE_NAMESPACE"
+pasture task dep add "$LEAF_L3" --blocked-by "$LEAF_L2" --namespace "$PASTURE_NAMESPACE"   # L3 depends on L2
 ```
 
 The resulting tree per slice:
@@ -527,7 +539,7 @@ Workers are assigned to leaf tasks. The slice closes when all its leaf tasks clo
 
 <!-- ADAPT: Replace quality gate commands with your project's equivalents -->
 
-**Design field (canonical schema):**
+**Task body (canonical schema, placed in the description):**
 
 ```json
 {
@@ -619,9 +631,10 @@ mock out the system under test
 **Worker persistence rules:**
 
 - Workers do **NOT** shut down after completing implementation
-- When implementation is complete, workers signal via Beads comments (not `bd close`):
+- When implementation is complete, workers signal via an attributed Pasture comment (not `pasture task close`):
   ```bash
-  bd comments add <slice-id> "Implementation complete, awaiting review"
+  pasture task comment add "$SLICE_URI" "Implementation complete, awaiting review" \
+    --author "$PASTURE_AUTHOR" --namespace "$PASTURE_NAMESPACE"
   ```
 - Workers stay alive for the review-fix cycle — ephemeral reviewers will review their work and may send findings back
 - Workers wait for review feedback and fix any BLOCKERs or IMPORTANT findings assigned to them
@@ -671,17 +684,18 @@ After cycle 3: UAT is **NOT blocked** on remaining IMPORTANT or MINOR findings. 
 **ALWAYS create 3 severity group tasks per review round**, even if some groups have no findings:
 
 ```bash
-# Create all 3 severity groups immediately
-bd create --title "SLICE-1-REVIEW-A-1 BLOCKER" \
-  --labels "aura:severity:blocker,aura:p10-impl:s10-review" ...
-bd create --title "SLICE-1-REVIEW-A-1 IMPORTANT" \
-  --labels "aura:severity:important,aura:p10-impl:s10-review" ...
-bd create --title "SLICE-1-REVIEW-A-1 MINOR" \
-  --labels "aura:severity:minor,aura:p10-impl:s10-review" ...
+# Create all 3 severity groups immediately (EAGER, not lazy). Bind each URI from
+# its own create output, then add its labels in a second command each.
+BLOCKER_GROUP=$(pasture task create "SLICE-1-REVIEW-A-1 BLOCKER" \
+  --namespace "$PASTURE_NAMESPACE" --type task --priority high \
+  --description "Severity group for SLICE-1 review round A-1" --format json | jq -er '.id')
+pasture task label add "$BLOCKER_GROUP" aura:severity:blocker --namespace "$PASTURE_NAMESPACE"
+pasture task label add "$BLOCKER_GROUP" aura:p10-impl:s10-review --namespace "$PASTURE_NAMESPACE"
+# Repeat for IMPORTANT (aura:severity:important) and MINOR (aura:severity:minor).
 
-# Empty groups are closed immediately
-bd close <empty-important-id>
-bd close <empty-minor-id>
+# Empty groups are closed immediately (supervisor only)
+pasture task close "$EMPTY_IMPORTANT_URI" --reason "No findings in this severity group" --namespace "$PASTURE_NAMESPACE"
+pasture task close "$EMPTY_MINOR_URI" --reason "No findings in this severity group" --namespace "$PASTURE_NAMESPACE"
 ```
 
 ### Dual-Parent BLOCKER Relationship
@@ -692,8 +706,8 @@ BLOCKER findings have **two parents**:
 
 ```bash
 # BLOCKER finding blocks both the severity group and the slice
-bd dep add <blocker-group-id> --blocked-by <blocker-finding-id>
-bd dep add <slice-id> --blocked-by <blocker-finding-id>
+pasture task dep add "$BLOCKER_GROUP" --blocked-by "$BLOCKER_FINDING_URI" --namespace "$PASTURE_NAMESPACE"
+pasture task dep add "$SLICE_URI" --blocked-by "$BLOCKER_FINDING_URI" --namespace "$PASTURE_NAMESPACE"
 ```
 
 ### Severity Group Dependency Routing (CRITICAL)
@@ -702,9 +716,9 @@ Each severity group is linked to exactly one parent based on its level:
 
 | Severity | Blocks | Command |
 |----------|--------|---------|
-| BLOCKER | The **slice** it applies to | `bd dep add <slice-id> --blocked-by <blocker-group-id>` |
-| IMPORTANT | The **FOLLOWUP epic** only | `bd dep add <followup-epic-id> --blocked-by <important-group-id>` |
-| MINOR | The **FOLLOWUP epic** only | `bd dep add <followup-epic-id> --blocked-by <minor-group-id>` |
+| BLOCKER | The **slice** it applies to | `pasture task dep add "$SLICE_URI" --blocked-by "$BLOCKER_GROUP"` |
+| IMPORTANT | The **FOLLOWUP epic** only | `pasture task dep add "$FOLLOWUP_EPIC_URI" --blocked-by "$IMPORTANT_GROUP"` |
+| MINOR | The **FOLLOWUP epic** only | `pasture task dep add "$FOLLOWUP_EPIC_URI" --blocked-by "$MINOR_GROUP"` |
 
 **NEVER link IMPORTANT or MINOR severity groups as blocking IMPL_PLAN or any slice.** Only BLOCKER findings block the implementation path. IMPORTANT and MINOR findings are non-blocking improvements tracked in the follow-up epic.
 
@@ -715,19 +729,19 @@ Each severity group is linked to exactly one parent based on its level:
 **Owner:** Supervisor creates it.
 
 ```bash
-bd create --type=epic --priority=3 \
-  --title="FOLLOWUP: Non-blocking improvements from code review" \
-  --description="---
+FOLLOWUP_EPIC=$(pasture task create "FOLLOWUP: Non-blocking improvements from code review" \
+  --namespace "$PASTURE_NAMESPACE" --type epic --priority low \
+  --description "---
 references:
-  request: <request-task-id>
-  review_round: <review-task-ids>
+  request: {{request-task-uri}}
+  review_round: {{review-task-uris}}
 ---
-Aggregated IMPORTANT and MINOR findings from code review." \
-  --add-label "aura:epic-followup"
+Aggregated IMPORTANT and MINOR findings from code review." --format json | jq -er '.id')
+pasture task label add "$FOLLOWUP_EPIC" aura:epic-followup --namespace "$PASTURE_NAMESPACE"
 
 # Route IMPORTANT and MINOR to FOLLOWUP (NOT to IMPL_PLAN or slices)
-bd dep add <followup-epic-id> --blocked-by <important-group-id>
-bd dep add <followup-epic-id> --blocked-by <minor-group-id>
+pasture task dep add "$FOLLOWUP_EPIC" --blocked-by "$IMPORTANT_GROUP" --namespace "$PASTURE_NAMESPACE"
+pasture task dep add "$FOLLOWUP_EPIC" --blocked-by "$MINOR_GROUP" --namespace "$PASTURE_NAMESPACE"
 ```
 
 The follow-up epic is created as soon as the review round completes, regardless of whether BLOCKERs are still being resolved. This ensures non-blocking improvements are tracked and not lost.
@@ -781,16 +795,16 @@ All BLOCKERs and IMPORTANTs must be resolved before proceeding (clean exit = 0 B
 Present the completed implementation to the user for explicit approval, similar to Phase 5 but for code.
 
 ```bash
-bd create --type=task --priority=2 \
-  --title="UAT: Implementation acceptance for feature" \
-  --description="---
+IMPL_UAT_URI=$(pasture task create "UAT: Implementation acceptance for feature" \
+  --namespace "$PASTURE_NAMESPACE" --type task --priority high \
+  --description "---
 references:
-  request: <request-task-id>
-  urd: <urd-task-id>
-  impl_plan: <impl-plan-task-id>
+  request: {{request-task-uri}}
+  urd: {{urd-task-uri}}
+  impl_plan: {{impl-plan-task-uri}}
 ---
-Implementation UAT" \
-  --add-label "aura:p11-user:s11-uat"
+Implementation UAT" --format json | jq -er '.id')
+pasture task label add "$IMPL_UAT_URI" aura:p11-user:s11-uat --namespace "$PASTURE_NAMESPACE"
 ```
 
 If user approves: Proceed to Phase 12 (Landing).
@@ -808,9 +822,9 @@ See [Session Completion](#session-completion-landing-the-plane) below.
 
 ### Before Starting
 
-Read your Beads task completely:
+Read your Pasture task completely:
 ```bash
-bd show <task-id>
+pasture task show "$TASK_URI" --namespace "$PASTURE_NAMESPACE"
 ```
 
 Extract:
@@ -827,25 +841,26 @@ Extract:
 
 ### Implementation Checklist
 
-- [ ] Read full Beads task with `bd show`
+- [ ] Read the full Pasture task with `pasture task show`
 - [ ] Understand validation_checklist and acceptance_criteria
 - [ ] Modify ONLY your assigned files (file-level ownership within your slice)
 - [ ] Inject all dependencies (constructor DI, never hard-code)
 - [ ] Validate external input at system boundaries
 - [ ] Run type checking (must pass)
 - [ ] Run tests (must pass)
-- [ ] Mark task complete: `bd update <task-id> --status=done`
+- [ ] Keep the task in progress and record evidence (`pasture task comment add ... --author "$PASTURE_AUTHOR"`); workers never close tasks
 
 ### Blockers
 
 If you can't proceed:
 
 ```bash
-bd update <task-id> --status=blocked
-bd update <task-id> --notes="Blocked: Missing type definition. Waiting for: <dependency>"
+pasture task update "$TASK_URI" --notes="Blocked: Missing type definition. Waiting for: {{dependency-uri}}" --namespace "$PASTURE_NAMESPACE"
+pasture task dep add "$TASK_URI" --blocked-by "$DEPENDENCY_URI" --namespace "$PASTURE_NAMESPACE"
+pasture task comment add "$TASK_URI" "Blocked: {{reason}}" --author "$PASTURE_AUTHOR" --namespace "$PASTURE_NAMESPACE"
 ```
 
-Supervisor checks beads status and resolves or reassigns.
+Supervisor reads the tracker, resolves, or reassigns. There is no `blocked` status — a blocker is a note plus a `blocked_by` edge.
 
 See: [../worker-blocked/SKILL.md](../worker-blocked/SKILL.md)
 
@@ -888,9 +903,9 @@ If a layer fails catastrophically:
 # Revert commits:
 git revert <commit-hash>
 
-# Update beads:
-bd update <all-tasks-in-layer> --status=blocked
-bd update <layer-task> --notes="Layer rolled back due to X. Reassigning..."
+# Record the rollback in the tracker (supervisor):
+pasture task update "$LAYER_TASK_URI" --status open --notes="Layer rolled back due to X. Reassigning..." --namespace "$PASTURE_NAMESPACE"
+pasture task dep add "$LAYER_TASK_URI" --blocked-by "$DEPENDENCY_URI" --namespace "$PASTURE_NAMESPACE"
 ```
 
 Supervisor reassigns or revises approach.
@@ -902,87 +917,96 @@ Supervisor reassigns or revises approach.
 ### Check Progress Anytime
 
 ```bash
-# Overall project health:
-bd stats
+# Overall project health (derive counts locally from one namespaced read):
+pasture task list --namespace "$PASTURE_NAMESPACE" --format json | jq 'group_by(.status) | map({status: .[0].status, count: length})'
 
 # What's currently in progress:
-bd list --labels="aura:p9-impl:s9-slice" --status=in_progress
+pasture task list --namespace "$PASTURE_NAMESPACE" --label aura:p9-impl:s9-slice --status in_progress
 
-# What's blocked:
-bd list --labels="aura:p9-impl:s9-slice" --status=blocked
-bd blocked
+# What's blocked (not namespace-scoped; inspect returned URIs):
+pasture task list --namespace "$PASTURE_NAMESPACE" --label aura:p9-impl:s9-slice --status open
+pasture task blocked
 
-# What's ready (for supervisor):
-bd ready
+# What's ready (for supervisor; not namespace-scoped):
+pasture task ready
 
 # Active proposals (not yet ratified):
-bd list --labels="aura:p3-plan:s3-propose" --status=open
+pasture task list --namespace "$PASTURE_NAMESPACE" --label aura:p3-plan:s3-propose --status open
 
 # Ratified plans awaiting implementation:
-bd list --labels="aura:p6-plan:s6-ratify" --status=open
+pasture task list --namespace "$PASTURE_NAMESPACE" --label aura:p6-plan:s6-ratify --status open
 ```
 
-### Beads Query Reference
+### Tracker Query Reference
 
 ```bash
 # Find all REQUEST tasks:
-bd list --labels="aura:p1-user:s1_1-classify"
+pasture task list --namespace "$PASTURE_NAMESPACE" --label aura:p1-user:s1_1-classify
 
 # Find all PROPOSAL-N in open status:
-bd list --labels="aura:p3-plan:s3-propose" --status=open
+pasture task list --namespace "$PASTURE_NAMESPACE" --label aura:p3-plan:s3-propose --status open
 
 # Find implementation slices:
-bd list --labels="aura:p9-impl:s9-slice"
+pasture task list --namespace "$PASTURE_NAMESPACE" --label aura:p9-impl:s9-slice
 
-# Find tasks owned by you:
-bd list --assignee=<your-name>
+# For your assignment, obtain the full task URI from the supervisor's handoff.
+# There is no assignee query flag; a name in a title is not assignment evidence.
+pasture task show "$TASK_URI" --namespace "$PASTURE_NAMESPACE"
 
 # Get detailed view:
-bd show <task-id>
+pasture task show "$TASK_URI" --namespace "$PASTURE_NAMESPACE"
 
 # Find severity groups for a review:
-bd list --labels="aura:severity:blocker"
-bd list --labels="aura:severity:important"
-bd list --labels="aura:severity:minor"
+pasture task list --namespace "$PASTURE_NAMESPACE" --label aura:severity:blocker
+pasture task list --namespace "$PASTURE_NAMESPACE" --label aura:severity:important
+pasture task list --namespace "$PASTURE_NAMESPACE" --label aura:severity:minor
 
 # Find follow-up epics:
-bd list --labels="aura:epic-followup"
+pasture task list --namespace "$PASTURE_NAMESPACE" --label aura:epic-followup
 ```
 
-See: [../status/SKILL.md](../status/SKILL.md)
+See [TRACKER.md](TRACKER.md) and [../status/SKILL.md](../status/SKILL.md) for the full supported query set.
 
 ---
 
-## Coordination via Beads
+## Coordination via Pasture
 
-All inter-agent coordination happens through beads task status and comments.
+All inter-agent coordination happens through Pasture task status and attributed comments.
 
 ### Message Patterns
 
+Assignment transfer requires an existing active owner assignment and the exact
+successor assignment ID, registered committing actor and registered worker
+occupant supplied by the supervisor. If a task is unassigned, stop and ask the
+supervisor to arrange allocation; no assignment-start/list command is implied.
+
 | Pattern | How | When |
 |---------|-----|------|
-| Task assignment | `bd update <task-id> --assignee=<worker>` | Supervisor assigns work |
-| Task completion | `bd close <task-id>` + `bd comments add <task-id> "Done: ..."` | Worker finishes |
-| Task blocked | `bd update <task-id> --status=blocked --notes="Reason"` | Worker is stuck |
-| Review request | `bd comments add <task-id> "Review requested"` | Architect asks for review |
-| Review vote | `bd comments add <task-id> "VOTE: ACCEPT - reason"` | Reviewer votes |
-| State change | `bd comments add <task-id> "Phase 9 complete, proceeding to Phase 10"` | Supervisor announces |
-| Supersede | `bd label add <id> aura:superseded` + comment | Architect supersedes old proposal |
+| Task assignment | `pasture task assignment transfer "$TASK_URI" --slot owner-responsibility --assignment "$ASSIGNMENT_ID" --actor "$ACTOR_ID" --occupant "$OCCUPANT_ID" --namespace "$PASTURE_NAMESPACE"` | Supervisor transfers an existing active owner assignment; this is not initial allocation |
+| Task progress | `pasture task comment add "$TASK_URI" "Done: ..." --author "$PASTURE_AUTHOR"` | Worker reports progress (never closes) |
+| Task blocked | `pasture task dep add "$TASK_URI" --blocked-by "$DEPENDENCY_URI"` + a note | Worker is stuck |
+| Review request | `pasture task comment add "$TASK_URI" "Review requested" --author "$PASTURE_AUTHOR"` | Architect asks for review |
+| Review vote | `pasture task comment add "$TASK_URI" "VOTE: ACCEPT - reason" --author "$PASTURE_AUTHOR"` | Reviewer votes |
+| State change | `pasture task comment add "$TASK_URI" "Phase 9 complete, proceeding to Phase 10" --author "$PASTURE_AUTHOR"` | Supervisor announces |
+| Supersede | `pasture task label add "$OLD_PROPOSAL_URI" aura:superseded` + an attributed comment | Architect supersedes old proposal |
+
+Every comment carries an explicit `--author` (machine automation uses
+`$PASTURE_AUTHOR`). Nothing is deleted; labels and comments are additive.
 
 ### Supervisor Monitoring Loop
 
 Supervisor continuously:
 
-1. **Check beads for status updates:**
+1. **Check the tracker for status updates:**
    ```bash
-   bd list --labels="aura:p9-impl:s9-slice" --status=done
-   bd list --labels="aura:p9-impl:s9-slice" --status=in_progress
-   bd list --labels="aura:p9-impl:s9-slice" --status=blocked
+   pasture task list --namespace "$PASTURE_NAMESPACE" --label aura:p9-impl:s9-slice --status closed
+   pasture task list --namespace "$PASTURE_NAMESPACE" --label aura:p9-impl:s9-slice --status in_progress
+   pasture task list --namespace "$PASTURE_NAMESPACE" --label aura:p9-impl:s9-slice --status open
    ```
 
 2. **Review comments for progress:**
    ```bash
-   bd comments <task-id>
+   pasture task comments "$TASK_URI" --namespace "$PASTURE_NAMESPACE"
    ```
 
 3. **Decide next action:**
@@ -1002,10 +1026,10 @@ See: [../supervisor-track-progress/SKILL.md](../supervisor-track-progress/SKILL.
 
 ### 1. File Issues for Remaining Work
 
-Create Beads tasks for anything discovered but not completed:
+Create Pasture tasks for anything discovered but not completed:
 
 ```bash
-bd create --title="Follow-up: ..." --type=task --priority=3
+FOLLOWUP_URI=$(pasture task create "Follow-up: ..." --namespace "$PASTURE_NAMESPACE" --type task --priority low --format json | jq -er '.id')
 ```
 
 ### 2. Run Quality Gates
@@ -1014,18 +1038,22 @@ If code changed, run your project's quality gates. All must pass.
 
 ### 3. Update Issue Status
 
-- Close completed tasks: `bd close <task-id>`
-- Update in-progress: `bd update <task-id> --notes="..."`
+- Supervisor closes completed work after review: `pasture task close "$TASK_URI" --reason "..." --namespace "$PASTURE_NAMESPACE"`
+- Record progress: `pasture task comment add "$TASK_URI" "..." --author "$PASTURE_AUTHOR" --namespace "$PASTURE_NAMESPACE"`
+- Update notes: `pasture task update "$TASK_URI" --notes "..." --namespace "$PASTURE_NAMESPACE"`
 
-### 4. Commit and Push (MANDATORY)
+### 4. Commit and Push (push only with approval)
 
 ```bash
 git add <changed-files>
-bd sync
 git agent-commit -m "feat(scope): Description of changes"
-bd sync
-git push
+pasture task comment add "$TASK_URI" "Landed: <commit sha>; evidence: <pointer>" \
+  --author "$PASTURE_AUTHOR" --namespace "$PASTURE_NAMESPACE"
+git pull --rebase
+git push    # only with explicit approval
 ```
+
+There is no tracker sync step — store writes are already durable, and Git history lands separately.
 
 **Verify success:**
 ```bash
@@ -1139,7 +1167,7 @@ Create handoff document if actor transition occurs (see [HANDOFF_TEMPLATE.md](HA
 |------|---------|
 | Explore | Map codebase, understand problem space |
 | Read | Read existing code for context |
-| Write, Edit | Document plan in Beads task |
+| Write, Edit | Document plan in the Pasture task body |
 | Bash | Git operations, running tests |
 | Skill: aura:architect:propose-plan | Create PROPOSAL-N task |
 | Skill: aura:architect:request-review | Spawn reviewers |
@@ -1155,7 +1183,7 @@ Create handoff document if actor transition occurs (see [HANDOFF_TEMPLATE.md](HA
 | Skill: aura:reviewer:review-plan | Evaluate proposal (Phase 4) |
 | Skill: aura:reviewer:review-code | Evaluate implementation (Phase 10) |
 | Skill: aura:reviewer:vote | Cast vote (ACCEPT/REVISE) |
-| Skill: aura:reviewer:comment | Leave structured review comment (via Beads) |
+| Skill: aura:reviewer:comment | Leave structured review comment (via Pasture task comment) |
 
 ### Supervisor Tools & Skills
 
@@ -1170,13 +1198,12 @@ Create handoff document if actor transition occurs (see [HANDOFF_TEMPLATE.md](HA
 
 **Agent launching:**
 ```bash
-# Launch supervisor/architect in-place (long-running, needs own tmux session)
-aura-swarm start --swarm-mode intree --role supervisor -n 1 --prompt "..."
-
-# Or use worktree mode for epic-based workflow
-aura-swarm start --epic <id>
-
-# For reviewers: use general-purpose subagents (Task tool) with /aura:reviewer skill — NOT aura-swarm start
+# Long-running supervisors/architects and short-lived reviewers are launched in
+# the current session as role skills / Task-tool subagents:
+#   - supervisor/architect: invoke the role skill in-session for the planning phases
+#   - reviewers: spawn general-purpose subagents (Task tool) instructed to load /aura:reviewer
+# The `aura-swarm` orchestration CLI is DEPRECATED and is not an approved
+# invocation path; it is retained only as clearly deprecated history.
 ```
 
 ### Worker Tools & Skills

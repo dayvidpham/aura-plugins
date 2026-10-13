@@ -14,6 +14,12 @@ references:
   related_providence_proposal_ratified: aura-plugins-5k40z
 ---
 
+> **Historical, non-operational.** This is a dated record of completed work,
+> retained for project history only and not current guidance. The current
+> operational authority is the repository root `AGENTS.md` and the
+> Pasture-generated protocol (`pasture task` is the tracker source of truth).
+> Any `bd`, `aura-swarm`, or other superseded commands below are history.
+
 # IMPL_PLAN: Unified Pasture workflow record + observability (PROPOSAL-2)
 
 Phase 8 implementation plan derived from architect handoff `aura-plugins-79ysg` and ratified PROPOSAL-2 (`aura-plugins-kf87g`, artifact at `docs/proposals/PROPOSAL-2-pasture-workflow-record.md`, 945 lines).

@@ -15,26 +15,82 @@ code here.
 ## Git Hooks Policy
 
 Never install, enable, or modify any git hook without explicit user approval.
-This includes Beads hook installation, `core.hooksPath`, writing to `.git/hooks/`,
-and `pre-commit install`.
+This includes tracker/tool installer hook changes, `core.hooksPath`, writing to
+`.git/hooks/`, and `pre-commit install`. Home Manager harness hook payload
+projection is not permission to install or configure Git hooks.
 
-## Beads
+## Pasture Tracker
 
-This project uses `bd` for issue tracking.
+Use `pasture task` for all operational tracking. Retained `.beads/` data is
+legacy migration/archive evidence, not an alternative working tracker. The
+triage ledger owns legacy-ID-to-successor-URI mapping; inspect a recorded
+successor before creating a duplicate. After cutover, read
+`docs/audits/bd-retirement-triage.md`; until that reviewed ledger exists, do not
+guess legacy successors or recreate legacy work from old documents.
+
+At session start (and after compaction), follow Pasture's generated recovery
+instructions, select the intended store and repository namespace, and re-read
+live task state. `--db` overrides `PASTURE_DB_PATH`, otherwise the configured
+default store is used. A failed query is a configuration/connectivity failure,
+not proof of no work: report the command, store path and repair before proceeding.
+List uses the explicit namespace. Ready/blocked accept only an exact `--label`
+filter and do not scope their results by namespace; inspect full returned URIs
+before choosing repository work. Separate reads are not an atomic snapshot.
 
 ```bash
-bd ready --json
-bd show <id>
-bd update <id> --status in_progress --json
-bd comments add <id> "Progress: ..."
-bd close <id> --reason "Completed" --json
+set -euo pipefail
+export PASTURE_NAMESPACE=https://github.com/dayvidpham/aura-plugins
+# This machine actor is already registered. Human comments use their own
+# registered identity; do not silently register or impersonate another author.
+export PASTURE_AUTHOR=pasture-system--00000000-0000-0000-0000-000000000000
+pasture task ready --namespace "$PASTURE_NAMESPACE" --format json
+pasture task blocked --namespace "$PASTURE_NAMESPACE"
+pasture task list --namespace "$PASTURE_NAMESPACE" --status in_progress
 ```
 
-Dependency direction is always parent blocked by child:
+Task operands are full URIs, never unbound legacy IDs. Capture the actual JSON
+`id` field immediately; creation and labeling are separate, non-atomic writes.
+Retain the URI and retry a failed label/comment, not creation.
 
 ```bash
-bd dep add request-id --blocked-by work-that-must-finish-first
+TASK_URI=$(pasture task create "Implement the approved change" \
+  --namespace "$PASTURE_NAMESPACE" --type task --priority medium \
+  --description "Approved scope and acceptance cases" --format json | jq -er '.id')
+pasture task label add "$TASK_URI" pasture:work --namespace "$PASTURE_NAMESPACE"
+pasture task show "$TASK_URI" --namespace "$PASTURE_NAMESPACE"
+pasture task update "$TASK_URI" --status in_progress --namespace "$PASTURE_NAMESPACE"
+pasture task comment add "$TASK_URI" "Progress: evidence and next step" \
+  --author "$PASTURE_AUTHOR" --namespace "$PASTURE_NAMESPACE"
+pasture task comments "$TASK_URI" --namespace "$PASTURE_NAMESPACE"
+pasture task timeline "$TASK_URI" --namespace "$PASTURE_NAMESPACE"
 ```
+
+## Dependencies and Audit
+
+The parent stays open until the child finishes; work flows bottom-up and closure
+flows top-down. Bind `PARENT_URI` and `CHILD_URI` from their creation output or
+verified tracker reads before running:
+
+```bash
+pasture task dep add "$PARENT_URI" --blocked-by "$CHILD_URI" --namespace "$PASTURE_NAMESPACE"
+pasture task dep tree "$PARENT_URI" --kind all --namespace "$PASTURE_NAMESPACE"
+```
+
+Chain each real work unit to its parent, never reverse the blocker. Reference
+documents (URD, request, proposal) go in description frontmatter `references:`,
+not fake relation commands or blocking edges. Preserve audit history: add labels
+and attributed comments; do not delete tasks or remove audit labels/comments.
+Workers record implementation and verification evidence, never close assigned
+tasks. Only the supervisor closes work after independent review and approval:
+
+```bash
+pasture task close "$CHILD_URI" --reason "Reviewed and verified; evidence in comments" \
+  --namespace "$PASTURE_NAMESPACE"
+```
+
+Store writes are durable; no tracker sync/prime/edit/molecule ritual exists.
+Git history lands separately. Use explicit updates instead of an interactive
+editor, and scoped JSON task-list reads for local summaries/searches.
 
 ## Home Manager Source Rules
 
@@ -94,6 +150,9 @@ Before landing code changes, run the relevant gates:
 
 ```bash
 nix flake check --no-build
+python3 scripts/test_active_docs.py
+python3 scripts/check-active-docs.py
+nix build .#checks.x86_64-linux.hm-module-test --no-link
 nix build .#aura-swarm --no-link
 nix run .#aura-swarm -- --help
 ```
@@ -109,5 +168,7 @@ Do not use `git commit -m` unless the user explicitly overrides the project rule
 ## Landing
 
 When the user asks you to land the work, verify the diff, run quality gates,
-sync Beads, commit with `git agent-commit`, pull with rebase, push, and confirm
-`git status` reports the branch is up to date with its remote.
+record attributed tracker evidence, commit with `git agent-commit`, pull with
+rebase, push only with approval, and confirm `git status` reports the branch is
+up to date with its remote. Worker handoff stops at the local commit and evidence;
+do not push or close assigned tasks.

@@ -1,6 +1,6 @@
 # Aura Protocol
 
-Multi-agent orchestration protocol for AI coding agents. Defines a 12-phase workflow from user request to landed code, with structured review gates, audit trail preservation, and inter-agent coordination via Beads.
+Multi-agent orchestration protocol for AI coding agents. Defines a 12-phase workflow from user request to landed code, with structured review gates, audit trail preservation, and inter-agent coordination via Pasture tasks. All supported tracker recipes live in [TRACKER.md](TRACKER.md).
 
 ## Quick Start
 
@@ -18,11 +18,12 @@ Multi-agent orchestration protocol for AI coding agents. Defines a 12-phase work
 | [PROCESS.md](PROCESS.md) | Step-by-step workflow execution for all 12 phases | When running or debugging a phase |
 | [AGENTS.md](AGENTS.md) | Role taxonomy: phases owned, tools, handoff procedures | When spawning agents or assigning work |
 | [SKILLS.md](SKILLS.md) | Command reference: every `/aura:*` skill mapped to phase and role | When invoking a skill or looking up usage |
+| [TRACKER.md](TRACKER.md) | Canonical supported `pasture task` recipes, identity, and namespace semantics | When running any tracker operation |
 | [HANDOFF_TEMPLATE.md](HANDOFF_TEMPLATE.md) | Standardized template for 5 actor-change transitions | When creating handoff documents |
-| [MIGRATION_v1_to_v2.md](MIGRATION_v1_to_v2.md) | Label and title migration from v1 to v2 | When updating old tasks |
+| [MIGRATION_v1_to_v2.md](MIGRATION_v1_to_v2.md) | Historical (non-operational) label and title migration from v1 to v2 | Only when reading migration history |
 | [UAT_TEMPLATE.md](UAT_TEMPLATE.md) | User Acceptance Test structured output template | When running UAT (Phase 5 or 11) |
 | [UAT_EXAMPLE.md](UAT_EXAMPLE.md) | Worked UAT example | Reference for UAT format |
-| [schema.xml](schema.xml) | Canonical machine-readable protocol definition (BCNF) | When modifying the protocol itself |
+| [schema.xml](schema.xml) | Historical prototype XML schema (not projected; contains deprecated examples). The operative authority is the Pasture-generated protocol (Go `pasture`). Do not edit. | Only when reading history |
 
 ## 12-Phase Overview
 
@@ -64,7 +65,7 @@ Special labels:
 ## Key Principles
 
 - **Audit trail preservation** — Never delete tasks, labels, or information
-- **Dependency chaining** — `bd dep add <parent> --blocked-by <child>` (child finishes first)
+- **Dependency chaining** — `pasture task dep add "$PARENT_URI" --blocked-by "$CHILD_URI"` (child finishes first; see [TRACKER.md](TRACKER.md))
 - **Consensus required** — All 3 reviewers must ACCEPT before proceeding
 - **Binary votes** — ACCEPT or REVISE only (no intermediate levels)
 - **EAGER severity tree** — Always create 3 severity groups per code review round

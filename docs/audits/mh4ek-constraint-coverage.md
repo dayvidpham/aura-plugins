@@ -11,6 +11,12 @@ executed: 2026-05-29
 status: complete
 ---
 
+> **Historical, non-operational.** This is a dated record of completed work,
+> retained for project history only and not current guidance. The current
+> operational authority is the repository root `AGENTS.md` and the
+> Pasture-generated protocol (`pasture task` is the tracker source of truth).
+> Any `bd`, `aura-swarm`, or other superseded commands below are history.
+
 # Coverage Audit — `mh4ek` C-* Constraint Coverage
 
 ## §1. Scope and Count Discrepancy

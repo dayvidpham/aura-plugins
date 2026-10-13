@@ -1,18 +1,31 @@
 ---
 name: epic-composer
-description: Group follow-up items into vertical epics with prioritized sub-issues and a blocker DAG. Get sign-off on the full set. Write ASD-STE100 bodies with ASCII diagrams. Post to GitHub with sub-issues, blocked-by links, and existing labels. Mirror into Beads only if the project uses it. Use when deferred items or review findings must become an approved set of epics and issues.
+description: Group follow-up items into vertical epics with prioritized sub-issues and a blocker DAG. Get sign-off on the full set. Write ASD-STE100 bodies with ASCII diagrams. Post to GitHub with sub-issues, blocked-by links, and existing labels. Mirror into Pasture tasks only if the project tracks work with Pasture. Use when deferred items or review findings must become an approved set of epics and issues.
 ---
 
 # Compose, approve, and post epics with their sub-issues
 
 Turn a loose set of follow-up items into vertical epics. Give each epic prioritized sub-issues
 and a blocker DAG. Get approval for the full set before you create anything. Then create the
-issues, create the epics, wire the relations, and apply labels. Mirror into Beads when the project
-uses it.
+issues, create the epics, wire the relations, and apply labels. Mirror into Pasture tasks when
+the project tracks work with Pasture.
 
-Beads (`bd`) is optional. Use the Beads steps only when the project has a `.beads/` directory and
-the user tracks work there. Without Beads, GitHub is the only record. Collect inputs from issues,
-PR review threads, and notes. Skip every `bd` command. Keep the rest unchanged.
+Pasture tracking is optional. Use the Pasture steps only when the project tracks work with
+`pasture task` and has a recorded namespace. Without Pasture, GitHub is the only record. Collect
+inputs from issues, PR review threads, and notes. Skip every `pasture task` command when the
+project does not use Pasture. Keep the rest unchanged.
+
+Before tracker recipes, select the intended store and explicit repository
+namespace, and verify the current author with `pasture task agents list` / `show`.
+For this repository, bind `PASTURE_NAMESPACE` to
+`https://github.com/dayvidpham/aura-plugins`; machine comments use the already
+registered `pasture-system--00000000-0000-0000-0000-000000000000` actor as
+`PASTURE_AUTHOR`. Human comments use their actual registered identity. Do not
+auto-register, guess an author or use legacy short IDs. Bind every task variable
+from a verified full URI; on creation capture the returned JSON `id` immediately
+(positional title, separate label commands). Retry failed post-create steps with
+the retained URI, never by recreating the task. Other repos use their own recorded
+namespace, not Aura's namespace.
 
 ## Preconditions
 
@@ -30,17 +43,20 @@ available.
    - Read each repository's `AGENTS.md`. Read the code the items touch.
    - Collect every candidate item before you group. Sources: user-deferred items, review findings
      routed to follow-ups, observations recorded during verification.
-   - For each item record four facts: the source (issue number, PR thread, or Beads id), the
+   - For each item record four facts: the source (issue number, PR thread, or Pasture task URI), the
      repo, one line of substance, and whether a GitHub issue exists.
      ```sh
-     bd list --json --limit 5000 | jq -r '.[] | select(.status!="closed") | "\(.id) | \(.title)"'
-     bd show <id> | grep -oE 'https://github.com/[^ )]+/issues/[0-9]+'   # empty = no issue yet
+     pasture task list --namespace "$PASTURE_NAMESPACE" --format json \
+       | jq -r '.[] | select(.status!="closed") | "\(.id) | \(.title)"'
+     pasture task show "$TASK_URI" --namespace "$PASTURE_NAMESPACE" \
+       | grep -oE 'https://github.com/[^ )]+/issues/[0-9]+'   # empty = no issue yet
      ```
-   - Search for existing epics and duplicates in every repo. Search Beads too, if used.
+   - Search for existing epics and duplicates in every repo. Search the tracker too, if used.
      ```sh
      gh issue list -R <owner>/<repo> --label epic --state open --limit 50 --json number,title
      gh issue list -R <owner>/<repo> --state open --limit 100 --search "<key terms> in:title,body"
-     bd list --json --limit 5000 | jq -r '.[] | select(.issue_type=="epic" and .status!="closed") | "\(.id) | P\(.priority) | \(.title)"'
+     pasture task list --namespace "$PASTURE_NAMESPACE" --type epic --format json \
+       | jq -r '.[] | select(.status!="closed") | "\(.id) | \(.priority) | \(.title)"'
      ```
    - Read the bodies of the adjacent epics. Decide per item: a new epic, or re-home the item into
      an existing epic. Do not create an epic that already exists. Do not duplicate an open issue.
@@ -82,7 +98,7 @@ available.
        system.
      - Write cross-repo references as `owner/repo#N`. Example: `acme/schema#82`. GitHub links
        only that form. A bare `schema#82` never links. Same-repo references stay `#N`.
-     - Do not put internal task taxonomy in bodies. No Beads ids. No slice, wave, or proposal
+     - Do not put internal task taxonomy in bodies. No Pasture task URIs. No slice, wave, or proposal
        names. No reviewer axis names. Refer to work by substance and by issue numbers.
    - Epic body sections: Why. Concept map (an ASCII diagram of the API surfaces, the
      infrastructure pieces, and the child issues placed on that map). Children table (priority,
@@ -167,11 +183,13 @@ available.
      description. Wait for the answer. Do the same if you only consider creating a label. Do not
      create a label on your own.
 
-8. **Mirror in Beads (only if the project uses Beads)**
-   - Create one Beads epic per GitHub epic. Use the same title and the same priority.
-   - Chain `bd dep add <epic> --blocked-by <item>` for every child. Chain
-     `bd dep add <later> --blocked-by <earlier>` for every arrow. Set each item's priority.
-   - Record each issue URL on its Beads task with `bd comments add`.
+8. **Mirror in Pasture (only if the project tracks work with Pasture)**
+   - Create one Pasture epic per GitHub epic. Use the same title and the same priority.
+   - Chain `pasture task dep add "$EPIC_URI" --blocked-by "$ITEM_URI"` for every child. Chain
+     `pasture task dep add "$LATER_URI" --blocked-by "$EARLIER_URI"` for every arrow. Set each
+     item's priority. Use full task URIs and the explicit namespace.
+   - Record each issue URL on its Pasture task with
+     `pasture task comment add "$TASK_URI" "<url>" --author "$PASTURE_AUTHOR" --namespace "$PASTURE_NAMESPACE"`.
    - Leave the user-deferred ledger epic open and untouched.
 
 9. **Report**
@@ -192,4 +210,4 @@ available.
 6. Write cross-repo references as `owner/repo#N`. Put no internal task taxonomy in any body.
 7. Take labels from the existing inventory. A new label is a question for the user. Never create
    one on your own.
-8. Beads is optional. When used, the mirror carries the same priorities and arrows as GitHub.
+8. Pasture tracking is optional. When used, the mirror carries the same priorities and arrows as GitHub.

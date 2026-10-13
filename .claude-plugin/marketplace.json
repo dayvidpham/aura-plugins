@@ -1,6 +1,6 @@
 {
   "metadata": {
-    "description": "aura-swarm orchestration tooling and marketplace registry for Pasture-based multi-agent workflows",
+    "description": "Home Manager projection and marketplace registry for Pasture-based multi-agent workflows; aura-swarm is deprecated",
     "version": "0.10.2"
   },
   "name": "aura-plugins",
@@ -18,7 +18,7 @@
       "version": "0.4.0"
     },
     {
-      "description": "Pasture — the 12-phase protocol as Claude Code skills and agents, Go-generated; structured multi-agent development with beads tracking and vertical-slice TDD",
+      "description": "Pasture — the 12-phase protocol as Claude Code skills and agents, Go-generated; structured multi-agent development with Pasture task tracking and vertical-slice TDD",
       "name": "pasture",
       "source": {
         "repo": "dayvidpham/pasture",

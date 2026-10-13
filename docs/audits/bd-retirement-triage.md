@@ -1,5 +1,10 @@
 # bd retirement triage — maintainer-approved archive ledger
 
+> **Historical, non-operational audit record.** Legacy tracker names, statuses,
+> closure reasons and verification receipts below preserve the bounded retirement
+> decisions; they do not authorize ongoing legacy tracker operations. Use
+> `pasture task` and [AGENTS.md](../../AGENTS.md) for current operational work.
+
 **Maintainer-approved: REAL 0 / STALE 55 / UNCLEAR 0.** No successor tasks or
 repeat legacy closures are required. Independent slice review remains separate.
 Evidence for [aura-plugins #34](https://github.com/dayvidpham/aura-plugins/issues/34),

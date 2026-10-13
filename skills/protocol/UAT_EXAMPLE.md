@@ -1,25 +1,45 @@
 # UAT Example: Plan Acceptance for aura-scripts Nix Flake REVISION-2
 
-> Source: aura-scripts-ci4
+> Source: aura-scripts-ci4 (illustrative identifier; live operands are full task URIs)
 
-## Beads Commands
+> **Identifier note:** The example identifiers below (`aura-scripts-ci4`, and so
+> on) are illustrative. In the live tracker every operand is a full task URI of
+> the form `https://github.com/dayvidpham/<repo>--<uuid>`, captured from the
+> tracker's JSON `id` field.
+
+## Tracker Commands
+
+First follow [TRACKER.md](TRACKER.md) to select the store, explicit namespace and
+registered author; bind the referenced task variables from verified full URIs.
 
 ```bash
-# 1. Create the UAT task with labels and description
-bd create --labels "aura:user:uat,proposal-2:uat-1" \
-  --title "UAT-1: Plan acceptance for aura-scripts Nix flake REVISION-2" \
-  --description "<FULL_DESCRIPTION_BELOW>"
+# 1. Create the UAT task. The title is positional; labels are added in a second,
+#    non-atomic command.
+UAT_TASK_URI=$(pasture task create "UAT-1: Plan acceptance for aura-scripts Nix flake REVISION-2" \
+  --namespace "$PASTURE_NAMESPACE" --type task --priority high \
+  --description "---
+references:
+  proposal: {{PROPOSAL_TASK_URI}}
+  urd: {{URD_TASK_URI}}
+  request: {{REQUEST_TASK_URI}}
+---
+<FULL_DESCRIPTION_BELOW>" --format json | jq -er '.id')
+pasture task label add "$UAT_TASK_URI" aura:p5-user:s5-uat --namespace "$PASTURE_NAMESPACE"
 
-# 2. Link to the proposal being UAT'd (relates, not blocked-by)
-bd dep relate aura-scripts-ci4 aura-scripts-82l
+# 2. Record post-UAT addenda as attributed comments.
+pasture task comment add "$UAT_TASK_URI" "UAT ADDENDUM (user-initiated, verbatim): ..." \
+  --author "$PASTURE_AUTHOR" --namespace "$PASTURE_NAMESPACE"
 
-# 3. Record post-UAT addenda as comments
-bd comments add aura-scripts-ci4 "UAT ADDENDUM (user-initiated, verbatim): ..."
-
-# 4. After UAT passes, ratify the proposal
-bd label add aura-scripts-82l aura:plan:ratify
-bd comments add aura-scripts-82l "RATIFIED: All 3 reviewers ACCEPT on REVISION-2, UAT passed (aura-scripts-ci4)."
+# 3. After UAT passes, ratify the proposal (additive label + comment).
+pasture task label add "$PROPOSAL_TASK_URI" aura:p6-plan:s6-ratify --namespace "$PASTURE_NAMESPACE"
+pasture task comment add "$PROPOSAL_TASK_URI" "RATIFIED: All 3 reviewers ACCEPT on REVISION-2, UAT passed ($UAT_TASK_URI)." \
+  --author "$PASTURE_AUTHOR" --namespace "$PASTURE_NAMESPACE"
 ```
+
+> **Historical, non-operational.** The worked component discussion below is a
+> preserved record from the v1/aura-swarm era. Its Beads and aura-swarm
+> references describe the superseded setup and are kept for history only; do not
+> run them. See [TRACKER.md](TRACKER.md) for the current recipes.
 
 ## Components Reviewed
 
@@ -95,11 +115,11 @@ Options:
 ```
 **Motivating example:** aura-swarm fails at runtime because tmux not in PATH.
 
-**Q1: aura-swarm needs tmux and git at runtime (plus bd and claude for worktree mode). Should ALL runtime deps be baked into the Nix wrapper, or should some be expected from the user's PATH?**
+**Q1: aura-swarm needs tmux and git at runtime (plus Beads and claude for worktree mode). Should ALL runtime deps be baked into the Nix wrapper, or should some be expected from the user's PATH?**
 Options:
-- Bake all in (hermetic) — writeShellApplication with all runtimeInputs. aura-swarm gets python3+tmux+git+bd+claude. Fully reproducible.
-- Bake tmux+python, expect claude+bd from PATH — claude and bd are user-managed tools (not in nixpkgs or custom). Wrap what Nix can provide, leave the rest to PATH.
-- Expect all from PATH — Only patch the shebang. User is responsible for having tmux, git, claude, bd available. Lightest wrapper.
+- Bake all in (hermetic) — writeShellApplication with all runtimeInputs. aura-swarm gets python3+tmux+git+Beads+claude. Fully reproducible.
+- Bake tmux+python, expect claude+Beads from PATH — claude and Beads are user-managed tools (not in nixpkgs or custom). Wrap what Nix can provide, leave the rest to PATH.
+- Expect all from PATH — Only patch the shebang. User is responsible for having tmux, git, claude, Beads available. Lightest wrapper.
 **User response:** "Bake all in (hermetic)"
 
 **Decision:** ACCEPT

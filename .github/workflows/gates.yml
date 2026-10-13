@@ -212,6 +212,11 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
 
+      - name: Reject retired operational documentation recipes
+        run: |
+          python3 scripts/test_active_docs.py
+          python3 scripts/check-active-docs.py
+
       - name: shellcheck the release helpers
         run: shellcheck scripts/release/*.sh
 

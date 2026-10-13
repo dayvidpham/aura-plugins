@@ -153,7 +153,7 @@ Empty groups are closed immediately.
 1. Type checking passes
 2. Tests pass
 3. Production code path verified via code inspection (no TODOs, real deps wired)
-4. Update Beads task with completion comment
+4. Record completion evidence with an attributed `pasture task comment add`
 
 ---
 
@@ -162,11 +162,11 @@ Empty groups are closed immediately.
 | # | From | To | Phase | Document Location | Content Level |
 |---|------|----|-------|-------------------|--------------|
 | 1 | Architect | Supervisor | 7 | `.git/.aura/handoff/{request-id}/architect-to-supervisor.md` | Full inline provenance |
-| 2 | Supervisor | Worker | 9 | `.git/.aura/handoff/{request-id}/supervisor-to-worker.md` | Summary + bd IDs |
-| 3 | Supervisor | Reviewer | 10 | `.git/.aura/handoff/{request-id}/supervisor-to-reviewer.md` | Summary + bd IDs |
-| 4 | Worker | Reviewer | 10 | `.git/.aura/handoff/{request-id}/worker-to-reviewer.md` | Summary + bd IDs |
-| 5 | Reviewer | Followup | post-10 | `.git/.aura/handoff/{request-id}/reviewer-to-followup.md` | Summary + bd IDs |
-| 6 | Supervisor | Architect | Follow-up lifecycle | `.git/.aura/handoff/{followup-epic-id}/supervisor-to-architect.md` | Summary + bd IDs |
+| 2 | Supervisor | Worker | 9 | `.git/.aura/handoff/{request-id}/supervisor-to-worker.md` | Summary + task URIs |
+| 3 | Supervisor | Reviewer | 10 | `.git/.aura/handoff/{request-id}/supervisor-to-reviewer.md` | Summary + task URIs |
+| 4 | Worker | Reviewer | 10 | `.git/.aura/handoff/{request-id}/worker-to-reviewer.md` | Summary + task URIs |
+| 5 | Reviewer | Followup | post-10 | `.git/.aura/handoff/{request-id}/reviewer-to-followup.md` | Summary + task URIs |
+| 6 | Supervisor | Architect | Follow-up lifecycle | `.git/.aura/handoff/{followup-epic-id}/supervisor-to-architect.md` | Summary + task URIs |
 
 **Same-actor transitions** (no handoff needed): Plan UAT → Ratify (Phase 5→6), Ratify → Handoff (Phase 6→7) — both performed by the architect. In the follow-up lifecycle, Supervisor creating FOLLOWUP_URE and FOLLOWUP_URD are also same-actor transitions.
 

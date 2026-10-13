@@ -2,14 +2,17 @@
 
 Use this XML template to capture UAT results. Each component is presented one at a time to the user with its definition, motivating example, and design-space questions.
 
+Before tracker recipes, follow [TRACKER.md](TRACKER.md) to select the store,
+explicit namespace and registered author, and bind task variables to full URIs.
+
 ## Template
 
 ```xml
 <uat>
   <metadata>
     <title>{{UAT_TITLE}}</title>
-    <beads-id>{{BEADS_TASK_ID}}</beads-id>
-    <proposal-ref>{{PROPOSAL_BEADS_ID}}</proposal-ref>
+    <task-uri>{{UAT_TASK_URI}}</task-uri>
+    <proposal-ref>{{PROPOSAL_TASK_URI}}</proposal-ref>
     <phase>{{plan | implementation}}</phase>
     <date>{{YYYY-MM-DD}}</date>
   </metadata>
@@ -91,37 +94,45 @@ Use this XML template to capture UAT results. Each component is presented one at
 </uat>
 ```
 
-## Beads Commands
+## Tracker Commands
+
+All operands are full task URIs. Bind `$UAT_TASK_URI`, `$PROPOSAL_TASK_URI`,
+`$URD_TASK_URI`, and `$REQUEST_TASK_URI` from tracker output; see
+[TRACKER.md](TRACKER.md) for the full supported recipe set.
 
 ```bash
-# 1. Create the UAT task with structured description
-#    - Labels link it to the proposal and UAT phase
-#    - Description contains the full XML-structured UAT record
-bd create \
-  --labels "aura:p5-user:s5-uat" \
-  --title "UAT: {{PLAN_OR_IMPL}} acceptance for {{FEATURE}}" \
+# 1. Create the UAT task with a structured description.
+#    - The title is positional.
+#    - Labels are added in a second, non-atomic command.
+#    - The description contains the full XML-structured UAT record.
+UAT_TASK_URI=$(pasture task create "UAT: {{PLAN_OR_IMPL}} acceptance for {{FEATURE}}" \
+  --namespace "$PASTURE_NAMESPACE" --type task --priority high \
   --description "---
 references:
-  proposal: {{PROPOSAL_TASK_ID}}
-  urd: {{URD_TASK_ID}}
-  request: {{REQUEST_TASK_ID}}
+  proposal: {{PROPOSAL_TASK_URI}}
+  urd: {{URD_TASK_URI}}
+  request: {{REQUEST_TASK_URI}}
 ---
-<FULL_XML_STRUCTURED_DESCRIPTION>"
+<FULL_XML_STRUCTURED_DESCRIPTION>" --format json | jq -er '.id')
+pasture task label add "$UAT_TASK_URI" aura:p5-user:s5-uat --namespace "$PASTURE_NAMESPACE"
 
-# 2. Record post-UAT addenda as comments (user feedback after main survey)
-bd comments add {{UAT_TASK_ID}} "UAT ADDENDUM (user-initiated, verbatim): {{VERBATIM}}"
+# 2. Record post-UAT addenda as attributed comments (user feedback after main survey).
+pasture task comment add "$UAT_TASK_URI" "UAT ADDENDUM (user-initiated, verbatim): {{VERBATIM}}" \
+  --author "$PASTURE_AUTHOR" --namespace "$PASTURE_NAMESPACE"
 
-# 3. Update URD with UAT results
-bd comments add {{URD_TASK_ID}} "UAT {{PHASE}}: {{VERDICT}} - {{key design decisions summary}}"
+# 3. Update the URD with UAT results.
+pasture task comment add "$URD_TASK_URI" "UAT {{PHASE}}: {{VERDICT}} - {{key design decisions summary}}" \
+  --author "$PASTURE_AUTHOR" --namespace "$PASTURE_NAMESPACE"
 
-# 4. After UAT passes, proceed to ratification (Phase 6)
-bd label add {{PROPOSAL_TASK_ID}} aura:p6-plan:s6-ratify
-bd comments add {{PROPOSAL_TASK_ID}} "RATIFIED: All 3 reviewers ACCEPT, UAT passed ({{UAT_TASK_ID}})."
+# 4. After UAT passes, proceed to ratification (Phase 6).
+pasture task label add "$PROPOSAL_TASK_URI" aura:p6-plan:s6-ratify --namespace "$PASTURE_NAMESPACE"
+pasture task comment add "$PROPOSAL_TASK_URI" "RATIFIED: All 3 reviewers ACCEPT, UAT passed ($UAT_TASK_URI)." \
+  --author "$PASTURE_AUTHOR" --namespace "$PASTURE_NAMESPACE"
 
-# 5. If UAT fails (REVISE), return to proposal phase
-#    - Do NOT ratify
-#    - Create a new PROPOSAL-N task (increment N) related to the original
-#    - Record the specific component and verbatim feedback
+# 5. If UAT fails (REVISE), return to proposal phase.
+#    - Do NOT ratify.
+#    - Create a new PROPOSAL-N task (increment N), referencing the original.
+#    - Record the specific component and verbatim feedback.
 ```
 
 ## Rules

@@ -15,6 +15,12 @@ references:
   migration_doc: docs/PYTHON_TO_GO_MIGRATION.md
 ---
 
+> **Historical, non-operational.** This is a dated record of completed work,
+> retained for project history only and not current guidance. The current
+> operational authority is the repository root `AGENTS.md` and the
+> Pasture-generated protocol (`pasture task` is the tracker source of truth).
+> Any `bd`, `aura-swarm`, or other superseded commands below are history.
+
 # PROPOSAL-1 — `qzr8a` triage audit
 
 > Delta over PROPOSAL-2 §5.2. The Triage type template (T1–T5 / T-A1/T-A3/T-A5)

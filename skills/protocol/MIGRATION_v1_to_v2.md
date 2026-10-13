@@ -1,5 +1,9 @@
 # Migration Procedure: Aura Protocol v1 → v2
 
+> **Historical, non-operational.** This document is a retained historical record
+> of the superseded Beads (`bd`) workflow. It is kept for migration history only;
+> do not run its commands. Active tracker recipes live in [TRACKER.md](TRACKER.md).
+
 This document describes how to migrate existing Aura protocol usage from v1 labels and conventions to v2.
 
 ## Principles
