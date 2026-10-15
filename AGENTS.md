@@ -42,15 +42,18 @@ set -euo pipefail
 export PASTURE_NAMESPACE=https://github.com/dayvidpham/aura-plugins
 # This machine actor is already registered. Human comments use their own
 # registered identity; do not silently register or impersonate another author.
-export PASTURE_AUTHOR=pasture-system--00000000-0000-0000-0000-000000000000
+export PASTURE_AUTHOR=pasture-system/00000000-0000-0000-0000-000000000000
 pasture task ready --namespace "$PASTURE_NAMESPACE" --format json
 pasture task blocked --namespace "$PASTURE_NAMESPACE"
 pasture task list --namespace "$PASTURE_NAMESPACE" --status in_progress
 ```
 
-Task operands are full URIs, never unbound legacy IDs. Capture the actual JSON
-`id` field immediately; creation and labeling are separate, non-atomic writes.
-Retain the URI and retry a failed label/comment, not creation.
+Task operands are full URIs, never unbound legacy IDs. Since the 2026-10-15
+identity cutover, both task URIs and actor identities use the **slash** form
+(`<namespace>/<uuid>` and `pasture-system/<uuid>`); the retired two-dash form
+(`<namespace>--<uuid>`) no longer resolves for any command. Capture the actual
+JSON `id` field immediately; creation and labeling are separate, non-atomic
+writes. Retain the URI and retry a failed label/comment, not creation.
 
 ```bash
 TASK_URI=$(pasture task create "Implement the approved change" \
