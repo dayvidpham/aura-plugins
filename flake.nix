@@ -9,7 +9,7 @@
     nixpkgs-stable.url = "github:NixOS/nixpkgs/nixos-26.05";
     nixpkgs-unstable.url = "github:NixOS/nixpkgs/nixos-unstable";
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-26.05";
-    pasture.url = "github:dayvidpham/pasture/v0.0.20";
+    pasture.url = "github:dayvidpham/pasture/v0.0.21";
   };
 
   # ============================================================
