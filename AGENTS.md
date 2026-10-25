@@ -33,9 +33,11 @@ instructions, select the intended store and repository namespace, and re-read
 live task state. `--db` overrides `PASTURE_DB_PATH`, otherwise the configured
 default store is used. A failed query is a configuration/connectivity failure,
 not proof of no work: report the command, store path and repair before proceeding.
-List uses the explicit namespace. Ready/blocked accept only an exact `--label`
-filter and do not scope their results by namespace; inspect full returned URIs
-before choosing repository work. Separate reads are not an atomic snapshot.
+`task list`, `task ready`, and `task blocked` are scoped to the effective
+namespace: an explicit `--namespace`, otherwise `PASTURE_NAMESPACE`. Pass
+`--all-namespaces` to read every namespace. With neither source set those reads
+are unscoped; inspect full returned URIs before choosing repository work.
+Separate reads are not an atomic snapshot.
 
 ```bash
 set -euo pipefail
