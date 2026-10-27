@@ -1,7 +1,7 @@
 {
   "metadata": {
     "description": "Home Manager projection and marketplace registry for Pasture-based multi-agent workflows; aura-swarm is deprecated",
-    "version": "0.10.2"
+    "version": "0.10.3"
   },
   "name": "aura-plugins",
   "owner": {
@@ -24,7 +24,7 @@
         "repo": "dayvidpham/pasture",
         "source": "github"
       },
-      "version": "0.0.16"
+      "version": "0.0.22"
     }
   ]
 }
