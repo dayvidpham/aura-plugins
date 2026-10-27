@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.10.3] - 2026-10-27
+
+### Changed
+- Pin Pasture v0.0.23 and refresh the Home Manager projection destinations for
+  the new `afk-implement` skill.
+
 ## [0.10.2] - 2026-03-09
 
 ### Fixed

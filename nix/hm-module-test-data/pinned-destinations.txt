@@ -1,3 +1,4 @@
+.agents/skills/afk-implement/SKILL.md
 .agents/skills/architect-handoff/SKILL.md
 .agents/skills/architect-propose-plan/SKILL.md
 .agents/skills/architect-ratify/SKILL.md
@@ -58,6 +59,7 @@
 .claude/hooks/hooks.json
 .claude/hooks/pasture-activation.json
 .claude/hooks/scripts/git-discipline.sh
+.claude/skills/afk-implement/SKILL.md
 .claude/skills/architect-handoff/SKILL.md
 .claude/skills/architect-propose-plan/SKILL.md
 .claude/skills/architect-ratify/SKILL.md
@@ -135,6 +137,7 @@
 .config/opencode/agent/supervisor.md
 .config/opencode/agent/worker.md
 .config/opencode/plugins/pasture-hooks.ts
+.config/opencode/skills/afk-implement/SKILL.md
 .config/opencode/skills/architect-handoff/SKILL.md
 .config/opencode/skills/architect-propose-plan/SKILL.md
 .config/opencode/skills/architect-ratify/SKILL.md
