@@ -12,6 +12,62 @@ The Go `pasture` repository is the source of truth for protocol implementation,
 generated skills, and generated agents. Do not add new Python protocol-engine
 code here.
 
+## Worktrees
+
+Develop every change in a dedicated worktree and branch, never directly on a
+long-lived checkout. Naming and placement follow the shared
+[`../AGENTS.md`](../AGENTS.md): `<repo>-<issue>--<type>--<description>` under the
+repository's `worktree/` directory.
+
+A worktree is temporary. Once its branch is merged into upstream, clean it up in
+the same session that verifies the merge:
+
+```bash
+# 1. Verify the merge. A merge commit makes the branch an ancestor of upstream;
+#    a squash or rebase merge leaves only patch-equivalent commits.
+git fetch origin
+git merge-base --is-ancestor "$BRANCH" origin/main && echo "merged"
+
+# 2. Require a clean checkout. Any output here is unlanded work: stop and report.
+git -C "$WORKTREE" status --porcelain
+
+# 3. Remove the checkout, then its local branch.
+git worktree remove "$WORKTREE"
+git branch -d "$BRANCH"
+
+# 4. Delete the remote branch once it still exists and is merged.
+git push origin --delete "$BRANCH"
+
+# 5. Drop registrations whose directories are already gone.
+git worktree prune
+```
+
+Rules:
+
+- Clean up a worktree only after its branch is merged into the integration
+  branch **and** the checkout is clean. Uncommitted or untracked changes are
+  work: report them instead of discarding them, and never pass `--force` to
+  discard them.
+- Never delete an unmerged branch without explicit user approval. When an
+  abandoned branch is approved for deletion, record its tip SHA in tracker
+  evidence first; the branch may be the only reference.
+- `git branch -d` compares against the current `HEAD`. In a base checkout that
+  is detached at an older release, confirm with
+  `git branch --merged <integration>` first and use `git branch -D` only on
+  that evidence.
+- Delete the remote branch under the same approval rule as any push. A merged
+  branch is safe to delete; an unmerged one is not, regardless of age.
+- Run cleanup in the repository that owns the worktree. Worktrees inside a
+  submodule (for example `pasture/` here) are registered in the submodule's git
+  directory, so `git worktree list` in the parent repository does not show them.
+- A worktree whose git metadata is gone is no longer a worktree: it cannot be
+  removed with `git worktree remove`, and it must not be removed with `rm -rf`.
+  Move it aside or ask.
+- Leave long-lived branch checkouts (`main`, `develop`) and any worktree that
+  hosts unmerged nested worktrees in place.
+- Cleanup does not replace landing evidence: record the merge and cleanup in the
+  tracker before the worktree is gone.
+
 ## Git Hooks Policy
 
 Never install, enable, or modify any git hook without explicit user approval.
