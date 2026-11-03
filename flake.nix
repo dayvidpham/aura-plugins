@@ -184,6 +184,7 @@
           packages = [
             pkgs.python3
             pkgs.tmux
+            pkgs.sqlite
           ];
         };
       });
