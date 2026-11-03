@@ -46,15 +46,21 @@ Rules:
 
 - Clean up a worktree only after its branch is merged into the integration
   branch **and** the checkout is clean. Uncommitted or untracked changes are
-  work: report them instead of discarding them, and never pass `--force` to
-  discard them.
+  work: report them instead of discarding them.
+- Never force-delete a worktree or branch. Do not use
+  `git worktree remove --force` and do not use `git branch -D`. Let the
+  non-forcing command refuse instead.
+- If any removal or deletion fails — dirty checkout, unmerged branch, detached
+  `HEAD`, submodule, protected ref, permissions — stop and raise the exact
+  command and error to the user. Do not escalate to a force variant, a
+  different deletion mechanism, or a filesystem delete.
+- `git branch -d` compares against the current `HEAD`, so a base checkout that
+  is detached at an older release may refuse a branch that is in fact merged.
+  Confirm with `git branch --merged <integration>`, then report the failure and
+  wait for the user to approve a forced delete; do not run it yourself.
 - Never delete an unmerged branch without explicit user approval. When an
   abandoned branch is approved for deletion, record its tip SHA in tracker
   evidence first; the branch may be the only reference.
-- `git branch -d` compares against the current `HEAD`. In a base checkout that
-  is detached at an older release, confirm with
-  `git branch --merged <integration>` first and use `git branch -D` only on
-  that evidence.
 - Delete the remote branch under the same approval rule as any push. A merged
   branch is safe to delete; an unmerged one is not, regardless of age.
 - Run cleanup in the repository that owns the worktree. Worktrees inside a
