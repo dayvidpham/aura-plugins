@@ -3592,3 +3592,10 @@ if you want to install the `prerelease`
     <insert command here> [<extra downgrade flags flags if `current` newer than `prerelease`]
 ```
 </example>
+
+
+------------------
+
+# How to improve the `supervisor` skill, or the `supervisor-plan-tasks` skill.
+
+Sure. But you ARE the @supervisor. You can decompose it into an IMPL_PLAN. we want the implementation plan decompose as a series of appropriately-sized vertical end-to-end slices, so a single worker can take each slice and maximize on its context window. We also want the slices arranged topologically in order, and phased as implementation waves. Each wave should deliver on a functionality that COULD be merged into develop/main if it has a clean review wave. we run review-waves on EVERY SLICE in a WAVE, so one review team reviews all those slices in the wave. don't NEED to merge into develop at each wave, but that's the philosophy.
